@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/giantswarm/app-build-suite
+IMG ?= quay.io/giantswarm/app-test-suite
 
 export VER ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
 export COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo "0000000000000000000000000000000000000000")
@@ -23,12 +23,12 @@ release: release_ver_to_code docker-build-image
 	git commit -am "Release ${TAG}"
 	git tag ${TAG}
 	mv dabs.sh.back dabs.sh
-	echo "build_ver = \"${TAG}-dev\"\n" > app_build_suite/version.py
+	echo "build_ver = \"${TAG}-dev\"\n" > app_test_suite/version.py
 	git commit -am "Post-release version set for ${TAG}"
 
 release_ver_to_code:
 	$(call check_defined, TAG)
-	echo "build_ver = \"${TAG}\"\n" > app_build_suite/version.py
+	echo "build_ver = \"${TAG}\"\n" > app_test_suite/version.py
 	$(eval IMG_VER := ${TAG})
 	cp dabs.sh dabs.sh.back
 	bash -c 'sed -i "s/latest/$${TAG#v}/" dabs.sh'
@@ -40,7 +40,7 @@ docker-build-image:
 	docker build . -t ${IMG}:latest -t ${IMG}:${IMG_VER}
 
 docker-build-ver:
-	echo "build_ver = \"${VER}-${COMMIT}\"\n" > app_build_suite/version.py
+	echo "build_ver = \"${VER}-${COMMIT}\"\n" > app_test_suite/version.py
 
 # Push the docker image
 docker-push: docker-build
@@ -49,7 +49,7 @@ docker-push: docker-build
 docker-build-test: docker-build
 	docker build -f testrunner.Dockerfile . -t ${IMG}-test:latest
 
-test-command = --cov app_build_suite --log-cli-level info tests/
+test-command = --cov app_test_suite --log-cli-level info tests/
 test-command-ci = --cov-report=xml $(test-command)
 test-docker-args = run -it --rm -v ${PWD}/.coverage/:/abs/.coverage/
 test-docker-run = docker $(test-docker-args) ${IMG}-test:latest

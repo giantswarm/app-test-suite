@@ -1,9 +1,0 @@
-checks:
-  addAllBuiltIn: true
-  exclude:
-  - "unset-cpu-requirements"
-  - "unset-memory-requirements"
-  - "no-anti-affinity"
-  - "no-read-only-root-fs"
-  - "no-liveness-probe"
-  - "no-readiness-probe"

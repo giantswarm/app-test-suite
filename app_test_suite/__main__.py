@@ -37,8 +37,14 @@ def configure_global_options(config_parser: configargparse.ArgParser):
     config_parser.add_argument(
         "-c",
         "--chart-file",
-        required=False,
+        required=True,
         help="Path to the Helm Chart tar.gz file to test.",
+    )
+    config_parser.add_argument(
+        "-t",
+        "--test-dir",
+        required=False,
+        help="Path to the directory that has tests source code.",
     )
     config_parser.add_argument(
         "-d",
@@ -68,7 +74,15 @@ def configure_global_options(config_parser: configargparse.ArgParser):
 
 def get_default_config_file_path() -> str:
     base_dir = os.getcwd()
-    config_path = os.path.join(base_dir, ".ats", "main.yaml")
+    short_opt = "-c"
+    long_opt = "--chart-file"
+    if short_opt in sys.argv or long_opt in sys.argv:
+        opt = short_opt if short_opt in sys.argv else long_opt
+        c_ind = sys.argv.index(opt)
+        chart_dir = os.path.dirname(sys.argv[c_ind + 1])
+        config_path = os.path.join(base_dir, chart_dir, ".ats", "main.yaml")
+    else:
+        config_path = os.path.join(base_dir, ".ats", "main.yaml")
     logger.debug(f"Using {config_path} as configuration file path.")
     return config_path
 
@@ -92,6 +106,13 @@ def get_global_config_parser(add_help: bool = True) -> configargparse.ArgParser:
 def validate_global_config(config: configargparse.Namespace):
     if not config.chart_file or not os.path.isfile(config.chart_file):
         raise ConfigError("chart-file", f"The file '{config.chart_file}' can't be found.")
+    if not config.test_dir:
+        test_dir = os.path.join(os.getcwd(), "tests")
+        logger.debug(f"No tests directory configured, defaulting to {test_dir}.")
+    else:
+        test_dir = config.test_dir
+    if not os.path.isdir(test_dir):
+        logger.info(f"No test directory detected. No tests will be run.")
     # validate steps; '--steps' and '--skip-steps' can't be used together, but that is already
     # enforced by the argparse library
     if STEP_ALL in config.skip_steps:

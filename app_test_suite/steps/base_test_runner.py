@@ -1,8 +1,10 @@
 import argparse
 import logging
 import os
+import shutil
 import time
 from abc import ABC, abstractmethod
+from tempfile import TemporaryDirectory
 from typing import Set, Optional, List, cast, Callable
 
 import configargparse
@@ -11,7 +13,7 @@ import yaml
 from pykube import KubeConfig, HTTPClient, ConfigMap
 from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCR
 from pytest_helm_charts.utils import YamlDict
-from step_exec_lib.errors import ConfigError
+from step_exec_lib.errors import ConfigError, ValidationError
 from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 
@@ -109,12 +111,20 @@ class TestInfoProvider(BuildStep):
     def steps_provided(self) -> Set[StepType]:
         return {STEP_ALL}
 
-    # FIXME: we can't reference source dir
     def run(self, config: argparse.Namespace, context: Context) -> None:
-        chart_yaml_path = os.path.join(config.chart_dir, _chart_yaml)
-        with open(chart_yaml_path, "r") as file:
-            chart_yaml = yaml.safe_load(file)
-            context[context_key_chart_yaml] = chart_yaml
+        with TemporaryDirectory(prefix="ats-") as tmp_dir:
+            shutil.unpack_archive(config.chart_file, tmp_dir)
+            _, sub_dirs, _ = os.walk(tmp_dir)
+            for sub_dir in sub_dirs:
+                chart_yaml_path = os.path.join(tmp_dir, sub_dir, "Chart.yaml")
+                if os.path.isfile(chart_yaml_path):
+                    with open(chart_yaml_path, "r") as file:
+                        chart_yaml = yaml.safe_load(file)
+                        logger.debug(f"Loading 'Chart.yaml' from subdirectory '{sub_dir}' in the chart archive.")
+                        context[context_key_chart_yaml] = chart_yaml
+                    break
+            else:
+                raise ValidationError("Couldn't find 'Chart.yaml' in any subdirectory of the chart archive file.")
 
 
 class BaseTestRunner(BuildStep, ABC):

@@ -68,7 +68,7 @@ class PytestTestRunner(BaseTestRunner, ABC):
         pytest_dir = get_config_value_by_cmd_line_option(
             config, PytestTestFilteringPipeline.key_config_option_pytest_dir
         )
-        pytest_dir = os.path.join(config.chart_dir, pytest_dir)
+        pytest_dir = os.path.join(os.path.dirname(config.chart_file), pytest_dir)
         if not os.path.isdir(pytest_dir):
             logger.warning(
                 f"Pytest tests were requested, but the configured test source code directory '{pytest_dir}'"

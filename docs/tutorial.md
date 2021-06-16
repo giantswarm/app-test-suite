@@ -52,7 +52,7 @@ requesting `abs` to skip any tests:
 
 ```bash
 $ cd ../../..
-$ dabs.sh -c examples/tutorial --skip-steps test_all
+$ dats.sh -c examples/tutorial --skip-steps test_all
 2021-04-28 14:48:03,554 __main__ INFO: Starting build with the following options
 2021-04-28 14:48:03,554 __main__ INFO:
 Command Line Args:   -c examples/tutorial --skip-steps test_all
@@ -195,7 +195,7 @@ You can check the current python version (and versions of all the other software
 projects `abs` is using) by running:
 
 ```bash
-$ dabs.sh versions
+$ dats.sh versions
 -> python env:
 Python 3.8.6
 pip 20.3.1 from /abs/.venv/lib/python3.8/site-packages/pip (python 3.8)

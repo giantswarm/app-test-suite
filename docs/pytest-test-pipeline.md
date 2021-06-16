@@ -50,7 +50,7 @@ file and skip it from command line.
 
    ```bash
    # command-line version
-   dabs.sh -c my-chart --smoke-tests-cluster-type kind \
+   dats.sh -c my-chart --smoke-tests-cluster-type kind \
      --functional-tests-cluster-type external \
      --external-cluster-kubeconfig-path kube.config \
      --external-cluster-type EKS \

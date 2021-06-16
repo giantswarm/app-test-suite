@@ -68,7 +68,7 @@ As an example, we have included a chart in this repository in
 using `dabs.sh` and the provided config file, run:
 
 ```bash
-dabs.sh -c examples/apps/hello-world-app --skip-steps test_all
+dats.sh -c examples/apps/hello-world-app --skip-steps test_all
 ```
 
 Please note that this command skips all the test steps and runs only the actual chart build steps. If you want
@@ -84,7 +84,7 @@ kind get kubeconfig > ./kube.config
 Then you can run `abs` to execute tests on top of that `kind` cluster:
 
 ```bash
-dabs.sh -c examples/apps/hello-world-app \
+dats.sh -c examples/apps/hello-world-app \
   --smoke-tests-cluster-type external \
   --functional-tests-cluster-type external \
   --external-cluster-kubeconfig-path kube.config \
@@ -102,7 +102,7 @@ features in between them, like generating metadata for the Giant Swarm App Platf
 To better explain it, see what really happens when you call
 
 ```bash
-dabs.sh -c examples/apps/hello-world-app --destination build --skip-steps test_all
+dats.sh -c examples/apps/hello-world-app --destination build --skip-steps test_all
 ```
 
 The list bellow
@@ -119,7 +119,7 @@ helm package examples/apps/hello-world-app --destination build
 If you include testing steps as well, on an external cluster, with the following command
 
 ```bash
-dabs.sh -c examples/apps/hello-world-app \
+dats.sh -c examples/apps/hello-world-app \
   --functional-tests-cluster-type external \
   --smoke-tests-cluster-type external \
   --external-cluster-kubeconfig-path kube.config \
@@ -151,7 +151,7 @@ pipenv run pytest -m functional --cluster-type kind --kube-config /abs/workdir/t
 To get an overview of available options, please run:
 
 ```bash
-dabs.sh -h
+dats.sh -h
 ```
 
 To learn what they mean and how to use them, please follow to
@@ -174,7 +174,7 @@ flags.
 To skip or include multiple step names, separate them with space, like in this example:
 
 ```bash
-dabs.sh -c examples/apps/hello-world-app --skip-steps test_unit test_performance
+dats.sh -c examples/apps/hello-world-app --skip-steps test_unit test_performance
 ```
 
 ### Configuring app-build-suite

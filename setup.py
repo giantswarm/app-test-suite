@@ -4,14 +4,14 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="app_build_suite",
+    name="app_test_suite",
     version="0.0.1",
     author="Łukasz Piątkowski",
     author_email="lukasz@giantswarm.io",
-    description="An app build suite for GiantSwarm app platform",
+    description="An app testing suite for GiantSwarm app platform",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/giantswarm/app-build-suite",
+    url="https://github.com/giantswarm/app-test-suite",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",

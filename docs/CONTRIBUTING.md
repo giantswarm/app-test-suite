@@ -28,7 +28,7 @@ locally, you need to install them on your own. You can list all the required too
 by running:
 
 ```bash
-dabs.sh versions
+dats.sh versions
 ```
 
 ### With docker

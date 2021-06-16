@@ -1,3 +1,6 @@
+from step_exec_lib.errors import Error
+
+
 class TestError(Error):
     """
     TestError is raised in the test phase only

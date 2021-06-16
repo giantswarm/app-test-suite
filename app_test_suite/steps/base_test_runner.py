@@ -11,16 +11,16 @@ import yaml
 from pykube import KubeConfig, HTTPClient, ConfigMap
 from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCR
 from pytest_helm_charts.utils import YamlDict
+from step_exec_lib.errors import ConfigError
+from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 
-from app_build_suite.build_steps import BuildStepsFilteringPipeline, BuildStep
-from step_exec_lib.build_step import StepType, STEP_TEST_ALL
 from app_test_suite.cluster_manager import ClusterManager
-from app_build_suite.build_steps.repositories import ChartMuseumAppRepository
+from app_test_suite.errors import TestError
+from app_test_suite.steps.repositories import ChartMuseumAppRepository
 from app_test_suite.steps.test_stage_helpers import config_option_cluster_type_for_test_type, TestType
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
-from step_exec_lib.errors import ConfigError, TestError
-from step_exec_lib.types import Context
-from step_exec_lib.utils import get_config_value_by_cmd_line_option
+from step_exec_lib.types import Context, StepType, STEP_ALL
 from step_exec_lib.utils.processes import run_and_log
 
 context_key_chart_yaml: str = "chart_yaml"
@@ -107,8 +107,9 @@ class TestInfoProvider(BuildStep):
 
     @property
     def steps_provided(self) -> Set[StepType]:
-        return {STEP_TEST_ALL}
+        return {STEP_ALL}
 
+    # FIXME: we can't reference source dir
     def run(self, config: argparse.Namespace, context: Context) -> None:
         chart_yaml_path = os.path.join(config.chart_dir, _chart_yaml)
         with open(chart_yaml_path, "r") as file:
@@ -133,7 +134,7 @@ class BaseTestRunner(BuildStep, ABC):
 
     @property
     def steps_provided(self) -> Set[StepType]:
-        return {STEP_TEST_ALL}.union(self.specific_test_steps_provided)
+        return {STEP_ALL}.union(self.specific_test_steps_provided)
 
     @property
     @abstractmethod
@@ -245,7 +246,7 @@ class BaseTestRunner(BuildStep, ABC):
 
         # prepare app platform and upload artifacts
         self._ensure_app_platform_ready(self._cluster_info.kube_config_path)
-        self._upload_chart_to_app_catalog(context)
+        self._upload_chart_to_app_catalog(config, context)
 
         try:
             if not get_config_value_by_cmd_line_option(
@@ -372,10 +373,10 @@ class BaseTestRunner(BuildStep, ABC):
         app_cm_obj.create()
         return app_cm_obj
 
-    def _upload_chart_to_app_catalog(self, context: Context):
+    def _upload_chart_to_app_catalog(self, config: argparse.Namespace, context: Context):
         # in future, if we want to support multiple chart repositories, we need to make this configurable
         # right now, static dependency will do
-        ChartMuseumAppRepository(self._kube_client).upload_artifacts(context)
+        ChartMuseumAppRepository(self._kube_client).upload_artifacts(config, context)
 
     # noinspection PyMethodMayBeStatic
     def _delete_app(self, config: argparse.Namespace, context: Context):

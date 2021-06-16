@@ -1,3 +1,5 @@
+from step_exec_lib.types import StepType, STEP_ALL
+
 STEP_TEST_SMOKE = StepType("test_smoke")
 STEP_TEST_FUNCTIONAL = StepType("test_functional")
 STEP_TEST_PERFORMANCE = StepType("test_performance")

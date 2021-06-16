@@ -1,20 +1,20 @@
+import argparse
 import logging
 from abc import ABC, abstractmethod
 from typing import cast
 
 from pykube import HTTPClient, Service
 
-from app_build_suite.build_steps import helm
-from step_exec_lib.errors import TestError
 from step_exec_lib.types import Context
 
+from app_test_suite.errors import TestError
 
 logger = logging.getLogger(__name__)
 
 
 class AppRepository(ABC):
     @abstractmethod
-    def upload_artifacts(self, context: Context) -> None:
+    def upload_artifacts(self, config: argparse.Namespace, context: Context) -> None:
         raise NotImplementedError()
 
 
@@ -25,7 +25,7 @@ class ChartMuseumAppRepository(AppRepository):
     def __init__(self, kube_client: HTTPClient):
         self._kube_client = kube_client
 
-    def upload_artifacts(self, context: Context) -> None:
+    def upload_artifacts(self, config: argparse.Namespace, context: Context) -> None:
         cm_srv = cast(
             Service,
             Service.objects(self._kube_client)
@@ -37,7 +37,7 @@ class ChartMuseumAppRepository(AppRepository):
                 f"Repository service '{self._cm_service_name}' not found in namespace"
                 f" '{self._cm_service_namespace}'. Can't upload chart."
             )
-        chart_filename = context[helm.context_key_chart_full_path]
+        chart_filename = config.chart_file
         logger.info(f"Uploading file '{chart_filename}' to chart-museum.")
         with open(chart_filename, "rb") as f:
             resp = cm_srv.proxy_http_post("/api/charts/", data=f.read())

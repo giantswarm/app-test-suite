@@ -2,28 +2,19 @@
 import logging
 import os
 import sys
-from typing import List, NewType
+from typing import List
 
 import configargparse
-
-from app_build_suite.build_steps import (
-    BuildStep,
-    BuildStepsFilteringPipeline,
-    ALL_STEPS,
-)
-from step_exec_lib.build_step import STEP_ALL
-from app_build_suite.build_steps.helm import HelmBuildFilteringPipeline
-from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
 from step_exec_lib.errors import ConfigError
-from .components import Runner
+from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
+from step_exec_lib.types import STEP_ALL
+
+from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
+from app_test_suite.steps.steps import ALL_STEPS
 
 ver = "v0.0.0-dev"
-app_name = "app_build_suite"
+app_name = "app_test_suite"
 logger = logging.getLogger(__name__)
-
-BuildEngineType = NewType("BuildEngineType", str)
-BUILD_ENGINE_HELM3 = BuildEngineType("helm3")
-ALL_BUILD_ENGINES = [BUILD_ENGINE_HELM3]
 
 
 def get_version() -> str:
@@ -37,13 +28,18 @@ def get_version() -> str:
 
 def get_pipeline() -> List[BuildStepsFilteringPipeline]:
     return [
-        # FIXME: once we have more than 1 build or test engine, this has to be configurable
-        HelmBuildFilteringPipeline(),
+        # FIXME: once we have more than 1 test engine, this has to be configurable
         PytestTestFilteringPipeline(),
     ]
 
 
 def configure_global_options(config_parser: configargparse.ArgParser):
+    config_parser.add_argument(
+        "-c",
+        "--chart-file",
+        required=False,
+        help="Path to the Helm Chart tar.gz file to test.",
+    )
     config_parser.add_argument(
         "-d",
         "--debug",
@@ -53,14 +49,6 @@ def configure_global_options(config_parser: configargparse.ArgParser):
         help="Enable debug messages.",
     )
     config_parser.add_argument("--version", action="version", version=f"{app_name} {get_version()}")
-    config_parser.add_argument(
-        "-b",
-        "--build-engine",
-        required=False,
-        default="helm3",
-        type=BuildEngineType,
-        help="Select the build engine used for building your chart.",
-    )
     steps_group = config_parser.add_mutually_exclusive_group()
     steps_group.add_argument(
         "--steps",
@@ -79,22 +67,8 @@ def configure_global_options(config_parser: configargparse.ArgParser):
 
 
 def get_default_config_file_path() -> str:
-    # this is the only place where we check for command line option directly,
-    # as that's the only way to change where we load the file from
-    # FIXME: it's also hacky, as it relies on helm pipeline to provide the "-c" option
-    short_opt = "-c"
-    long_opt = "--chart-dir"
     base_dir = os.getcwd()
-    charts_config_path = ""
-    if short_opt in sys.argv or long_opt in sys.argv:
-        opt = short_opt if short_opt in sys.argv else long_opt
-        c_ind = sys.argv.index(opt)
-        chart_dir = sys.argv[c_ind + 1]
-        charts_config_path = os.path.join(base_dir, chart_dir, ".abs", "main.yaml")
-    if os.path.isfile(charts_config_path):
-        config_path = charts_config_path
-    else:
-        config_path = os.path.join(base_dir, ".abs", "main.yaml")
+    config_path = os.path.join(base_dir, ".ats", "main.yaml")
     logger.debug(f"Using {config_path} as configuration file path.")
     return config_path
 
@@ -105,9 +79,9 @@ def get_global_config_parser(add_help: bool = True) -> configargparse.ArgParser:
         prog=app_name,
         add_config_file_help=True,
         default_config_files=[config_file_path],
-        description="Build and test Giant Swarm App Platform app.",
+        description="Test Giant Swarm App Platform app.",
         add_env_var_help=True,
-        auto_env_var_prefix="ABS_",
+        auto_env_var_prefix="ATS_",
         formatter_class=configargparse.ArgumentDefaultsHelpFormatter,
         add_help=add_help,
     )
@@ -116,12 +90,8 @@ def get_global_config_parser(add_help: bool = True) -> configargparse.ArgParser:
 
 
 def validate_global_config(config: configargparse.Namespace):
-    # validate build engine
-    if config.build_engine not in ALL_BUILD_ENGINES:
-        raise ConfigError(
-            "build_engine",
-            f"Unknown build engine '{config.build_engine}'. Valid engines are: {ALL_BUILD_ENGINES}.",
-        )
+    if not config.chart_file or not os.path.isfile(config.chart_file):
+        raise ConfigError("chart-file", f"The file '{config.chart_file}' can't be found.")
     # validate steps; '--steps' and '--skip-steps' can't be used together, but that is already
     # enforced by the argparse library
     if STEP_ALL in config.skip_steps:
@@ -143,7 +113,7 @@ def get_config(steps: List[BuildStep]) -> configargparse.Namespace:
         logger.error(f"Error when checking config option '{e.config_option}': {e.msg}")
         sys.exit(1)
 
-    logger.info("Starting build with the following options")
+    logger.info("Starting test with the following options")
     logger.info(f"\n{config_parser.format_values()}")
     return config
 

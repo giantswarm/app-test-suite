@@ -6,20 +6,20 @@ from abc import ABC
 from typing import Set, cast, List
 
 import configargparse
+from step_exec_lib.errors import ValidationError
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 
+from app_test_suite.errors import TestError
 from app_test_suite.steps.base_test_runner import (
     BaseTestRunnersFilteringPipeline,
     TestInfoProvider,
     BaseTestRunner,
     context_key_chart_yaml,
 )
+from app_test_suite.steps.steps import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL
 from app_test_suite.steps.test_stage_helpers import TestType, TEST_SMOKE, TEST_FUNCTIONAL
-from step_exec_lib.build_step import StepType, STEP_TEST_FUNCTIONAL, STEP_TEST_SMOKE
 from app_test_suite.cluster_manager import ClusterManager
-from app_build_suite.build_steps.helm import context_key_chart_file_name
-from step_exec_lib.errors import ValidationError, TestError
-from step_exec_lib.types import Context
-from step_exec_lib.utils import get_config_value_by_cmd_line_option
+from step_exec_lib.types import Context, StepType
 from step_exec_lib.utils.processes import run_and_log
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class PytestTestFilteringPipeline(BaseTestRunnersFilteringPipeline):
         self._config_parser_group.add_argument(
             self.key_config_option_pytest_dir,
             required=False,
-            default=os.path.join("tests", "abs"),
+            default=os.path.join("tests", "ats"),
             help="Directory, where pytest tests source code can be found.",
         )
 
@@ -128,7 +128,7 @@ class PytestTestRunner(BaseTestRunner, ABC):
             "--kube-config",
             kube_config,
             "--chart-path",
-            context[context_key_chart_file_name],
+            config.chart_path,
             "--chart-version",
             context[context_key_chart_yaml]["version"],
             "--chart-extra-info",

@@ -128,7 +128,7 @@ class PytestTestRunner(BaseTestRunner, ABC):
             "--kube-config",
             kube_config,
             "--chart-path",
-            config.chart_path,
+            config.chart_file,
             "--chart-version",
             context[context_key_chart_yaml]["version"],
             "--chart-extra-info",

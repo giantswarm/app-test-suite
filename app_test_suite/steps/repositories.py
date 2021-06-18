@@ -28,8 +28,8 @@ class ChartMuseumAppRepository(AppRepository):
         cm_srv = cast(
             Service,
             Service.objects(self._kube_client)
-                .filter(namespace=self._cm_service_namespace)
-                .get_or_none(name=self._cm_service_name),
+            .filter(namespace=self._cm_service_namespace)
+            .get_or_none(name=self._cm_service_name),
         )
         if cm_srv is None:
             raise TestError(

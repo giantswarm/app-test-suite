@@ -114,7 +114,6 @@ class TestInfoProvider(BuildStep):
     def run(self, config: argparse.Namespace, context: Context) -> None:
         with TemporaryDirectory(prefix="ats-") as tmp_dir:
             shutil.unpack_archive(config.chart_file, tmp_dir)
-            res = os.walk(tmp_dir)
             _, sub_dirs, _ = next(os.walk(tmp_dir))
             for sub_dir in sub_dirs:
                 chart_yaml_path = os.path.join(tmp_dir, sub_dir, "Chart.yaml")
@@ -357,9 +356,9 @@ class BaseTestRunner(BuildStep, ABC):
             self._app_deployment_timeout_sec,
             "deployed",
             condition_fun=lambda a: "status" in a.obj
-                                    and "release" in a.obj["status"]
-                                    and "status" in a.obj["status"]["release"]
-                                    and a.obj["status"]["release"]["status"].lower() == "deployed",
+            and "release" in a.obj["status"]
+            and "status" in a.obj["status"]["release"]
+            and a.obj["status"]["release"]["status"].lower() == "deployed",
         )
 
     def _wait_for_app_to_be_deleted(self, app_obj: AppCR):

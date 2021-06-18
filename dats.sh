@@ -9,4 +9,4 @@ docker run -it --rm \
   -v "$(pwd)":/abs/workdir/ \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --network host \
-  "quay.io/giantswarm/app-build-suite:${DABS_TAG}" "$@"
+  "quay.io/giantswarm/app-test-suite:${DABS_TAG}" "$@"

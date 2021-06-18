@@ -3,9 +3,8 @@ import re
 from typing import Dict, Any
 from unittest.mock import mock_open, patch
 
-import yaml
-
 import app_build_suite
+import yaml
 from app_build_suite.build_steps.helm import (
     HelmChartMetadataFinalizer,
     HelmChartMetadataPreparer,

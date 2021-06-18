@@ -7,8 +7,11 @@ from typing import Set, cast, List
 
 import configargparse
 from step_exec_lib.errors import ValidationError
+from step_exec_lib.types import Context, StepType
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
+from step_exec_lib.utils.processes import run_and_log
 
+from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import TestError
 from app_test_suite.steps.base_test_runner import (
     BaseTestRunnersFilteringPipeline,
@@ -18,9 +21,6 @@ from app_test_suite.steps.base_test_runner import (
 )
 from app_test_suite.steps.steps import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL
 from app_test_suite.steps.test_stage_helpers import TestType, TEST_SMOKE, TEST_FUNCTIONAL
-from app_test_suite.cluster_manager import ClusterManager
-from step_exec_lib.types import Context, StepType
-from step_exec_lib.utils.processes import run_and_log
 
 logger = logging.getLogger(__name__)
 

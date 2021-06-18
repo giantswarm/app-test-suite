@@ -4,22 +4,23 @@
 
 To be able to complete this tutorial, you need a few tools:
 
-- `app-build-suite` itself; if you haven't done so already, we recommend getting the latest version of the `dabs.sh` helper from [releases](https://github.com/giantswarm/app-build-suite/releases)
+- `app-build-suite` itself; if you haven't done so already, we recommend getting the latest version of the `dabs.sh`
+  helper from [releases](https://github.com/giantswarm/app-build-suite/releases)
 - for the building part
-  - [docker](https://docs.docker.com/get-docker/)
+    - [docker](https://docs.docker.com/get-docker/)
 - for the testing part
-  - a working python environment that you can use to install [pipenv](https://pypi.org/project/pipenv/)
-    - if you already have python, it should be enough to run `pip install -U pipenv`
-  - to be able to use the shortest path, you also need a working python 3.8 environment
-    - to avoid problems like missing the specific python version, we highly recommend
-      [`pyenv`](https://github.com/pyenv/pyenv#installation) for managing python environments; once `pyenv` is installed, it's enough to run `pyenv install 3.8.6` to get the python environment you need
+    - a working python environment that you can use to install [pipenv](https://pypi.org/project/pipenv/)
+        - if you already have python, it should be enough to run `pip install -U pipenv`
+    - to be able to use the shortest path, you also need a working python 3.8 environment
+        - to avoid problems like missing the specific python version, we highly recommend
+          [`pyenv`](https://github.com/pyenv/pyenv#installation) for managing python environments; once `pyenv` is
+          installed, it's enough to run `pyenv install 3.8.6` to get the python environment you need
 
 ## Building your app
 
-The project we'll be working on is available in the `examples/tutorial` directory
-of this repository. It's content is a ready helm chart that we want to build
-with `abs`.
-To get started, let's switch to that directory and create an `.abs` subdirectory:
+The project we'll be working on is available in the `examples/tutorial` directory of this repository. It's content is a
+ready helm chart that we want to build with `abs`. To get started, let's switch to that directory and create an `.abs`
+subdirectory:
 
 ```bash
 cd examples/tutorial
@@ -27,8 +28,8 @@ mkdir .abs
 
 ```
 
-Now, we need to prepare a config file for `abs`. In the `.abs` directory we've just
-created, we need to create a `main.yaml` file with the following content:
+Now, we need to prepare a config file for `abs`. In the `.abs` directory we've just created, we need to create
+a `main.yaml` file with the following content:
 
 ```yaml
 replace-chart-version-with-git: true
@@ -36,19 +37,16 @@ generate-metadata: true
 catalog-base-url: http://localhost/
 ```
 
-The first line of the config file will make `abs` set versions in our chart according to ones
-detected from the local git repository. The other two are needed only if you want to generate
-metadata required for advanced features of the Giant Swarm App Platform. If you want
-to learn more, check the [more detailed description](pytest-test-pipeline.md).
+The first line of the config file will make `abs` set versions in our chart according to ones detected from the local
+git repository. The other two are needed only if you want to generate metadata required for advanced features of the
+Giant Swarm App Platform. If you want to learn more, check the [more detailed description](pytest-test-pipeline.md).
 
 We're almost ready to go. One technical detail: when running `abs` using
-`dabs.sh`, your current working directory is mapped to inside the docker container.
-We have configured `abs` to set our chart version using commit information
-from `git`, but our current directory doesn't contain any `git` repository - only
-the parent directory does. So, the simplest thing we can do is to move up in our
-directory structure and invoke `dabs.sh` from a directory where also `git`'s `.git`
-directory is. Since we haven't prepared any tests for our app yet, we're also
-requesting `abs` to skip any tests:
+`dabs.sh`, your current working directory is mapped to inside the docker container. We have configured `abs` to set our
+chart version using commit information from `git`, but our current directory doesn't contain any `git` repository - only
+the parent directory does. So, the simplest thing we can do is to move up in our directory structure and
+invoke `dabs.sh` from a directory where also `git`'s `.git`
+directory is. Since we haven't prepared any tests for our app yet, we're also requesting `abs` to skip any tests:
 
 ```bash
 $ cd ../../..
@@ -153,8 +151,7 @@ What happened here? A few things:
 - version information in our chart was set to `0.2.2-9e1d8665b328e957d8637e44674434aed8a3bf4a`
 - finally our chart was built with Helm
 
-As a result, we have a new helm chart file and metadata files generated for the
-App Platform:
+As a result, we have a new helm chart file and metadata files generated for the App Platform:
 
 ```bash
 $ ls -la hello-world-app-0.2.2-9e1d8665b328e957d8637e44674434aed8a3bf4a.*
@@ -173,26 +170,22 @@ drwxrwxr-x 1 piontec piontec  1168 kwi 28 16:51 ..
 
 ### How does it work?
 
-`abs` can run your tests as part of the app build process. Still, `abs` doesn't
-implement any tests nor cares about how you implement them. The contract is just
-that `abs` can invoke a specific `pytest` commands for you. If you implement your
-tests using `pytest`, `abs` can start them automatically. More information is
-available [here](pytest-test-pipeline.md). Still the recommended way to implement
-tests for running with `abs` is using `pytest` and our plugin called
+`abs` can run your tests as part of the app build process. Still, `abs` doesn't implement any tests nor cares about how
+you implement them. The contract is just that `abs` can invoke a specific `pytest` commands for you. If you implement
+your tests using `pytest`, `abs` can start them automatically. More information is
+available [here](pytest-test-pipeline.md). Still the recommended way to implement tests for running with `abs` is
+using `pytest` and our plugin called
 [`pytest-helm-charts`](https://github.com/giantswarm/pytest-helm-charts).
 
 ### Why do I need a specific python version?
 
-In general, you can use any python version you want, unless you're using the
-dockerized `dabs.sh` wrapper, which is also our recommended way of running `abs`.
-Inside the docker image `dabs.sh` is using, there's only one python version available.
-This python version is used by `abs` to invoke your tests implemented with `pytest`.
-As a result, if you request any other python version than the one currently used
-by `dabs.sh`, you'll get an error, as that version is not available inside the docker
-image.
+In general, you can use any python version you want, unless you're using the dockerized `dabs.sh` wrapper, which is also
+our recommended way of running `abs`. Inside the docker image `dabs.sh` is using, there's only one python version
+available. This python version is used by `abs` to invoke your tests implemented with `pytest`. As a result, if you
+request any other python version than the one currently used by `dabs.sh`, you'll get an error, as that version is not
+available inside the docker image.
 
-You can check the current python version (and versions of all the other software
-projects `abs` is using) by running:
+You can check the current python version (and versions of all the other software projects `abs` is using) by running:
 
 ```bash
 $ dats.sh versions
@@ -231,8 +224,8 @@ Virtualenv location: /home/piontec/.virtualenvs/abs-4WvsKJg-
 Creating a Pipfile for this project...
 ```
 
-Now, we need to add our dependencies. If we're going to use `pytest-helm-chart`,
-everything else will come as dependencies:
+Now, we need to add our dependencies. If we're going to use `pytest-helm-chart`, everything else will come as
+dependencies:
 
 ```bash
 $ pipenv install "pytest-helm-charts>=0.3.1"
@@ -269,8 +262,9 @@ python_version = "3.8"
 
 #### Implementing tests
 
-Now we can start implementing actual tests. To get a full sample source code,
-just copy the `test_example.py` [file](../examples/apps/hello-world-app/tests/abs/test_example.py) to our `tests/abs` directory, so it looks like this:
+Now we can start implementing actual tests. To get a full sample source code, just copy
+the `test_example.py` [file](../examples/apps/hello-world-app/tests/abs/test_example.py) to our `tests/abs` directory,
+so it looks like this:
 
 ```bash
 $ ls
@@ -293,28 +287,27 @@ def test_we_have_environment(kube_cluster: Cluster) -> None:
     assert len(pykube.Node.objects(kube_cluster.kube_client)) >= 1
 ```
 
-In this test, we're only checking if we can get a working connection object to
-work with our cluster. This is done by requesting the `kube_cluster: Cluster` object
-for our test (test method parameters are [pytest fixtures](https://docs.pytest.org/en/stable/fixture.html) and are injected for you by the test framework itself).
-Additionally, we're marking our test as a "smoke" test. This information is provided
-for `abs` itself: we want to include opinionated test scenarios in `abs` and that
-way `abs` knows if it should run your test for specific scenario or not.
+In this test, we're only checking if we can get a working connection object to work with our cluster. This is done by
+requesting the `kube_cluster: Cluster` object for our test (test method parameters
+are [pytest fixtures](https://docs.pytest.org/en/stable/fixture.html) and are injected for you by the test framework
+itself). Additionally, we're marking our test as a "smoke" test. This information is provided for `abs` itself: we want
+to include opinionated test scenarios in `abs` and that way `abs` knows if it should run your test for specific scenario
+or not.
 
-You can read more about [how `abs` executes tests](./pytest-test-pipeline.md) and
-how to implement them with [pytest-helm-charts](https://pytest-helm-charts.readthedocs.io/en/latest/) and [pytest](https://docs.pytest.org/en/stable/index.html), including information about
+You can read more about [how `abs` executes tests](./pytest-test-pipeline.md) and how to implement them
+with [pytest-helm-charts](https://pytest-helm-charts.readthedocs.io/en/latest/)
+and [pytest](https://docs.pytest.org/en/stable/index.html), including information about
 [available fixtures](https://pytest-helm-charts.readthedocs.io/en/latest/api/pytest_helm_charts.fixtures/).
 
 #### Running tests
 
-We are now ready to build our test chart again, but this time running tests we've
-implemented. To do that, we need to have a cluster where we can deploy our chart
-and then execute our tests against a running application. Do make this time
-efficient, we'll use [kind](https://kind.sigs.k8s.io/docs/user/quick-start/).
-We're going to use embedded `abs` ability to create `kind` clusters, but remember
-that you can use any existing cluster you like - you just need to pass a `kube.config`
-file to `abs`. `abs` can run different types of tests on different clusters, so we have
-to pass cluster type option twice, but our cluster will be reused for both kinds
-of tests:
+We are now ready to build our test chart again, but this time running tests we've implemented. To do that, we need to
+have a cluster where we can deploy our chart and then execute our tests against a running application. Do make this time
+efficient, we'll use [kind](https://kind.sigs.k8s.io/docs/user/quick-start/). We're going to use embedded `abs` ability
+to create `kind` clusters, but remember that you can use any existing cluster you like - you just need to pass
+a `kube.config`
+file to `abs`. `abs` can run different types of tests on different clusters, so we have to pass cluster type option
+twice, but our cluster will be reused for both kinds of tests:
 
 ```bash
 # log below is truncated to interesting parts only
@@ -392,7 +385,6 @@ Installing dependencies from Pipfile.lock (a62443)...
 2021-04-29 10:14:45,265 app_build_suite.cluster_providers.kind_cluster_provider INFO: KinD cluster deleted successfully
 ```
 
-That's it. In a single step we have validated, linted, built and tested a new helm
-chart. Additionally, the chart is ready to be used with Giant Swarm App Platform
-and already has the optional metadata files generated. Now upload the chart to your
-chart registry and start rolling it out to clusters!
+That's it. In a single step we have validated, linted, built and tested a new helm chart. Additionally, the chart is
+ready to be used with Giant Swarm App Platform and already has the optional metadata files generated. Now upload the
+chart to your chart registry and start rolling it out to clusters!

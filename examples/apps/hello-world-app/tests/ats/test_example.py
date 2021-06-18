@@ -1,7 +1,7 @@
 from typing import cast
 
-import pytest
 import pykube
+import pytest
 from pytest_helm_charts.fixtures import Cluster
 
 

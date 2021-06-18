@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from typing import cast
 
 from pykube import HTTPClient, Service
-
 from step_exec_lib.types import Context
 
 from app_test_suite.errors import TestError
@@ -29,8 +28,8 @@ class ChartMuseumAppRepository(AppRepository):
         cm_srv = cast(
             Service,
             Service.objects(self._kube_client)
-            .filter(namespace=self._cm_service_namespace)
-            .get_or_none(name=self._cm_service_name),
+                .filter(namespace=self._cm_service_namespace)
+                .get_or_none(name=self._cm_service_name),
         )
         if cm_srv is None:
             raise TestError(

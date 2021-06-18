@@ -1,24 +1,18 @@
-# app-build-suite
+# app-test-suite
 
-[![build](https://circleci.com/gh/giantswarm/app-build-suite.svg?style=svg)](https://circleci.com/gh/giantswarm/app-build-suite)
-[![codecov](https://codecov.io/gh/giantswarm/app-build-suite/branch/master/graph/badge.svg)](https://codecov.io/gh/giantswarm/app-build-suite)
-[![Apache License](https://img.shields.io/badge/license-apache-blue.svg)](https://pypi.org/project/pytest-helm-charts/)
+[![build](https://circleci.com/gh/giantswarm/app-test-suite.svg?style=svg)](https://circleci.com/gh/giantswarm/app-test-suite)
+[![codecov](https://codecov.io/gh/giantswarm/app-test-suite/branch/master/graph/badge.svg)](https://codecov.io/gh/giantswarm/app-test-suite)
+[![Apache License](https://img.shields.io/badge/license-apache-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
-A tool to build and test apps (Helm Charts) for
+A tool to test apps (Helm Charts) for
 [Giant Swarm App Platform](https://docs.giantswarm.io/app-platform/).
 
-This tool is a development and CI/CD tool that allows you to:
-
-- build your helm chart
-    - do some simple variable replacements before building the chart
-    - linting chart's source code
-    - generating actual chart archive
-    - generating App Platform specific metadata
-- test your chart after building
+This tool is a development and CI/CD tool that allows you to test your chart after building:
     - run your tests of different kind using [`pytest`](https://docs.pytest.org/en/stable/) and
       [`pytest-helm-charts`](https://github.com/giantswarm/pytest-helm-charts)
     - define different test scenarios for your release
 
+To build the Chart, please consider the companion [app-build-suite](https://github.com/giantswarm/app-build-suite) project.
 ---
 *Big fat warning* This tool is available as a development version!
 
@@ -26,25 +20,25 @@ This tool is a development and CI/CD tool that allows you to:
 
 ## Index
 
-- [How to use app-build-suite](#how-to-use-app-build-suite)
+- [How to use app-test-suite](#how-to-use-app-test-suite)
     - [Installation](#installation)
     - [Tutorial](#tutorial)
     - [Quick start](#quick-start)
     - [A command wrapper on steroids](#a-command-wrapper-on-steroids)
     - [Full usage help](#full-usage-help)
-- [Tuning app-build-suite execution and running parts of the build process](#tuning-app-build-suite-execution-and-running-parts-of-the-build-process)
-    - [Configuring app-build-suite](#configuring-app-build-suite)
+- [Tuning app-test-suite execution and running parts of the build process](#tuning-app-test-suite-execution-and-running-parts-of-the-build-process)
+    - [Configuring app-test-suite](#configuring-app-test-suite)
 - [Execution steps details and configuration](#execution-steps-details-and-configuration)
     - [Build pipelines](#build-pipelines)
     - [Test pipelines](#test-pipelines)
 - [How to contribute](#how-to-contribute)
 
-## How to use app-build-suite
+## How to use app-test-suite
 
 ### Installation
 
-`abs` is distributed as a docker image, so the easiest way to install and use it is to get our `dabs.sh`
-script from [releases](https://github.com/giantswarm/app-build-suite/releases). `dabs.sh` is a wrapper script that
+`ats` is distributed as a docker image, so the easiest way to install and use it is to get our `dabs.sh`
+script from [releases](https://github.com/giantswarm/app-test-suite/releases). `dabs.sh` is a wrapper script that
 launches for you `abs` inside a docker container and provides all the necessary docker options required to make it work.
 
 Alternatively, you can just checkout this repository and build the docker image yourself by running:
@@ -60,7 +54,7 @@ with [tutorial](docs/tutorial.md).
 
 ### Quick start
 
-Executing `dabs.sh` is the most straight forward way to run `app-build-suite`. As an example, we have included a chart
+Executing `dabs.sh` is the most straight forward way to run `app-test-suite`. As an example, we have included a chart
 in this repository in
 [`examples/apps/hello-world-app`](examples/apps/hello-world-app/). It's configuration file for
 `abs` is in the [.abs/main.yaml](examples/apps/hello-world-app/.abs/main.yaml) file. To build the chart using `dabs.sh`
@@ -154,14 +148,14 @@ dats.sh -h
 To learn what they mean and how to use them, please follow to
 [execution steps and their config options](#execution-steps-details-and-configuration).
 
-## Tuning app-build-suite execution and running parts of the build process
+## Tuning app-test-suite execution and running parts of the build process
 
 This tool works by executing a series of so called `Build Steps`. In general, one `BuildSteps` is about a single step in
 the build, like running a single external tool. Most of the build steps are configurable
 (run `./dabs.sh -h` to check available options and go to
 [steps details and configuration](#execution-steps-details-and-configuration) for detailed description).
 
-The important property in `app-build-suite` is that you can only execute a subset of all the build steps. This idea
+The important property in `app-test-suite` is that you can only execute a subset of all the build steps. This idea
 should be useful for integrating `abs` with other workflows, like CI/CD systems or for running parts of the build
 process on your local machine during development. You can either run only a selected set of steps using `--steps` option
 or you can run all if them excluding some using `--skip-steps`. Check `dabs.sh -h` output for step names available
@@ -174,7 +168,7 @@ To skip or include multiple step names, separate them with space, like in this e
 dats.sh -c examples/apps/hello-world-app --skip-steps test_unit test_performance
 ```
 
-### Configuring app-build-suite
+### Configuring app-test-suite
 
 Every configuration option in `abs` can be configured in 3 ways. Starting from the highest to the lowest priority, these
 are:
@@ -203,7 +197,7 @@ Please check below for available build pipelines and steps and their config opti
 ### Build pipelines
 
 Currently, only one build pipeline is supported. It is based on `helm 3`. Please check
-[this doc](../app-build-suite/docs/helm3-build-pipeline.md) for detailed description of steps and available config
+[this doc](../app-test-suite/docs/helm3-build-pipeline.md) for detailed description of steps and available config
 options.
 
 ### Test pipelines

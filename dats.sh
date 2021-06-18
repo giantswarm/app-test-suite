@@ -1,6 +1,6 @@
 #!/bin/sh
 
-DABS_TAG=${DABS_TAG:-"latest"}
+DATS_TAG=${DATS_TAG:-"latest"}
 
 docker run -it --rm \
   -e USE_UID="$(id -u "${USER}")" \
@@ -9,4 +9,4 @@ docker run -it --rm \
   -v "$(pwd)":/abs/workdir/ \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --network host \
-  "quay.io/giantswarm/app-test-suite:${DABS_TAG}" "$@"
+  "quay.io/giantswarm/app-test-suite:${DATS_TAG}" "$@"

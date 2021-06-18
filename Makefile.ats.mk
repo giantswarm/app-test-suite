@@ -22,7 +22,7 @@ all: docker-build
 release: release_ver_to_code docker-build-image
 	git commit -am "Release ${TAG}"
 	git tag ${TAG}
-	mv dabs.sh.back dabs.sh
+	mv dats.sh.back dats.sh
 	echo "build_ver = \"${TAG}-dev\"\n" > app_test_suite/version.py
 	git commit -am "Post-release version set for ${TAG}"
 
@@ -30,8 +30,8 @@ release_ver_to_code:
 	$(call check_defined, TAG)
 	echo "build_ver = \"${TAG}\"\n" > app_test_suite/version.py
 	$(eval IMG_VER := ${TAG})
-	cp dabs.sh dabs.sh.back
-	bash -c 'sed -i "s/latest/$${TAG#v}/" dabs.sh'
+	cp dats.sh dats.sh.back
+	bash -c 'sed -i "s/latest/$${TAG#v}/" dats.sh'
 
 # Build the docker image from locally built binary
 docker-build: docker-build-ver docker-build-image
@@ -51,7 +51,7 @@ docker-build-test: docker-build
 
 test-command = --cov app_test_suite --log-cli-level info tests/
 test-command-ci = --cov-report=xml $(test-command)
-test-docker-args = run -it --rm -v ${PWD}/.coverage/:/abs/.coverage/
+test-docker-args = run -it --rm -v ${PWD}/.coverage/:/ats/.coverage/
 test-docker-run = docker $(test-docker-args) ${IMG}-test:latest
 
 test:

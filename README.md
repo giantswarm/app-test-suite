@@ -54,85 +54,49 @@ with [tutorial](docs/tutorial.md).
 
 ### Quick start
 
-Executing `dabs.sh` is the most straight forward way to run `app-test-suite`. As an example, we have included a chart
+Executing `dats.sh` is the most straight forward way to run `app-test-suite`. As an example, we have included a chart
 in this repository in
-[`examples/apps/hello-world-app`](examples/apps/hello-world-app/). It's configuration file for
-`abs` is in the [.abs/main.yaml](examples/apps/hello-world-app/.abs/main.yaml) file. To build the chart using `dabs.sh`
+[`examples/apps/hello-world-app`](examples/apps/hello-world-app). Its configuration file for
+`ats` is in the [.ats/main.yaml](examples/apps/hello-world-app/.ats/main.yaml) file.
+To test the chart using `dats.sh`
 and the provided config file, run:
 
 ```bash
-dats.sh -c examples/apps/hello-world-app --skip-steps test_all
+dats.sh -c examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz
 ```
 
-Please note that this command skips all the test steps and runs only the actual chart build steps. If you want to run
-tests as well, you need to provide a cluster to run them on. For example, you can use a cluster of type `external`,
-which is a cluster you provide externally to the `abs` tool. If you have `kind`, you can do it like this:
+To run it, you need to have an existing Kubernetes cluster. `kube.config` file needed to authorize with it
+needs to be saved in the root directory of this repository. If you have `kind`, you can create the cluster
+and its config file like this:
 
 ```bash
 kind create cluster
 kind get kubeconfig > ./kube.config
 ```
 
-Then you can run `abs` to execute tests on top of that `kind` cluster:
+### How does it work
+
+To better depict what `ats` does and how it executes a test scenario, let's have a look at what happens
+when you execute:
 
 ```bash
-dats.sh -c examples/apps/hello-world-app \
-  --smoke-tests-cluster-type external \
-  --functional-tests-cluster-type external \
-  --external-cluster-kubeconfig-path kube.config \
-  --external-cluster-type kind \
-  --external-cluster-version "1.19.0" \
-  --destination build
-```
-
-### A command wrapper on steroids
-
-`abs` is not much more than a wrapper around a set of well-known open source tools. It orchestrates these tools into an
-opinionated build process and adds some additional features in between them, like generating metadata for the Giant
-Swarm App Platform.
-
-To better explain it, see what really happens when you call
-
-```bash
-dats.sh -c examples/apps/hello-world-app --destination build --skip-steps test_all
-```
-
-The list bellow is a set of commands executed for you by `abs`:
-
-```bash
-# app and chart versions are set using git changes (if configured)
-ct lint --validate-maintainers=false --charts=examples/apps/hello-world-app --chart-yaml-schema=/abs/workdir/app_build_suite/build_steps/../../resources/ct_schemas/gs_metadata_chart_schema.yaml
-kube-linter lint . --config .kube-linter.yaml
-helm package examples/apps/hello-world-app --destination build
-# now metadata is generated from the data collected during the build (if configured)
-```
-
-If you include testing steps as well, on an external cluster, with the following command
-
-```bash
-dats.sh -c examples/apps/hello-world-app \
+dats.sh -c examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz \
   --functional-tests-cluster-type external \
   --smoke-tests-cluster-type external \
-  --external-cluster-kubeconfig-path kube.config \
+  --external-cluster-kubeconfig-path ./kube.config \
   --external-cluster-type kind \
-  --external-cluster-version "1.19.0" \
-  --destination build
+  --external-cluster-version "1.19.0"
 ```
 
-, the list becomes:
+the following commands are executed underneath:
 
 ```bash
-# app and chart versions are set using git changes (if configured)
-ct lint --validate-maintainers=false --charts=examples/apps/hello-world-app --chart-yaml-schema=/abs/workdir/app_build_suite/build_steps/../../resources/ct_schemas/gs_metadata_chart_schema.yaml
-kube-linter lint . --config .kube-linter.yaml
-helm package examples/apps/hello-world-app --destination build
-# now metadata is generated from the data collected during the build (if configured)
 # here start smoke tests
 apptestctl bootstrap --kubeconfig-path=kube.config --wait
 pipenv install --deploy
 pipenv run pytest -m smoke --cluster-type kind --kube-config /abs/workdir/kube.config --chart-path hello-world-app-0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db.tgz --chart-version 0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db --chart-extra-info external_cluster_version=1.19.0 --log-cli-level info --junitxml=test_results_smoke.xml
-apptestctl bootstrap --kubeconfig-path=kube.config --wait
 # and here start functional tests
+apptestctl bootstrap --kubeconfig-path=kube.config --wait
 pipenv install --deploy
 pipenv run pytest -m functional --cluster-type kind --kube-config /abs/workdir/test1.kube.config --chart-path hello-world-app-0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db.tgz --chart-version 0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db --chart-extra-info external_cluster_version=1.19.0 --log-cli-level info --junitxml=test_results_functional.xml
 ```
@@ -150,69 +114,55 @@ To learn what they mean and how to use them, please follow to
 
 ## Tuning app-test-suite execution and running parts of the build process
 
-This tool works by executing a series of so called `Build Steps`. In general, one `BuildSteps` is about a single step in
-the build, like running a single external tool. Most of the build steps are configurable
-(run `./dabs.sh -h` to check available options and go to
-[steps details and configuration](#execution-steps-details-and-configuration) for detailed description).
-
+This tool works by executing a series of so called `Build Steps`.
 The important property in `app-test-suite` is that you can only execute a subset of all the build steps. This idea
-should be useful for integrating `abs` with other workflows, like CI/CD systems or for running parts of the build
+should be useful for integrating `ats` with other workflows, like CI/CD systems or for running parts of the build
 process on your local machine during development. You can either run only a selected set of steps using `--steps` option
-or you can run all if them excluding some using `--skip-steps`. Check `dabs.sh -h` output for step names available
+or you can run all if them excluding some using `--skip-steps`. Check `dats.sh -h` output for step names available
 to `--steps` and `--skip-steps`
 flags.
 
 To skip or include multiple step names, separate them with space, like in this example:
 
 ```bash
-dats.sh -c examples/apps/hello-world-app --skip-steps test_unit test_performance
+dats.sh -c examples/apps/hello-world-app/mychart-0.1.0.tgz --skip-steps test_unit test_performance
 ```
 
 ### Configuring app-test-suite
 
-Every configuration option in `abs` can be configured in 3 ways. Starting from the highest to the lowest priority, these
+Every configuration option in `ats` can be configured in 3 ways. Starting from the highest to the lowest priority, these
 are:
 
 - command line arguments,
 - environment variables,
-- config file (`abs` tries first to load the config file from the chart's directory `.abs/main.yaml` file; if it doesn't
+- config file (`ats` tries first to load the config file from the chart's directory `.ats/main.yaml` file; if it doesn't
   exist, then it tries to load the default config file from the current working directory's
-  `.abs.main.yaml`).
+  `.ats/main.yaml`).
 
-When you run `dabs.sh -h` it shows you command line options and the relevant environment variables names. Options for a
+When you run `dats.sh -h` it shows you command line options and the relevant environment variables names. Options for a
 config file are the same as for command line, just with truncated leading `--`. You can check
-[this example](examples/apps/hello-world-app/.abs/main.yaml).
+[this example](examples/apps/hello-world-app/.ats/main.yaml).
 
 The configuration is made this way so you can put your defaults into the config file, yet override them with env
 variables or command line when needed. This way you can easily override configs for stuff like CI/CD builds.
 
 ## Execution steps details and configuration
 
-`abs` is composed of two main pipelines: *build* and *test*. Each of them is composed of steps. When `abs` runs, it
-executes all the steps from the *build* pipeline and then from the *test* pipeline. Config options can be used to
-disable/enable any specific build steps.
-
-Please check below for available build pipelines and steps and their config options.
-
-### Build pipelines
-
-Currently, only one build pipeline is supported. It is based on `helm 3`. Please check
-[this doc](../app-test-suite/docs/helm3-build-pipeline.md) for detailed description of steps and available config
-options.
+`ats` is prepared to work with multiple different test engines. Please check below for available
+ones and steps they provide.
 
 ### Test pipelines
 
-After your app artifact is built (your chart when using Helm build engine pipeline), `abs` can run tests for it for you.
-There are a few assumptions related to how testing invoked by `abs` works.
+There are a few assumptions related to how testing invoked by `ats` works.
 
 First, we assume that each test framework that you can use for developing tests for your app can label the tests and run
-only the set of tests labelled. `abs` expects all tests to have at least one of the following labels: `smoke`
-, `functional`. It uses the labels to run only certain tests, so `abs`
+only the set of tests labelled. `ats` expects all tests to have at least one of the following labels: `smoke`
+, `functional`. It uses the labels to run only certain tests, so `ats`
 runs all `smoke` tests first, then all `functional` tests. As concrete example, this mechanism is implemented
 as [marks in pytest](https://docs.pytest.org/en/stable/mark.html) or
 [tags in go test](https://golang.org/pkg/go/build/#hdr-Build_Constraints).
 
-The idea is that `abs` invokes first the testing framework with `smoke` filter, so that only smoke tests are invoked.
+The idea is that `ats` invokes first the testing framework with `smoke` filter, so that only smoke tests are invoked.
 Smoke tests are expected to be very basic and short-lived, so they provide an immediate feedback if something is wrong
 and there's no point in running more advanced (and time and resource consuming tests). Only if `smoke` tests are
 OK, `functional` tests are invoked to check if the application works as expected. In the future, we want to

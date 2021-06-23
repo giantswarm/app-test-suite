@@ -30,7 +30,7 @@ workflows:
             -   publish-github-release:
                     name: publish-github-release-for-dats
                     requires:
-                        - push-app-test-suite-circle-ci-to-quay
+                        - push-app-test-suite-to-quay
                     filters:
                         branches:
                             ignore: /.*/

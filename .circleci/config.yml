@@ -15,11 +15,11 @@ workflows:
                             only: /^v.*/
 
             -   architect/push-to-docker:
-                    name: push-app-build-suite-to-quay
+                    name: push-app-test-suite-to-quay
                     requires:
                         - run-tests
                     context: architect
-                    image: "quay.io/giantswarm/app-build-suite"
+                    image: "quay.io/giantswarm/app-test-suite"
                     username_envar: "QUAY_USERNAME"
                     password_envar: "QUAY_PASSWORD"
                     filters:
@@ -27,34 +27,10 @@ workflows:
                         tags:
                             only: /^v.*/
 
-            -   augment-circleci-dockerfile:
-                    name: augment-circleci-dockerfile
-                    requires:
-                        - push-app-build-suite-to-quay
-                    filters:
-                        # Needed to trigger job also on git tag.
-                        tags:
-                            only: /^v.*/
-
-            -   architect/push-to-docker:
-                    name: push-app-build-suite-circle-ci-to-quay
-                    requires:
-                        - push-app-build-suite-to-quay
-                        - augment-circleci-dockerfile
-                    context: architect
-                    image: "quay.io/giantswarm/app-build-suite"
-                    username_envar: "QUAY_USERNAME"
-                    password_envar: "QUAY_PASSWORD"
-                    dockerfile: "./circleci.Dockerfile"
-                    tag-suffix: "-circleci"
-                    filters:
-                        # Needed to trigger job also on git tag.
-                        tags:
-                            only: /^v.*/
             -   publish-github-release:
-                    name: publish-github-release-for-dabs
+                    name: publish-github-release-for-dats
                     requires:
-                        - push-app-build-suite-circle-ci-to-quay
+                        - push-app-test-suite-circle-ci-to-quay
                     filters:
                         branches:
                             ignore: /.*/
@@ -63,24 +39,6 @@ workflows:
 
 
 jobs:
-    augment-circleci-dockerfile:
-        executor: "architect/architect"
-        steps:
-            - checkout
-            -   run:
-                    name: Generate container tag like architect orb does it
-                    command: |
-                        echo -n "quay.io/giantswarm/app-build-suite:$(architect project version)" > .docker_image_name
-            -   run:
-                    name: augment circleci.Dockerfile
-                    command: |
-                        CURRENT_TAG="$(cat .docker_image_name)"
-                        sed -i -e "s|FROM changeme|FROM ${CURRENT_TAG}|" circleci.Dockerfile
-            -   persist_to_workspace:
-                    root: "."
-                    paths:
-                        - "circleci.Dockerfile"
-
     run-tests:
         machine:
             image: ubuntu-2004:202010-01
@@ -103,4 +61,4 @@ jobs:
             -   run:
                     name: "Publish Release on GitHub"
                     command: |
-                        ghr -t ${ARCHITECT_GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${CIRCLE_TAG} ./dabs.sh
+                        ghr -t ${ARCHITECT_GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${CIRCLE_TAG} ./dats.sh

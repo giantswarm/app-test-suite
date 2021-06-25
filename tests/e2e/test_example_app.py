@@ -1,6 +1,9 @@
+import pytest
+
 from app_test_suite.__main__ import main
 
 
+@pytest.mark.skip(reason="Requires a running cluster")
 def test_build_example_app(monkeypatch):
     monkeypatch.setattr(
         "sys.argv",

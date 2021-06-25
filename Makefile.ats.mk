@@ -23,12 +23,12 @@ release: release_ver_to_code docker-build-image
 	git commit -am "Release ${TAG}"
 	git tag ${TAG}
 	mv dats.sh.back dats.sh
-	echo "build_ver = \"${TAG}-dev\"\n" > app_test_suite/version.py
+	echo "build_ver = \"${TAG}-dev\"" > app_test_suite/version.py
 	git commit -am "Post-release version set for ${TAG}"
 
 release_ver_to_code:
 	$(call check_defined, TAG)
-	echo "build_ver = \"${TAG}\"\n" > app_test_suite/version.py
+	echo "build_ver = \"${TAG}\"" > app_test_suite/version.py
 	$(eval IMG_VER := ${TAG})
 	cp dats.sh dats.sh.back
 	bash -c 'sed -i "s/latest/$${TAG#v}/" dats.sh'
@@ -40,7 +40,7 @@ docker-build-image:
 	docker build . -t ${IMG}:latest -t ${IMG}:${IMG_VER}
 
 docker-build-ver:
-	echo "build_ver = \"${VER}-${COMMIT}\"\n" > app_test_suite/version.py
+	echo "build_ver = \"${VER}-${COMMIT}\"" > app_test_suite/version.py
 
 # Push the docker image
 docker-push: docker-build

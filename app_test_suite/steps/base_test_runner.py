@@ -18,7 +18,7 @@ from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
 from app_test_suite.errors import TestError
 from app_test_suite.steps.repositories import ChartMuseumAppRepository
-from app_test_suite.steps.steps import config_option_cluster_type_for_test_type
+from app_test_suite.steps.types import config_option_cluster_type_for_test_type
 from step_exec_lib.errors import ConfigError, ValidationError
 from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep
 from step_exec_lib.types import Context, StepType, STEP_ALL

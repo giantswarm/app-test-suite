@@ -10,7 +10,7 @@ from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
 from step_exec_lib.types import STEP_ALL
 
 from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
-from app_test_suite.steps.steps import ALL_STEPS
+from app_test_suite.steps.types import ALL_STEPS
 
 ver = "v0.0.0-dev"
 app_name = "app_test_suite"

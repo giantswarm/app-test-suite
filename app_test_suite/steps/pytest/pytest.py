@@ -3,13 +3,9 @@ import logging
 import os
 import shutil
 from abc import ABC
-from typing import Set, cast, List
+from typing import cast, List
 
 import configargparse
-from step_exec_lib.errors import ValidationError
-from step_exec_lib.types import Context, StepType
-from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
-from step_exec_lib.utils.processes import run_and_log
 
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import TestError
@@ -20,7 +16,10 @@ from app_test_suite.steps.base_test_runner import (
     context_key_chart_yaml,
 )
 from app_test_suite.steps.steps import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL
-from app_test_suite.steps.test_stage_helpers import TestType, TEST_SMOKE, TEST_FUNCTIONAL
+from step_exec_lib.errors import ValidationError
+from step_exec_lib.types import Context, StepType
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
+from step_exec_lib.utils.processes import run_and_log
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +121,7 @@ class PytestTestRunner(BaseTestRunner, ABC):
             "run",
             self._pytest_bin,
             "-m",
-            self._test_type_executed,
+            self.test_provided,
             "--cluster-type",
             cluster_type,
             "--kube-config",
@@ -135,7 +134,7 @@ class PytestTestRunner(BaseTestRunner, ABC):
             f"external_cluster_version={cluster_version}",
             "--log-cli-level",
             "info",
-            f"--junitxml=test_results_{self._test_type_executed}.xml",
+            f"--junitxml=test_results_{self.test_provided}.xml",
         ]
         if app_config_file_path:
             args += ["--values-file", app_config_file_path]
@@ -150,12 +149,8 @@ class PytestFunctionalTestRunner(PytestTestRunner):
         super().__init__(cluster_manager)
 
     @property
-    def _test_type_executed(self) -> TestType:
-        return TEST_FUNCTIONAL
-
-    @property
-    def specific_test_steps_provided(self) -> Set[StepType]:
-        return {STEP_TEST_FUNCTIONAL}
+    def test_provided(self) -> StepType:
+        return STEP_TEST_FUNCTIONAL
 
 
 class PytestSmokeTestRunner(PytestTestRunner):
@@ -163,9 +158,5 @@ class PytestSmokeTestRunner(PytestTestRunner):
         super().__init__(cluster_manager)
 
     @property
-    def _test_type_executed(self) -> TestType:
-        return TEST_SMOKE
-
-    @property
-    def specific_test_steps_provided(self) -> Set[StepType]:
-        return {STEP_TEST_SMOKE}
+    def test_provided(self) -> StepType:
+        return STEP_TEST_SMOKE

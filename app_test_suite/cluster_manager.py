@@ -3,11 +3,10 @@ import logging
 from typing import Optional, List, Dict, Set
 
 import configargparse
-from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType, ClusterProvider
-from app_test_suite.steps import test_stage_helpers
-from app_test_suite.steps.test_stage_helpers import TEST_TYPE_ALL
+from app_test_suite.steps.steps import TEST_TYPE_ALL, config_option_cluster_type_for_test_type
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,7 @@ class ClusterManager:
     def get_used_cluster_types(self, config: argparse.Namespace) -> Set[ClusterType]:
         used_cluster_types: Set[ClusterType] = set()
         for test_type in TEST_TYPE_ALL:
-            config_option_cluster_for_test = test_stage_helpers.config_option_cluster_type_for_test_type(test_type)
+            config_option_cluster_for_test = config_option_cluster_type_for_test_type(test_type)
             cluster_type_str = get_config_value_by_cmd_line_option(config, config_option_cluster_for_test)
             if cluster_type_str:
                 used_cluster_types.add(ClusterType(cluster_type_str))

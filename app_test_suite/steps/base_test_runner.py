@@ -13,17 +13,17 @@ import yaml
 from pykube import KubeConfig, HTTPClient, ConfigMap
 from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCR
 from pytest_helm_charts.utils import YamlDict
-from step_exec_lib.errors import ConfigError, ValidationError
-from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep
-from step_exec_lib.types import Context, StepType, STEP_ALL
-from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
-from step_exec_lib.utils.processes import run_and_log
 
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
 from app_test_suite.errors import TestError
 from app_test_suite.steps.repositories import ChartMuseumAppRepository
-from app_test_suite.steps.test_stage_helpers import config_option_cluster_type_for_test_type, TestType
+from app_test_suite.steps.steps import config_option_cluster_type_for_test_type
+from step_exec_lib.errors import ConfigError, ValidationError
+from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep
+from step_exec_lib.types import Context, StepType, STEP_ALL
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
+from step_exec_lib.utils.processes import run_and_log
 
 context_key_chart_yaml: str = "chart_yaml"
 context_key_app_cr: str = "app_cr"
@@ -124,7 +124,9 @@ class TestInfoProvider(BuildStep):
                         context[context_key_chart_yaml] = chart_yaml
                     break
             else:
-                raise ValidationError("Couldn't find 'Chart.yaml' in any subdirectory of the chart archive file.")
+                raise ValidationError(
+                    self.name, "Couldn't find 'Chart.yaml' in any subdirectory of the chart archive file."
+                )
 
 
 class BaseTestRunner(BuildStep, ABC):
@@ -144,17 +146,12 @@ class BaseTestRunner(BuildStep, ABC):
 
     @property
     def steps_provided(self) -> Set[StepType]:
-        return {STEP_ALL}.union(self.specific_test_steps_provided)
+        return {STEP_ALL, self.test_provided}
 
     @property
     @abstractmethod
-    def specific_test_steps_provided(self) -> Set[StepType]:
+    def test_provided(self) -> StepType:
         raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def _test_type_executed(self) -> TestType:
-        raise NotImplementedError
 
     @abstractmethod
     def run_tests(self, config: argparse.Namespace, context: Context):
@@ -162,11 +159,11 @@ class BaseTestRunner(BuildStep, ABC):
 
     @property
     def _config_cluster_type_attribute_name(self) -> str:
-        return config_option_cluster_type_for_test_type(self._test_type_executed)
+        return config_option_cluster_type_for_test_type(self.test_provided)
 
     @property
     def _config_cluster_config_file_attribute_name(self) -> str:
-        return f"--{self._test_type_executed}-tests-cluster-config-file"
+        return f"--{self.test_provided}-tests-cluster-config-file"
 
     def _ensure_app_platform_ready(self, kube_config_path: str) -> None:
         """
@@ -195,12 +192,12 @@ class BaseTestRunner(BuildStep, ABC):
         config_parser.add_argument(
             self._config_cluster_type_attribute_name,
             required=False,
-            help=f"Cluster type to use for {self._test_type_executed} tests.",
+            help=f"Cluster type to use for {self.test_provided} tests.",
         )
         config_parser.add_argument(
             self._config_cluster_config_file_attribute_name,
             required=False,
-            help=f"Additional configuration file for the cluster used for {self._test_type_executed} tests.",
+            help=f"Additional configuration file for the cluster used for {self.test_provided} tests.",
         )
 
     def pre_run(self, config: argparse.Namespace) -> None:
@@ -223,16 +220,16 @@ class BaseTestRunner(BuildStep, ABC):
         known_cluster_types = self._cluster_manager.get_registered_cluster_types()
         if cluster_type not in known_cluster_types:
             raise ConfigError(
-                f"--{self._test_type_executed}-tests-cluster-type",
+                f"--{self.test_provided}-tests-cluster-type",
                 f"Unknown cluster type '{cluster_type}' requested for tests of type"
-                f" '{self._test_type_executed}'. Known cluster types are: '{known_cluster_types}'.",
+                f" '{self.test_provided}'. Known cluster types are: '{known_cluster_types}'.",
             )
         if cluster_config_file and not os.path.isfile(cluster_config_file):
             raise ConfigError(
-                f"--{self._test_type_executed}-tests-cluster-config-file",
+                f"--{self.test_provided}-tests-cluster-config-file",
                 f"Cluster config file '{cluster_config_file}' for cluster type"
                 f" '{cluster_type}' requested for tests of type"
-                f" '{self._test_type_executed}' doesn't exist.",
+                f" '{self.test_provided}' doesn't exist.",
             )
         self._configured_cluster_type = cluster_type
         self._configured_cluster_config_file = cluster_config_file if cluster_config_file is not None else ""

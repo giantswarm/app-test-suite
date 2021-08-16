@@ -2,19 +2,21 @@ import argparse
 import logging
 import os
 import shutil
-import time
 from abc import ABC, abstractmethod
 from tempfile import TemporaryDirectory
-from typing import Set, Optional, List, cast, Callable
+from typing import Set, Optional, List, cast
 
 import configargparse
-import pykube
 import yaml
 from pykube import KubeConfig, HTTPClient, ConfigMap
 from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCR
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
-from pytest_helm_charts.giantswarm_app_platform.utils import delete_app, wait_for_app_to_be_deleted
-from pytest_helm_charts.utils import YamlDict
+from pytest_helm_charts.giantswarm_app_platform.utils import (
+    delete_app,
+    wait_for_app_to_be_deleted,
+    create_app,
+    wait_for_apps_to_run,
+)
 
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
@@ -269,110 +271,27 @@ class BaseTestRunner(BuildStep, ABC):
             self._delete_app(config, context)
 
     def _deploy_chart_as_app(self, config: argparse.Namespace, context: Context) -> None:
-        namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
-        )
         app_name = context[context_key_chart_yaml]["name"]
         app_version = context[context_key_chart_yaml]["version"]
-        app: YamlDict = {
-            "apiVersion": "application.giantswarm.io/v1alpha1",
-            "kind": "App",
-            "metadata": {
-                "name": app_name,
-                "namespace": namespace,
-                "labels": {"app": app_name, "app-operator.giantswarm.io/version": "0.0.0"},
-            },
-            "spec": {
-                "catalog": "chartmuseum",
-                "version": app_version,
-                "kubeConfig": {"inCluster": True},
-                "name": app_name,
-                "namespace": namespace,
-            },
-        }
+        app_cr_namespace = "default"
+        deploy_namespace = get_config_value_by_cmd_line_option(
+            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
+        )
         app_config_file_path = get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
         )
+
+        config_values = None
         if app_config_file_path:
-            app_cm_name = f"{app_name}-cm"
-            cm = self._deploy_app_config_map(namespace, app_cm_name, app_config_file_path)
-            app["spec"]["config"] = {"configMap": {"name": app_cm_name, "namespace": namespace}}
-            context[context_key_app_cm_cr] = cm
+            with open(app_config_file_path) as f:
+                config_values = f.read()
 
-        app_obj = AppCR(self._kube_client, app)
-        if not app_obj.exists():
-            logger.info(
-                f"Creating App CR for app '{app_name}' to be deployed in namespace '{namespace}' in"
-                f" version '{app_version}'."
-            )
-            app_obj.create()
-        else:
-            logger.warning(
-                f"App CR already exists: skipping App CR creation for app '{app_name}' in namespace '{namespace}'."
-            )
-
-        self._wait_for_app_to_be_deployed(app_obj)
-        context[context_key_app_cr] = app_obj
-
-    # this is on purpose not taken from `utils` in pytest-helm-chart, as it will have to be
-    # rewritten into an async version
-    def _wait_for_app_condition(
-        self,
-        app_obj: AppCR,
-        timeout_sec: int,
-        condition_name: str,
-        condition_fun: Callable[[AppCR], bool] = None,
-        expected_exception: pykube.exceptions.HTTPError = None,
-    ):
-        if condition_fun is None and expected_exception is None:
-            raise ValueError("Either 'condition_fun' or 'expected_exception' has to be not None")
-        success = False
-        while timeout_sec > 0:
-            try:
-                app_obj.reload()
-            except pykube.exceptions.KubernetesError as e:
-                if expected_exception is not None and type(e) is pykube.exceptions.HTTPError:
-                    he = cast(pykube.exceptions.HTTPError, e)
-                    if he.code == expected_exception.code:
-                        success = True
-                        break
-                raise
-            if condition_fun is not None and condition_fun(app_obj):
-                success = True
-                break
-            logger.debug(f"Waiting for app '{app_obj.name}' to be {condition_name}.")
-            time.sleep(1)
-            timeout_sec -= 1
-        if not success:
-            raise TestError(
-                f"Application not ready: '{app_obj.name}' failed to be {condition_name} in "
-                f"'{app_obj.namespace} within {self._app_deployment_timeout_sec} minutes."
-            )
-
-    def _wait_for_app_to_be_deployed(self, app_obj: AppCR):
-        self._wait_for_app_condition(
-            app_obj,
-            self._app_deployment_timeout_sec,
-            "deployed",
-            condition_fun=lambda a: "status" in a.obj
-            and "release" in a.obj["status"]
-            and "status" in a.obj["status"]["release"]
-            and a.obj["status"]["release"]["status"].lower() == "deployed",
+        app_obj = create_app(
+            self._kube_client, app_name, app_version, "chartmuseum", app_cr_namespace, deploy_namespace, config_values
         )
-
-    def _deploy_app_config_map(self, namespace: str, name: str, app_config_file_path: str) -> ConfigMap:
-        with open(app_config_file_path) as f:
-            config_values = f.read()
-        app_cm: YamlDict = {
-            "apiVersion": "v1",
-            "kind": "ConfigMap",
-            "metadata": {"name": name, "namespace": namespace},
-            "data": {"values": config_values},
-        }
-        app_cm_obj = ConfigMap(self._kube_client, app_cm)
-        logger.info(f"Creating ConfigMap '{name}' with App values in namespace '{namespace}'.")
-        app_cm_obj.create()
-        return app_cm_obj
+        wait_for_apps_to_run(self._kube_client, [app_name], app_cr_namespace, self._app_deployment_timeout_sec)
+        context[context_key_app_cr] = app_obj.app
+        context[context_key_app_cm_cr] = app_obj.app_cm
 
     def _upload_chart_to_app_catalog(self, config: argparse.Namespace, context: Context):
         # in future, if we want to support multiple chart repositories, we need to make this configurable

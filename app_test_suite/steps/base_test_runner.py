@@ -12,6 +12,8 @@ import pykube
 import yaml
 from pykube import KubeConfig, HTTPClient, ConfigMap
 from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCR
+from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
+from pytest_helm_charts.giantswarm_app_platform.utils import delete_app, wait_for_app_to_be_deleted
 from pytest_helm_charts.utils import YamlDict
 
 from app_test_suite.cluster_manager import ClusterManager
@@ -358,14 +360,6 @@ class BaseTestRunner(BuildStep, ABC):
             and a.obj["status"]["release"]["status"].lower() == "deployed",
         )
 
-    def _wait_for_app_to_be_deleted(self, app_obj: AppCR):
-        self._wait_for_app_condition(
-            app_obj,
-            self._app_deletion_timeout_sec,
-            "deleted",
-            expected_exception=pykube.exceptions.HTTPError(code=404, message=""),
-        )
-
     def _deploy_app_config_map(self, namespace: str, name: str, app_config_file_path: str) -> ConfigMap:
         with open(app_config_file_path) as f:
             config_values = f.read()
@@ -391,15 +385,12 @@ class BaseTestRunner(BuildStep, ABC):
             config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
         ):
             return
-        app_obj = cast(AppCR, context[context_key_app_cr])
-        logger.info("Deleting App CR")
-        app_obj.delete()
-        app_config_file_path = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
-        )
-        if app_config_file_path:
-            logger.info("Deleting values ConfigMap")
-            cast(ConfigMap, context[context_key_app_cm_cr]).delete()
 
-        self._wait_for_app_to_be_deleted(app_obj)
+        app_obj = cast(AppCR, context[context_key_app_cr])
+        values_cm = None
+        if context_key_app_cm_cr in context:
+            values_cm = cast(ConfigMap, context[context_key_app_cm_cr])
+        logger.info("Deleting App CR and its values CM")
+        delete_app(ConfiguredApp(app_obj, values_cm))
+        wait_for_app_to_be_deleted(self._kube_client, app_obj.name, app_obj.namespace, self._app_deletion_timeout_sec)
         logger.info("Application deleted")

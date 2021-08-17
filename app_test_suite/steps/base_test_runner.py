@@ -53,6 +53,12 @@ class BaseTestRunnersFilteringPipeline(BuildStepsFilteringPipeline):
 
     def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
         super().initialize_config(config_parser)
+        config_parser.add_argument(
+            "-c",
+            "--chart-file",
+            required=True,
+            help="Path to the Helm Chart tar.gz file to test.",
+        )
         if self._config_parser_group is None:
             raise ValueError("'_config_parser_group' can't be None")
         self._config_parser_group.add_argument(
@@ -78,6 +84,10 @@ class BaseTestRunnersFilteringPipeline(BuildStepsFilteringPipeline):
         super().pre_run(config)
         if self._all_pre_runs_skipped:
             return
+
+        if not config.chart_file or not os.path.isfile(config.chart_file):
+            raise ConfigError("chart-file", f"The file '{config.chart_file}' can't be found.")
+
         self._cluster_manager.pre_run(config)
         app_config_file = get_config_value_by_cmd_line_option(config, self.key_config_option_deploy_config_file)
         if app_config_file:

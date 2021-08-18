@@ -2,28 +2,32 @@ import argparse
 import logging
 import os
 import shutil
-import time
 from abc import ABC, abstractmethod
 from tempfile import TemporaryDirectory
-from typing import Set, Optional, List, cast, Callable
+from typing import Set, Optional, List, cast
 
 import configargparse
-import pykube
 import yaml
 from pykube import KubeConfig, HTTPClient, ConfigMap
 from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCR
-from pytest_helm_charts.utils import YamlDict
-from step_exec_lib.errors import ConfigError, ValidationError
-from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep
-from step_exec_lib.types import Context, StepType, STEP_ALL
-from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
-from step_exec_lib.utils.processes import run_and_log
+from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
+from pytest_helm_charts.giantswarm_app_platform.utils import (
+    delete_app,
+    wait_for_app_to_be_deleted,
+    create_app,
+    wait_for_apps_to_run,
+)
 
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
 from app_test_suite.errors import TestError
 from app_test_suite.steps.repositories import ChartMuseumAppRepository
-from app_test_suite.steps.test_stage_helpers import config_option_cluster_type_for_test_type, TestType
+from app_test_suite.steps.types import config_option_cluster_type_for_test_type
+from step_exec_lib.errors import ConfigError, ValidationError
+from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep
+from step_exec_lib.types import Context, StepType, STEP_ALL
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
+from step_exec_lib.utils.processes import run_and_log
 
 context_key_chart_yaml: str = "chart_yaml"
 context_key_app_cr: str = "app_cr"
@@ -49,6 +53,12 @@ class BaseTestRunnersFilteringPipeline(BuildStepsFilteringPipeline):
 
     def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
         super().initialize_config(config_parser)
+        config_parser.add_argument(
+            "-c",
+            "--chart-file",
+            required=True,
+            help="Path to the Helm Chart tar.gz file to test.",
+        )
         if self._config_parser_group is None:
             raise ValueError("'_config_parser_group' can't be None")
         self._config_parser_group.add_argument(
@@ -74,6 +84,10 @@ class BaseTestRunnersFilteringPipeline(BuildStepsFilteringPipeline):
         super().pre_run(config)
         if self._all_pre_runs_skipped:
             return
+
+        if not config.chart_file or not os.path.isfile(config.chart_file):
+            raise ConfigError("chart-file", f"The file '{config.chart_file}' can't be found.")
+
         self._cluster_manager.pre_run(config)
         app_config_file = get_config_value_by_cmd_line_option(config, self.key_config_option_deploy_config_file)
         if app_config_file:
@@ -124,7 +138,9 @@ class TestInfoProvider(BuildStep):
                         context[context_key_chart_yaml] = chart_yaml
                     break
             else:
-                raise ValidationError("Couldn't find 'Chart.yaml' in any subdirectory of the chart archive file.")
+                raise ValidationError(
+                    self.name, "Couldn't find 'Chart.yaml' in any subdirectory of the chart archive file."
+                )
 
 
 class BaseTestRunner(BuildStep, ABC):
@@ -144,17 +160,12 @@ class BaseTestRunner(BuildStep, ABC):
 
     @property
     def steps_provided(self) -> Set[StepType]:
-        return {STEP_ALL}.union(self.specific_test_steps_provided)
+        return {STEP_ALL, self.test_provided}
 
     @property
     @abstractmethod
-    def specific_test_steps_provided(self) -> Set[StepType]:
+    def test_provided(self) -> StepType:
         raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def _test_type_executed(self) -> TestType:
-        raise NotImplementedError
 
     @abstractmethod
     def run_tests(self, config: argparse.Namespace, context: Context):
@@ -162,11 +173,11 @@ class BaseTestRunner(BuildStep, ABC):
 
     @property
     def _config_cluster_type_attribute_name(self) -> str:
-        return config_option_cluster_type_for_test_type(self._test_type_executed)
+        return config_option_cluster_type_for_test_type(self.test_provided)
 
     @property
     def _config_cluster_config_file_attribute_name(self) -> str:
-        return f"--{self._test_type_executed}-tests-cluster-config-file"
+        return f"--{self.test_provided}-tests-cluster-config-file"
 
     def _ensure_app_platform_ready(self, kube_config_path: str) -> None:
         """
@@ -195,12 +206,12 @@ class BaseTestRunner(BuildStep, ABC):
         config_parser.add_argument(
             self._config_cluster_type_attribute_name,
             required=False,
-            help=f"Cluster type to use for {self._test_type_executed} tests.",
+            help=f"Cluster type to use for {self.test_provided} tests.",
         )
         config_parser.add_argument(
             self._config_cluster_config_file_attribute_name,
             required=False,
-            help=f"Additional configuration file for the cluster used for {self._test_type_executed} tests.",
+            help=f"Additional configuration file for the cluster used for {self.test_provided} tests.",
         )
 
     def pre_run(self, config: argparse.Namespace) -> None:
@@ -223,16 +234,16 @@ class BaseTestRunner(BuildStep, ABC):
         known_cluster_types = self._cluster_manager.get_registered_cluster_types()
         if cluster_type not in known_cluster_types:
             raise ConfigError(
-                f"--{self._test_type_executed}-tests-cluster-type",
+                f"--{self.test_provided}-tests-cluster-type",
                 f"Unknown cluster type '{cluster_type}' requested for tests of type"
-                f" '{self._test_type_executed}'. Known cluster types are: '{known_cluster_types}'.",
+                f" '{self.test_provided}'. Known cluster types are: '{known_cluster_types}'.",
             )
         if cluster_config_file and not os.path.isfile(cluster_config_file):
             raise ConfigError(
-                f"--{self._test_type_executed}-tests-cluster-config-file",
+                f"--{self.test_provided}-tests-cluster-config-file",
                 f"Cluster config file '{cluster_config_file}' for cluster type"
                 f" '{cluster_type}' requested for tests of type"
-                f" '{self._test_type_executed}' doesn't exist.",
+                f" '{self.test_provided}' doesn't exist.",
             )
         self._configured_cluster_type = cluster_type
         self._configured_cluster_config_file = cluster_config_file if cluster_config_file is not None else ""
@@ -270,118 +281,27 @@ class BaseTestRunner(BuildStep, ABC):
             self._delete_app(config, context)
 
     def _deploy_chart_as_app(self, config: argparse.Namespace, context: Context) -> None:
-        namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
-        )
         app_name = context[context_key_chart_yaml]["name"]
         app_version = context[context_key_chart_yaml]["version"]
-        app: YamlDict = {
-            "apiVersion": "application.giantswarm.io/v1alpha1",
-            "kind": "App",
-            "metadata": {
-                "name": app_name,
-                "namespace": namespace,
-                "labels": {"app": app_name, "app-operator.giantswarm.io/version": "0.0.0"},
-            },
-            "spec": {
-                "catalog": "chartmuseum",
-                "version": app_version,
-                "kubeConfig": {"inCluster": True},
-                "name": app_name,
-                "namespace": namespace,
-            },
-        }
+        app_cr_namespace = "default"
+        deploy_namespace = get_config_value_by_cmd_line_option(
+            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
+        )
         app_config_file_path = get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
         )
+
+        config_values = None
         if app_config_file_path:
-            app_cm_name = f"{app_name}-cm"
-            cm = self._deploy_app_config_map(namespace, app_cm_name, app_config_file_path)
-            app["spec"]["config"] = {"configMap": {"name": app_cm_name, "namespace": namespace}}
-            context[context_key_app_cm_cr] = cm
+            with open(app_config_file_path) as f:
+                config_values = f.read()
 
-        app_obj = AppCR(self._kube_client, app)
-        if not app_obj.exists():
-            logger.info(
-                f"Creating App CR for app '{app_name}' to be deployed in namespace '{namespace}' in"
-                f" version '{app_version}'."
-            )
-            app_obj.create()
-        else:
-            logger.warning(
-                f"App CR already exists: skipping App CR creation for app '{app_name}' in namespace '{namespace}'."
-            )
-
-        self._wait_for_app_to_be_deployed(app_obj)
-        context[context_key_app_cr] = app_obj
-
-    # this is on purpose not taken from `utils` in pytest-helm-chart, as it will have to be
-    # rewritten into an async version
-    def _wait_for_app_condition(
-        self,
-        app_obj: AppCR,
-        timeout_sec: int,
-        condition_name: str,
-        condition_fun: Callable[[AppCR], bool] = None,
-        expected_exception: pykube.exceptions.HTTPError = None,
-    ):
-        if condition_fun is None and expected_exception is None:
-            raise ValueError("Either 'condition_fun' or 'expected_exception' has to be not None")
-        success = False
-        while timeout_sec > 0:
-            try:
-                app_obj.reload()
-            except pykube.exceptions.KubernetesError as e:
-                if expected_exception is not None and type(e) is pykube.exceptions.HTTPError:
-                    he = cast(pykube.exceptions.HTTPError, e)
-                    if he.code == expected_exception.code:
-                        success = True
-                        break
-                raise
-            if condition_fun is not None and condition_fun(app_obj):
-                success = True
-                break
-            logger.debug(f"Waiting for app '{app_obj.name}' to be {condition_name}.")
-            time.sleep(1)
-            timeout_sec -= 1
-        if not success:
-            raise TestError(
-                f"Application not ready: '{app_obj.name}' failed to be {condition_name} in "
-                f"'{app_obj.namespace} within {self._app_deployment_timeout_sec} minutes."
-            )
-
-    def _wait_for_app_to_be_deployed(self, app_obj: AppCR):
-        self._wait_for_app_condition(
-            app_obj,
-            self._app_deployment_timeout_sec,
-            "deployed",
-            condition_fun=lambda a: "status" in a.obj
-            and "release" in a.obj["status"]
-            and "status" in a.obj["status"]["release"]
-            and a.obj["status"]["release"]["status"].lower() == "deployed",
+        app_obj = create_app(
+            self._kube_client, app_name, app_version, "chartmuseum", app_cr_namespace, deploy_namespace, config_values
         )
-
-    def _wait_for_app_to_be_deleted(self, app_obj: AppCR):
-        self._wait_for_app_condition(
-            app_obj,
-            self._app_deletion_timeout_sec,
-            "deleted",
-            expected_exception=pykube.exceptions.HTTPError(code=404, message=""),
-        )
-
-    def _deploy_app_config_map(self, namespace: str, name: str, app_config_file_path: str) -> ConfigMap:
-        with open(app_config_file_path) as f:
-            config_values = f.read()
-        app_cm: YamlDict = {
-            "apiVersion": "v1",
-            "kind": "ConfigMap",
-            "metadata": {"name": name, "namespace": namespace},
-            "data": {"values": config_values},
-        }
-        app_cm_obj = ConfigMap(self._kube_client, app_cm)
-        logger.info(f"Creating ConfigMap '{name}' with App values in namespace '{namespace}'.")
-        app_cm_obj.create()
-        return app_cm_obj
+        wait_for_apps_to_run(self._kube_client, [app_name], app_cr_namespace, self._app_deployment_timeout_sec)
+        context[context_key_app_cr] = app_obj.app
+        context[context_key_app_cm_cr] = app_obj.app_cm
 
     def _upload_chart_to_app_catalog(self, config: argparse.Namespace, context: Context):
         # in future, if we want to support multiple chart repositories, we need to make this configurable
@@ -394,15 +314,12 @@ class BaseTestRunner(BuildStep, ABC):
             config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
         ):
             return
-        app_obj = cast(AppCR, context[context_key_app_cr])
-        logger.info("Deleting App CR")
-        app_obj.delete()
-        app_config_file_path = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
-        )
-        if app_config_file_path:
-            logger.info("Deleting values ConfigMap")
-            cast(ConfigMap, context[context_key_app_cm_cr]).delete()
 
-        self._wait_for_app_to_be_deleted(app_obj)
+        app_obj = cast(AppCR, context[context_key_app_cr])
+        values_cm = None
+        if context_key_app_cm_cr in context:
+            values_cm = cast(ConfigMap, context[context_key_app_cm_cr])
+        logger.info("Deleting App CR and its values CM")
+        delete_app(ConfiguredApp(app_obj, values_cm))
+        wait_for_app_to_be_deleted(self._kube_client, app_obj.name, app_obj.namespace, self._app_deletion_timeout_sec)
         logger.info("Application deleted")

@@ -10,7 +10,7 @@ from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
 from step_exec_lib.types import STEP_ALL
 
 from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
-from app_test_suite.steps.steps import ALL_STEPS
+from app_test_suite.steps.types import ALL_STEPS
 
 ver = "v0.0.0-dev"
 app_name = "app_test_suite"
@@ -34,12 +34,6 @@ def get_pipeline() -> List[BuildStepsFilteringPipeline]:
 
 
 def configure_global_options(config_parser: configargparse.ArgParser):
-    config_parser.add_argument(
-        "-c",
-        "--chart-file",
-        required=True,
-        help="Path to the Helm Chart tar.gz file to test.",
-    )
     config_parser.add_argument(
         "-d",
         "--debug",
@@ -98,8 +92,6 @@ def get_global_config_parser(add_help: bool = True) -> configargparse.ArgParser:
 
 
 def validate_global_config(config: configargparse.Namespace):
-    if not config.chart_file or not os.path.isfile(config.chart_file):
-        raise ConfigError("chart-file", f"The file '{config.chart_file}' can't be found.")
     # validate steps; '--steps' and '--skip-steps' can't be used together, but that is already
     # enforced by the argparse library
     if STEP_ALL in config.skip_steps:

@@ -42,7 +42,7 @@ class BaseTestRunnersFilteringPipeline(BuildStepsFilteringPipeline):
     Pipeline that combines all the steps required to run application tests.
     """
 
-    key_config_group_name = "App testing options"
+    key_config_group_name = "Base app testing options"
     key_config_option_skip_deploy_app = "--app-tests-skip-app-deploy"
     key_config_option_deploy_namespace = "--app-tests-deploy-namespace"
     key_config_option_deploy_config_file = "--app-tests-app-config-file"
@@ -278,7 +278,10 @@ class BaseTestRunner(BuildStep, ABC):
         except Exception as e:
             raise TestError(f"Application deployment failed: {e}")
         finally:
-            self._delete_app(config, context)
+            if not get_config_value_by_cmd_line_option(
+                config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
+            ):
+                self._delete_app(config, context)
 
     def _deploy_chart_as_app(self, config: argparse.Namespace, context: Context) -> None:
         app_name = context[context_key_chart_yaml]["name"]

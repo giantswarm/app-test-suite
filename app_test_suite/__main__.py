@@ -1,16 +1,16 @@
 """Main module. Loads configuration and executes main control loops."""
 import logging
 import os
-import sys
 from typing import List
 
 import configargparse
-from step_exec_lib.errors import ConfigError
-from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
-from step_exec_lib.types import STEP_ALL
+import sys
 
 from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
 from app_test_suite.steps.types import ALL_STEPS
+from step_exec_lib.errors import ConfigError
+from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
+from step_exec_lib.types import STEP_ALL
 
 ver = "v0.0.0-dev"
 app_name = "app_test_suite"
@@ -33,7 +33,7 @@ def get_pipeline() -> List[BuildStepsFilteringPipeline]:
     ]
 
 
-def configure_global_options(config_parser: configargparse.ArgParser):
+def configure_global_options(config_parser: configargparse.ArgParser) -> None:
     config_parser.add_argument(
         "-d",
         "--debug",
@@ -57,6 +57,25 @@ def configure_global_options(config_parser: configargparse.ArgParser):
         help=f"List of steps to skip. Available steps: {ALL_STEPS}",
         required=False,
         default=[],
+    )
+
+
+def configure_test_specific_options(config_parser: configargparse.ArgParser) -> None:
+    url_option = "--upgrade-tests-app-catalog-url"
+    from_version_option = "--upgrade-tests-from-version"
+    config_parser_group = config_parser.add_argument_group("Upgrade testing options")
+    config_parser_group.add_argument(
+        url_option,
+        required=False,
+        help="URL of the catalog where the stable version of the app (the version to test upgrade from) is available",
+    )
+    config_parser_group.add_argument(
+        from_version_option,
+        required=False,
+        default="latest",
+        help=f"Version of the app to test the upgrade from. If not given, the default value of 'latest' is used, which "
+        "means latest version available will be detected and used. The version configured must be present "
+        f"in the catalog configured with '{url_option}'.",
     )
 
 
@@ -88,6 +107,7 @@ def get_global_config_parser(add_help: bool = True) -> configargparse.ArgParser:
         add_help=add_help,
     )
     configure_global_options(config_parser)
+    configure_test_specific_options(config_parser)
     return config_parser
 
 

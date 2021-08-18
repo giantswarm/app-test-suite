@@ -43,7 +43,7 @@ class PytestTestFilteringPipeline(BaseTestRunnersFilteringPipeline):
         super().initialize_config(config_parser)
         self._config_parser_group = cast(
             configargparse.ArgParser,
-            config_parser.add_argument_group("App testing - pytest specific options"),
+            config_parser.add_argument_group("Pytest specific options"),
         )
         self._config_parser_group.add_argument(
             self.key_config_option_pytest_dir,
@@ -166,7 +166,43 @@ class PytestSmokeTestRunner(PytestTestRunner):
 class PytestUpgradeTestRunner(PytestTestRunner):
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
+        self._original_value_skip_deploy = None
 
     @property
     def test_provided(self) -> StepType:
         return STEP_TEST_UPGRADE
+
+    def pre_run(self, config: argparse.Namespace) -> None:
+        super().pre_run(config)
+        # TODO: verify upgrade URL, validate version
+        self._original_value_skip_deploy = get_config_value_by_cmd_line_option(
+            config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
+        )
+        # for upgrade testing we need to deploy the stable version of an app first, so we force skipping
+        # automated deployment by `PytestTestRunner` here. Original value is restored in `cleanup`.
+        if not self._original_value_skip_deploy:
+            config.__setattr__(BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app, True)
+
+    def cleanup(
+        self,
+        config: argparse.Namespace,
+        context: Context,
+        has_build_failed: bool,
+    ) -> None:
+        super().cleanup(config, context, has_build_failed)
+        # restore original value of it wasn't True
+        if not self._original_value_skip_deploy:
+            config.__setattr__(BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app, False)
+
+    def run_tests(self, config: argparse.Namespace, context: Context) -> None:
+        # TODO:
+        # - check if catalog URL is valid and add AppCatalog object for it
+        # - if needed, figure out the 'latest' version
+        # - if configured, Deploy the stable version (check original value)
+        # - run tests
+        # - run the optional upgrade hook
+        # - reconfigure App CR to point to version UT
+        # - run tests again
+        # - delete App CR
+        # - delete Catalog CR
+        pass

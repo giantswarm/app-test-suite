@@ -15,7 +15,7 @@ from app_test_suite.steps.base_test_runner import (
     BaseTestRunner,
     context_key_chart_yaml,
 )
-from app_test_suite.steps.types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL
+from app_test_suite.steps.types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL, STEP_TEST_UPGRADE
 from step_exec_lib.errors import ValidationError
 from step_exec_lib.types import Context, StepType
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
@@ -34,6 +34,7 @@ class PytestTestFilteringPipeline(BaseTestRunnersFilteringPipeline):
                 TestInfoProvider(),
                 PytestSmokeTestRunner(cluster_manager),
                 PytestFunctionalTestRunner(cluster_manager),
+                PytestUpgradeTestRunner(cluster_manager),
             ],
             cluster_manager,
         )
@@ -160,3 +161,12 @@ class PytestSmokeTestRunner(PytestTestRunner):
     @property
     def test_provided(self) -> StepType:
         return STEP_TEST_SMOKE
+
+
+class PytestUpgradeTestRunner(PytestTestRunner):
+    def __init__(self, cluster_manager: ClusterManager):
+        super().__init__(cluster_manager)
+
+    @property
+    def test_provided(self) -> StepType:
+        return STEP_TEST_UPGRADE

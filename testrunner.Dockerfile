@@ -11,6 +11,7 @@ COPY .coveragerc .
 COPY .flake8 .
 COPY .mypy.ini .
 COPY .pre-commit-config.yaml .
+COPY .markdownlint* .
 COPY pyproject.toml .
 COPY run-tests-in-docker.sh .
 COPY Pipfile .

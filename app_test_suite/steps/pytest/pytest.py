@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class PytestTestFilteringPipeline(BaseTestRunnersFilteringPipeline):
     key_config_option_pytest_dir = "--app-tests-pytest-tests-dir"
 
-    def __init__(self):
+    def __init__(self) -> None:
         cluster_manager = ClusterManager()
         super().__init__(
             [

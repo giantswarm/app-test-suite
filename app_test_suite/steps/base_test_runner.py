@@ -168,7 +168,7 @@ class BaseTestRunner(BuildStep, ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def run_tests(self, config: argparse.Namespace, context: Context):
+    def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         raise NotImplementedError
 
     @property
@@ -306,13 +306,13 @@ class BaseTestRunner(BuildStep, ABC):
         context[context_key_app_cr] = app_obj.app
         context[context_key_app_cm_cr] = app_obj.app_cm
 
-    def _upload_chart_to_app_catalog(self, config: argparse.Namespace, context: Context):
+    def _upload_chart_to_app_catalog(self, config: argparse.Namespace, context: Context) -> None:
         # in future, if we want to support multiple chart repositories, we need to make this configurable
         # right now, static dependency will do
         ChartMuseumAppRepository(self._kube_client).upload_artifacts(config, context)
 
     # noinspection PyMethodMayBeStatic
-    def _delete_app(self, config: argparse.Namespace, context: Context):
+    def _delete_app(self, config: argparse.Namespace, context: Context) -> None:
         if get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
         ):

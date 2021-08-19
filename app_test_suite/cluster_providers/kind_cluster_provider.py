@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import uuid
+from typing import Any
 
 import configargparse
 from step_exec_lib.utils import config as config_ats
@@ -45,7 +46,7 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
         return f"{name}.kube.config"
 
     def get_cluster(
-        self, cluster_type: cluster_provider.ClusterType, config: argparse.Namespace, **kwargs
+        self, cluster_type: cluster_provider.ClusterType, config: argparse.Namespace, **kwargs: Any
     ) -> cluster_provider.ClusterInfo:
         cluster_name = str(uuid.uuid4())
         kube_config_path = self.__get_kube_config_from_name(cluster_name)
@@ -72,7 +73,7 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
             config_file=config_file,
         )
 
-    def delete_cluster(self, cluster_info: cluster_provider.ClusterInfo):
+    def delete_cluster(self, cluster_info: cluster_provider.ClusterInfo) -> None:
         logger.info(f"Deleting KinD cluster with ID '{cluster_info.cluster_id}'...")
         kube_config_path = self.__get_kube_config_from_name(cluster_info.cluster_id)
         kind_args = [self._kind_bin, "delete", "cluster", "--name", cluster_info.cluster_id]

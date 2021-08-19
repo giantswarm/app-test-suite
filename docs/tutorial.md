@@ -7,19 +7,19 @@ To be able to complete this tutorial, you need a few tools:
 - `app-test-suite` itself; if you haven't done so already, we recommend getting the latest version of the `dats.sh`
   helper from [releases](https://github.com/giantswarm/app-test-suite/releases)
 - a working python environment that you can use to install [pipenv](https://pypi.org/project/pipenv/)
-    - if you already have python, it should be enough to run `pip install -U pipenv`
+  - if you already have python, it should be enough to run `pip install -U pipenv`
 - to be able to use the shortest path, you also need a working python 3.8 environment
-    - to avoid problems like missing the specific python version, we highly recommend
-      [`pyenv`](https://github.com/pyenv/pyenv#installation) for managing python environments; once `pyenv` is
-      installed, it's enough to run `pyenv install 3.8.6` to get the python environment you need
+  - to avoid problems like missing the specific python version, we highly recommend
+    [`pyenv`](https://github.com/pyenv/pyenv#installation) for managing python environments; once `pyenv` is
+    installed, it's enough to run `pyenv install 3.8.6` to get the python environment you need
 
 ## Testing your app
 
 ### How does it work?
 
 To get started, it's important to note that `ats` just executes tests, but doesn't implement any tests nor cares about
-how you implement them. The contract is just that `ats` can invoke a specific `pytest` commands for you. If you implement
-your tests using `pytest`, `ats` can start them automatically. More information is
+how you implement them. The contract is just that `ats` can invoke a specific `pytest` commands for you. If you
+implement your tests using `pytest`, `ats` can start them automatically. More information is
 available [here](pytest-test-pipeline.md). You can use `pytest` only, but the recommended way to implement tests for
 running with `ats` is using `pytest` and our plugin called
 [`pytest-helm-charts`](https://github.com/giantswarm/pytest-helm-charts).
@@ -128,8 +128,6 @@ Pipfile  Pipfile.lock  test_example.py
 The simplest test case code in the `test_example.py` file looks like this:
 
 ```python
-from typing import cast
-
 import pytest
 import pykube
 from pytest_helm_charts.fixtures import Cluster

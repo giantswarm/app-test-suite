@@ -2,7 +2,7 @@ import argparse
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import NewType, Optional
+from typing import NewType, Optional, Any
 
 import configargparse
 
@@ -15,8 +15,8 @@ ClusterType = NewType("ClusterType", str)
 class ClusterInfo:
     # cluster type string like "kind" or "eks"
     cluster_type: ClusterType
-    # some cluster providers are used as a proxy to other providers; then the real (end) cluster
-    # type should be put here; example: cluster_type = "external", overridden_cluster_type = "kind"
+    # some cluster providers are used as a proxy to other providers; then the real (end) cluster type
+    # should be put here; example: cluster_type = "external", overridden_cluster_type = "kind"
     overridden_cluster_type: Optional[ClusterType]
     # as defined by cluster provider
     version: str
@@ -37,7 +37,7 @@ class ClusterProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_cluster(self, cluster_type: ClusterType, config: argparse.Namespace, **kwargs) -> ClusterInfo:
+    def get_cluster(self, cluster_type: ClusterType, config: argparse.Namespace, **kwargs: Any) -> ClusterInfo:
         raise NotImplementedError
 
     @abstractmethod

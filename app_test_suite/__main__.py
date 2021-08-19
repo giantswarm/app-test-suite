@@ -16,6 +16,9 @@ ver = "v0.0.0-dev"
 app_name = "app_test_suite"
 logger = logging.getLogger(__name__)
 
+key_cfg_url_option = "--upgrade-tests-app-catalog-url"
+key_cfg_from_version_option = "--upgrade-tests-from-version"
+
 
 def get_version() -> str:
     try:
@@ -61,21 +64,19 @@ def configure_global_options(config_parser: configargparse.ArgParser) -> None:
 
 
 def configure_test_specific_options(config_parser: configargparse.ArgParser) -> None:
-    url_option = "--upgrade-tests-app-catalog-url"
-    from_version_option = "--upgrade-tests-from-version"
     config_parser_group = config_parser.add_argument_group("Upgrade testing options")
     config_parser_group.add_argument(
-        url_option,
+        key_cfg_url_option,
         required=False,
         help="URL of the catalog where the stable version of the app (the version to test upgrade from) is available",
     )
     config_parser_group.add_argument(
-        from_version_option,
+        key_cfg_from_version_option,
         required=False,
         default="latest",
         help=f"Version of the app to test the upgrade from. If not given, the default value of 'latest' is used, which "
         "means latest version available will be detected and used. The version configured must be present "
-        f"in the catalog configured with '{url_option}'.",
+        f"in the catalog configured with '{key_cfg_url_option}'.",
     )
 
 

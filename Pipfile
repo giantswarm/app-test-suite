@@ -14,8 +14,8 @@ pytest-mock = "*"
 #configargparse = "*"
 #gitpython = "*"
 #semver = "*"
-#validators = "*"
-pytest-helm-charts = ">=0.5.1"
+validators = ">=0.18.2"
+pytest-helm-charts = ">=0.5.2"
 step-exec-lib = ">=0.1.0"
 
 [requires]

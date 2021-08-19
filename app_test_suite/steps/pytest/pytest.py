@@ -6,7 +6,9 @@ from abc import ABC
 from typing import cast, List
 
 import configargparse
+import validators.url
 
+from app_test_suite.__main__ import key_cfg_url_option, key_cfg_from_version_option
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import TestError
 from app_test_suite.steps.base_test_runner import (
@@ -16,7 +18,7 @@ from app_test_suite.steps.base_test_runner import (
     context_key_chart_yaml,
 )
 from app_test_suite.steps.types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL, STEP_TEST_UPGRADE
-from step_exec_lib.errors import ValidationError
+from step_exec_lib.errors import ValidationError, ConfigError
 from step_exec_lib.types import Context, StepType
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 from step_exec_lib.utils.processes import run_and_log
@@ -174,7 +176,16 @@ class PytestUpgradeTestRunner(PytestTestRunner):
 
     def pre_run(self, config: argparse.Namespace) -> None:
         super().pre_run(config)
-        # TODO: verify upgrade URL, validate version
+
+        catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_url_option)
+        url_validation_res = validators.url.url(catalog_url)
+        if url_validation_res is not True:
+            raise ConfigError(key_cfg_url_option, f"Wrong catalog URL: '{url_validation_res.args}'")
+
+        app_ver = get_config_value_by_cmd_line_option(config, key_cfg_from_version_option)
+        if not app_ver:
+            raise ConfigError(key_cfg_from_version_option, "Version of app to upgrade from can't be empty")
+
         self._original_value_skip_deploy = get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
         )
@@ -195,6 +206,15 @@ class PytestUpgradeTestRunner(PytestTestRunner):
             config.__setattr__(BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app, False)
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
+        catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_url_option)
+        logger.info(f"Adding new app catalog named 'stable' with URL '{catalog_url}'.")
+        # app_catalog_cr = get_app_catalog_obj("stable", catalog_url, ZONK)
+        # app_catalog_cr.create()
+
+        # app_ver = get_config_value_by_cmd_line_option(config, key_cfg_from_version_option)
+        # if app_ver == "latest":
+        #     app_ver = self._get_latest_app_version()
+
         # TODO:
         # - check if catalog URL is valid and add AppCatalog object for it
         # - if needed, figure out the 'latest' version

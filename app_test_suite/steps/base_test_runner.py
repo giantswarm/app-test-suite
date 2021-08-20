@@ -29,6 +29,8 @@ from step_exec_lib.types import Context, StepType, STEP_ALL
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 from step_exec_lib.utils.processes import run_and_log
 
+TEST_APP_CATALOG_NAME: str = "chartmuseum"
+
 context_key_chart_yaml: str = "chart_yaml"
 context_key_app_cr: str = "app_cr"
 context_key_app_cm_cr: str = "app_cm_cr"
@@ -157,6 +159,7 @@ class BaseTestRunner(BuildStep, ABC):
         self._configured_cluster_config_file = ""
         self._kube_client: Optional[HTTPClient] = None
         self._cluster_info: Optional[ClusterInfo] = None
+        self._default_app_cr_namespace = "default"
 
     @property
     def steps_provided(self) -> Set[StepType]:
@@ -273,7 +276,7 @@ class BaseTestRunner(BuildStep, ABC):
             if not get_config_value_by_cmd_line_option(
                 config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
             ):
-                self._deploy_chart_as_app(config, context)
+                self._deploy_tested_chart_as_app(config, context)
             self.run_tests(config, context)
         except Exception as e:
             raise TestError(f"Application deployment failed: {e}")
@@ -283,10 +286,9 @@ class BaseTestRunner(BuildStep, ABC):
             ):
                 self._delete_app(config, context)
 
-    def _deploy_chart_as_app(self, config: argparse.Namespace, context: Context) -> None:
+    def _deploy_tested_chart_as_app(self, config: argparse.Namespace, context: Context) -> None:
         app_name = context[context_key_chart_yaml]["name"]
         app_version = context[context_key_chart_yaml]["version"]
-        app_cr_namespace = "default"
         deploy_namespace = get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
         )
@@ -294,17 +296,33 @@ class BaseTestRunner(BuildStep, ABC):
             config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
         )
 
+        app_obj = self._deploy_chart(
+            app_name, app_version, deploy_namespace, app_config_file_path, TEST_APP_CATALOG_NAME
+        )
+        context[context_key_app_cr] = app_obj.app
+        context[context_key_app_cm_cr] = app_obj.app_cm
+
+    def _deploy_chart(
+        self, app_name: str, app_version: str, deploy_namespace: str, app_config_file_path: str, app_catalog_name: str
+    ) -> ConfiguredApp:
         config_values = None
         if app_config_file_path:
             with open(app_config_file_path) as f:
-                config_values = f.read()
-
+                config_values_raw = f.read()
+                config_values = yaml.safe_load(config_values_raw)
         app_obj = create_app(
-            self._kube_client, app_name, app_version, "chartmuseum", app_cr_namespace, deploy_namespace, config_values
+            self._kube_client,
+            app_name,
+            app_version,
+            app_catalog_name,
+            self._default_app_cr_namespace,
+            deploy_namespace,
+            config_values,
         )
-        wait_for_apps_to_run(self._kube_client, [app_name], app_cr_namespace, self._app_deployment_timeout_sec)
-        context[context_key_app_cr] = app_obj.app
-        context[context_key_app_cm_cr] = app_obj.app_cm
+        wait_for_apps_to_run(
+            self._kube_client, [app_name], self._default_app_cr_namespace, self._app_deployment_timeout_sec
+        )
+        return app_obj
 
     def _upload_chart_to_app_catalog(self, config: argparse.Namespace, context: Context) -> None:
         # in future, if we want to support multiple chart repositories, we need to make this configurable

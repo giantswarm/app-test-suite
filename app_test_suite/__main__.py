@@ -6,6 +6,12 @@ from typing import List
 import configargparse
 import sys
 
+from app_test_suite.config import (
+    key_cfg_stable_app_url,
+    key_cfg_stable_app_version,
+    key_cfg_stable_app_name,
+    key_cfg_stable_app_config,
+)
 from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
 from app_test_suite.steps.types import ALL_STEPS
 from step_exec_lib.errors import ConfigError
@@ -15,9 +21,6 @@ from step_exec_lib.types import STEP_ALL
 ver = "v0.0.0-dev"
 app_name = "app_test_suite"
 logger = logging.getLogger(__name__)
-
-key_cfg_url_option = "--upgrade-tests-app-catalog-url"
-key_cfg_from_version_option = "--upgrade-tests-from-version"
 
 
 def get_version() -> str:
@@ -66,17 +69,27 @@ def configure_global_options(config_parser: configargparse.ArgParser) -> None:
 def configure_test_specific_options(config_parser: configargparse.ArgParser) -> None:
     config_parser_group = config_parser.add_argument_group("Upgrade testing options")
     config_parser_group.add_argument(
-        key_cfg_url_option,
+        key_cfg_stable_app_url,
         required=False,
         help="URL of the catalog where the stable version of the app (the version to test upgrade from) is available",
     )
     config_parser_group.add_argument(
-        key_cfg_from_version_option,
+        key_cfg_stable_app_name,
+        required=False,
+        help="Name (as used in the app catalog) of the application that is used to test upgrade from.",
+    )
+    config_parser_group.add_argument(
+        key_cfg_stable_app_config,
+        required=False,
+        help="Path for a configuration file (values file) for your app when it's deployed for testing.",
+    )
+    config_parser_group.add_argument(
+        key_cfg_stable_app_version,
         required=False,
         default="latest",
         help=f"Version of the app to test the upgrade from. If not given, the default value of 'latest' is used, which "
         "means latest version available will be detected and used. The version configured must be present "
-        f"in the catalog configured with '{key_cfg_url_option}'.",
+        f"in the catalog configured with '{key_cfg_stable_app_url}'.",
     )
 
 

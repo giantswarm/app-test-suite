@@ -9,6 +9,7 @@ import configargparse
 import validators.url
 import yaml
 from pytest_helm_charts.giantswarm_app_platform.app_catalog import get_app_catalog_obj
+from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_helm_charts.giantswarm_app_platform.utils import delete_app
 
 from app_test_suite.cluster_manager import ClusterManager
@@ -17,6 +18,7 @@ from app_test_suite.config import (
     key_cfg_stable_app_version,
     key_cfg_stable_app_name,
     key_cfg_stable_app_config,
+    key_cfg_upgrade_hook,
 )
 from app_test_suite.errors import TestError
 from app_test_suite.steps.base_test_runner import (
@@ -264,25 +266,16 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         self._run_pytest(stable_chart_url, stable_app_ver, app_cfg_file)
 
         # run the optional upgrade hook
-        self._run_upgrade_hook()
+        self._run_upgrade_hook(config)
 
         # reconfigure App CR to point to the new version UT
-        app_version = context[context_key_chart_yaml]["version"]
-        app_cr.app.obj["spec"]["catalog"] = TEST_APP_CATALOG_NAME
-        app_cr.app.obj["spec"]["version"] = app_version
-
-        config_values = None
         app_config_file_path = get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
         )
-        if app_config_file_path:
-            with open(app_config_file_path) as f:
-                config_values_raw = f.read()
-                config_values = yaml.safe_load(config_values_raw)
-            if app_cr.app_cm.obj["data"]["values"] != config_values:
-                app_cr.app_cm.obj["data"]["values"] = config_values
-                app_cr.app_cm.update()
-        app_cr.app.update()
+        app_version = context[context_key_chart_yaml]["version"]
+        self._upgrade_app_cr(app_cr, app_version, app_config_file_path)
+
+        # TODO: should we run upgrade hook again here?
 
         # run tests again
         self._run_pytest(config.chart_file, app_version, app_config_file_path)
@@ -293,10 +286,26 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         # delete Catalog CR
         app_catalog_cr.delete()
 
+    def _upgrade_app_cr(self, app_cr: ConfiguredApp, app_version: str, app_config_file_path: Optional[str]) -> None:
+        app_cr.app.obj["spec"]["catalog"] = TEST_APP_CATALOG_NAME
+        app_cr.app.obj["spec"]["version"] = app_version
+        if app_config_file_path:
+            with open(app_config_file_path) as f:
+                config_values_raw = f.read()
+                config_values = yaml.safe_load(config_values_raw)
+            if app_cr.app_cm.obj["data"]["values"] != config_values:
+                app_cr.app_cm.obj["data"]["values"] = config_values
+                app_cr.app_cm.update()
+        app_cr.app.update()
+
     def _get_latest_app_version(self, config: argparse.Namespace) -> str:
         # TODO: implement
         raise NotImplementedError()
 
-    def _run_upgrade_hook(self) -> None:
+    def _run_upgrade_hook(self, config: argparse.Namespace) -> None:
         # TODO: implement
-        raise NotImplementedError()
+        upgrade_hook_exe = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)
+        if not upgrade_hook_exe:
+            logger.info("No upgrade test upgrade hook configured. Moving on.")
+            return
+        logger.info(f"Executing upgrade hook: '{upgrade_hook_exe}'.")

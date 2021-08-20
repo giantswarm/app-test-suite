@@ -11,6 +11,7 @@ from app_test_suite.config import (
     key_cfg_stable_app_version,
     key_cfg_stable_app_name,
     key_cfg_stable_app_config,
+    key_cfg_upgrade_hook,
 )
 from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
 from app_test_suite.steps.types import ALL_STEPS
@@ -90,6 +91,12 @@ def configure_test_specific_options(config_parser: configargparse.ArgParser) -> 
         help=f"Version of the app to test the upgrade from. If not given, the default value of 'latest' is used, which "
         "means latest version available will be detected and used. The version configured must be present "
         f"in the catalog configured with '{key_cfg_stable_app_url}'.",
+    )
+    config_parser_group.add_argument(
+        key_cfg_upgrade_hook,
+        required=False,
+        help="A command (executable) that is run after the tests for the stable version of the app completed"
+        " successfully, but before the app is upgraded and tested again.",
     )
 
 

@@ -1,0 +1,138 @@
+import argparse
+import logging
+import os
+import shutil
+from abc import ABC
+from typing import cast, List
+
+import configargparse
+
+from app_test_suite.cluster_manager import ClusterManager
+from app_test_suite.errors import TestError
+from app_test_suite.steps.base_test_runner import (
+    BaseTestRunnersFilteringPipeline,
+    TestInfoProvider,
+    BaseTestRunner,
+    context_key_chart_yaml,
+)
+from app_test_suite.steps.types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL
+from step_exec_lib.errors import ValidationError
+from step_exec_lib.types import Context, StepType
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
+from step_exec_lib.utils.processes import run_and_log
+
+logger = logging.getLogger(__name__)
+
+
+class GotestTestFilteringPipeline(BaseTestRunnersFilteringPipeline):
+    key_config_option_Gotest_dir = "--app-tests-gotest-tests-dir"
+
+    def __init__(self):
+        cluster_manager = ClusterManager()
+        super().__init__(
+            [
+                TestInfoProvider(),
+                GotestSmokeTestRunner(cluster_manager),
+                GotestFunctionalTestRunner(cluster_manager),
+            ],
+            cluster_manager,
+        )
+
+    def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
+        super().initialize_config(config_parser)
+        self._config_parser_group = cast(
+            configargparse.ArgParser,
+            config_parser.add_argument_group("App testing - Gotest specific options"),
+        )
+        self._config_parser_group.add_argument(
+            self.key_config_option_Gotest_dir,
+            required=False,
+            default=os.path.join("tests", "ats"),
+            help="Directory, where Gotest tests source code can be found.",
+        )
+
+
+class GotestTestRunner(BaseTestRunner, ABC):
+    _Gotest_bin = "go"
+
+    def __init__(self, cluster_manager: ClusterManager):
+        super().__init__(cluster_manager)
+        self._skip_tests = False
+        self._Gotest_dir = ""
+
+    def pre_run(self, config: argparse.Namespace) -> None:
+        super().pre_run(config)
+
+        Gotest_dir = get_config_value_by_cmd_line_option(
+            config, GotestTestFilteringPipeline.key_config_option_Gotest_dir
+        )
+        Gotest_dir = os.path.join(os.path.dirname(config.chart_file), Gotest_dir)
+        if not os.path.isdir(Gotest_dir):
+            logger.warning(
+                f"Gotest tests were requested, but the configured test source code directory '{Gotest_dir}'"
+                f" doesn't exist. Skipping Gotest run."
+            )
+            self._skip_tests = True
+            return
+        if not any(f.endswith(".go") for f in cast(List[str], os.listdir(Gotest_dir))):
+            logger.warning(
+                f"Gotest tests were requested, but no go source code file was found in"
+                f" directory '{Gotest_dir}'. Skipping Gotest run."
+            )
+            self._skip_tests = True
+            return
+        self._Gotest_dir = Gotest_dir
+
+    def run_tests(self, config: argparse.Namespace, context: Context) -> None:
+        if self._skip_tests:
+            logger.warning("Not running any Gotest tests, as validation failed in pre_run step.")
+            return
+
+        if not self._cluster_info:
+            raise TestError("Cluster info is missing, can't run tests.")
+
+        app_config_file_path = get_config_value_by_cmd_line_option(
+            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
+        )
+        cluster_type = (
+            self._cluster_info.overridden_cluster_type
+            if self._cluster_info.overridden_cluster_type
+            else self._cluster_info.cluster_type
+        )
+        kube_config = os.path.abspath(self._cluster_info.kube_config_path)
+        cluster_version = self._cluster_info.version
+   
+        env_vars = os.environ.copy()
+        env_vars["E2E_KUBECONFIG"] = kube_config
+
+        args = [
+            self._Gotest_bin,
+            "test",
+            "-v",
+            "-tags=k8srequired",
+            self._Gotest_dir,
+        ]
+        if app_config_file_path:
+            args += ["--values-file", app_config_file_path]
+        logger.info(f"Running {self._Gotest_bin} tool in '{self._Gotest_dir}' directory.")
+        run_res = run_and_log(args, cwd=self._Gotest_dir, env=env_vars)  # nosec, no user input here
+        if run_res.returncode != 0:
+            raise TestError(f"Gotest tests failed: running '{args}' in directory '{self._Gotest_dir}' failed.")
+
+
+class GotestFunctionalTestRunner(GotestTestRunner):
+    def __init__(self, cluster_manager: ClusterManager):
+        super().__init__(cluster_manager)
+
+    @property
+    def test_provided(self) -> StepType:
+        return STEP_TEST_FUNCTIONAL
+
+
+class GotestSmokeTestRunner(GotestTestRunner):
+    def __init__(self, cluster_manager: ClusterManager):
+        super().__init__(cluster_manager)
+
+    @property
+    def test_provided(self) -> StepType:
+        return STEP_TEST_SMOKE

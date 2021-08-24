@@ -10,6 +10,7 @@ from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
 from step_exec_lib.types import STEP_ALL
 
 from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
+from app_test_suite.steps.gotest.gotest import GotestTestFilteringPipeline
 from app_test_suite.steps.types import ALL_STEPS
 
 ver = "v0.0.0-dev"
@@ -29,7 +30,7 @@ def get_version() -> str:
 def get_pipeline() -> List[BuildStepsFilteringPipeline]:
     return [
         # FIXME: once we have more than 1 test engine, this has to be configurable
-        PytestTestFilteringPipeline(),
+        GotestTestFilteringPipeline(),
     ]
 
 

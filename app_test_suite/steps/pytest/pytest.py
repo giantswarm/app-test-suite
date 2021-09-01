@@ -245,7 +245,7 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         has_build_failed: bool,
     ) -> None:
         super().cleanup(config, context, has_build_failed)
-        # restore original value of it wasn't True
+        # restore original value of it wasn't True (see comment in pre_run)
         if not self._original_value_skip_deploy:
             config.__setattr__(
                 get_config_attribute_from_cmd_line_option(
@@ -262,6 +262,7 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
         logger.info(f"Adding new app catalog named '{self._stable_app_catalog_name}' with URL '{catalog_url}'.")
         app_catalog_cr = get_app_catalog_obj(self._stable_app_catalog_name, catalog_url, self._kube_client)
+        logger.debug(f"Creating AppCatalog '{app_catalog_cr.name}' with the stable app version.")
         app_catalog_cr.create()
 
         app_version = context[context_key_chart_yaml]["version"]
@@ -300,9 +301,11 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         self._run_pytest(config.chart_file, app_version, app_config_file_path)
 
         # delete App CR
+        logger.info(f"Deleting App CR '{app_cr.app.name}'.")
         delete_app(app_cr)
 
         # delete Catalog CR
+        logger.debug(f"Deleting AppCatalog '{app_catalog_cr.name}'.")
         app_catalog_cr.delete()
 
         # TODO: save upgrade metadata
@@ -320,6 +323,7 @@ class PytestUpgradeTestRunner(PytestTestRunner):
             if app_cr.app_cm.obj["data"]["values"] != config_values:
                 app_cr.app_cm.obj["data"]["values"] = config_values
                 app_cr.app_cm.update()
+        logger.info("Updating App CR to point to the newer version.")
         app_cr.app.update()
 
     def _get_latest_app_version(self, config: argparse.Namespace) -> str:

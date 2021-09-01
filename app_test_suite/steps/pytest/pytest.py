@@ -13,6 +13,7 @@ from pytest_helm_charts.giantswarm_app_platform.utils import delete_app
 from validators.url import url as validator_url
 
 from app_test_suite.cluster_manager import ClusterManager
+from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
 from app_test_suite.config import (
     key_cfg_stable_app_url,
     key_cfg_stable_app_version,
@@ -215,6 +216,15 @@ class PytestUpgradeTestRunner(PytestTestRunner):
                 "Config file for the app to upgrade from was given, " f"but not found. File name: '{app_cfg_file}'.",
             )
 
+        upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)
+        if upgrade_hook_exe:
+            cmd = upgrade_hook_exe.split(" ")[0]
+            if not shutil.which(cmd):
+                raise ConfigError(
+                    key_cfg_upgrade_hook,
+                    f"Upgrade hook was configured, but '{cmd}' was not " f"found to be a valid executable.",
+                )
+
         self._original_value_skip_deploy = get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
         )
@@ -317,16 +327,32 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         raise NotImplementedError()
 
     def _run_upgrade_hook(
-        self, config: argparse.Namespace, stage_name: str, app_name: str, from_version: str, to_version: str
+        self,
+        config: argparse.Namespace,
+        stage_name: str,
+        app_name: str,
+        from_version: str,
+        to_version: str,
     ) -> None:
         upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)
         if not upgrade_hook_exe:
             logger.info("No upgrade test upgrade hook configured. Moving on.")
             return
+
         logger.info(f"Executing upgrade hook: '{upgrade_hook_exe}' with stage '{stage_name}'.")
+        deploy_namespace = get_config_value_by_cmd_line_option(
+            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
+        )
         args = upgrade_hook_exe.split(" ")
-        args += [stage_name, app_name, from_version, to_version]
-        run_res = run_and_log(args, cwd=self._pytest_dir)  # nosec, no user input here
+        args += [
+            stage_name,
+            app_name,
+            from_version,
+            to_version,
+            cast(ClusterInfo, self._cluster_info).kube_config_path,
+            deploy_namespace,
+        ]
+        run_res = run_and_log(args)  # nosec, user configurable input, but we have to accept it here
         if run_res.returncode != 0:
             raise TestError(
                 f"Upgrade hook for stage '{stage_name}' returned non-zero exit code: '{run_res.returncode}'."

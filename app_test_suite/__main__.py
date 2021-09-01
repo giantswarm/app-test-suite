@@ -9,7 +9,6 @@ import sys
 from app_test_suite.config import (
     key_cfg_stable_app_url,
     key_cfg_stable_app_version,
-    key_cfg_stable_app_name,
     key_cfg_stable_app_config,
     key_cfg_upgrade_hook,
 )
@@ -73,11 +72,6 @@ def configure_test_specific_options(config_parser: configargparse.ArgParser) -> 
         key_cfg_stable_app_url,
         required=False,
         help="URL of the catalog where the stable version of the app (the version to test upgrade from) is available",
-    )
-    config_parser_group.add_argument(
-        key_cfg_stable_app_name,
-        required=False,
-        help="Name (as used in the app catalog) of the application that is used to test upgrade from.",
     )
     config_parser_group.add_argument(
         key_cfg_stable_app_config,

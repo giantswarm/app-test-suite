@@ -16,7 +16,6 @@ from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.config import (
     key_cfg_stable_app_url,
     key_cfg_stable_app_version,
-    key_cfg_stable_app_name,
     key_cfg_stable_app_config,
     key_cfg_upgrade_hook,
 )
@@ -206,10 +205,6 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         if not app_ver:
             raise ConfigError(key_cfg_stable_app_version, "Version of app to upgrade from can't be empty")
 
-        app_name = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_name)
-        if not app_name:
-            raise ConfigError(key_cfg_stable_app_name, "Name of app to upgrade from can't be empty")
-
         app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
         if app_cfg_file and not os.path.isfile(app_cfg_file):
             raise ConfigError(
@@ -217,8 +212,6 @@ class PytestUpgradeTestRunner(PytestTestRunner):
                 "Config file for the app to upgrade from was given, " f"but not found. File name: '{app_cfg_file}'.",
             )
 
-        # TODO: validate that the app name given in the chart UT is the same as stable app app_name
-        # actually, take that from the file name and remove the config option
         self._original_value_skip_deploy = get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
         )
@@ -262,7 +255,7 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         if stable_app_ver == "latest":
             stable_app_ver = self._get_latest_app_version(config)
 
-        app_name = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_name)
+        app_name = context[context_key_chart_yaml]["name"]
         deploy_namespace = get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
         )
@@ -297,6 +290,8 @@ class PytestUpgradeTestRunner(PytestTestRunner):
 
         # delete Catalog CR
         app_catalog_cr.delete()
+
+        # TODO: save upgrade metadata
 
     def _upgrade_app_cr(self, app_cr: ConfiguredApp, app_version: str, app_config_file_path: Optional[str]) -> None:
         app_cr.app.reload()

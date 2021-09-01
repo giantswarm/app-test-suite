@@ -6,6 +6,7 @@ from abc import ABC
 from typing import cast, List, Optional
 
 import configargparse
+import requests
 import yaml
 from pytest_helm_charts.giantswarm_app_platform.app_catalog import get_app_catalog_obj
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
@@ -328,6 +329,11 @@ class PytestUpgradeTestRunner(PytestTestRunner):
 
     def _get_latest_app_version(self, config: argparse.Namespace) -> str:
         # TODO: implement
+        logger.info("Trying to detect latest app version available in the catalog.")
+        catalog_index_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url) + "/index.yaml"
+        logger.debug(f"Trying to download catalog index '{catalog_index_url}'.")
+        index = requests.get(catalog_index_url)
+        print(index)
         raise NotImplementedError()
 
     def _run_upgrade_hook(

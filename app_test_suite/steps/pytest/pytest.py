@@ -6,11 +6,11 @@ from abc import ABC
 from typing import cast, List, Optional
 
 import configargparse
-import validators.url
 import yaml
 from pytest_helm_charts.giantswarm_app_platform.app_catalog import get_app_catalog_obj
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_helm_charts.giantswarm_app_platform.utils import delete_app
+from validators.url import url as validator_url
 
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.config import (
@@ -31,7 +31,7 @@ from app_test_suite.steps.base_test_runner import (
 from app_test_suite.steps.types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL, STEP_TEST_UPGRADE
 from step_exec_lib.errors import ValidationError, ConfigError
 from step_exec_lib.types import Context, StepType
-from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option, get_config_attribute_from_cmd_line_option
 from step_exec_lib.utils.processes import run_and_log
 
 logger = logging.getLogger(__name__)
@@ -196,9 +196,11 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         super().pre_run(config)
 
         catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
-        url_validation_res = validators.url.url(catalog_url)
+        url_validation_res = validator_url(catalog_url)
+        # FIXME: doesn't correctly validate 'http://chartmuseum-chartmuseum:8080/charts/' - needs at least 1 dot in
+        #  the domain name
         if url_validation_res is not True:
-            raise ConfigError(key_cfg_stable_app_url, f"Wrong catalog URL: '{url_validation_res.args}'")
+            raise ConfigError(key_cfg_stable_app_url, f"Wrong catalog URL: '{url_validation_res.args[1]['value']}'")
 
         app_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
         if not app_ver:
@@ -223,7 +225,12 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         # for upgrade testing we need to deploy the stable version of an app first, so we force skipping
         # automated deployment by `PytestTestRunner` here. Original value is restored in `cleanup`.
         if not self._original_value_skip_deploy:
-            config.__setattr__(BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app, True)
+            config.__setattr__(
+                get_config_attribute_from_cmd_line_option(
+                    BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
+                ),
+                True,
+            )
 
     def cleanup(
         self,
@@ -234,7 +241,12 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         super().cleanup(config, context, has_build_failed)
         # restore original value of it wasn't True
         if not self._original_value_skip_deploy:
-            config.__setattr__(BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app, False)
+            config.__setattr__(
+                get_config_attribute_from_cmd_line_option(
+                    BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
+                ),
+                False,
+            )
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         if self._skip_tests:
@@ -287,12 +299,15 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         app_catalog_cr.delete()
 
     def _upgrade_app_cr(self, app_cr: ConfiguredApp, app_version: str, app_config_file_path: Optional[str]) -> None:
+        app_cr.app.reload()
+
         app_cr.app.obj["spec"]["catalog"] = TEST_APP_CATALOG_NAME
         app_cr.app.obj["spec"]["version"] = app_version
         if app_config_file_path:
             with open(app_config_file_path) as f:
                 config_values_raw = f.read()
                 config_values = yaml.safe_load(config_values_raw)
+            app_cr.app_cm.reload()
             if app_cr.app_cm.obj["data"]["values"] != config_values:
                 app_cr.app_cm.obj["data"]["values"] = config_values
                 app_cr.app_cm.update()

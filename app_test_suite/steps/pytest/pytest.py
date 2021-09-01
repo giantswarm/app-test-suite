@@ -35,6 +35,9 @@ from step_exec_lib.utils.processes import run_and_log
 
 logger = logging.getLogger(__name__)
 
+KEY_PRE_UPGRADE = "pre-upgrade"
+KEY_POST_UPGRADE = "post-upgrade"
+
 
 class PytestTestFilteringPipeline(BaseTestRunnersFilteringPipeline):
     key_config_option_pytest_dir = "--app-tests-pytest-tests-dir"
@@ -251,6 +254,7 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         app_catalog_cr = get_app_catalog_obj(self._stable_app_catalog_name, catalog_url, self._kube_client)
         app_catalog_cr.create()
 
+        app_version = context[context_key_chart_yaml]["version"]
         stable_app_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
         if stable_app_ver == "latest":
             stable_app_ver = self._get_latest_app_version(config)
@@ -271,16 +275,16 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         self._run_pytest(stable_chart_url, stable_app_ver, app_cfg_file)
 
         # run the optional upgrade hook
-        self._run_upgrade_hook(config)
+        self._run_upgrade_hook(config, KEY_PRE_UPGRADE, app_name, stable_app_ver, app_version)
 
         # reconfigure App CR to point to the new version UT
         app_config_file_path = get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
         )
-        app_version = context[context_key_chart_yaml]["version"]
         self._upgrade_app_cr(app_cr, app_version, app_config_file_path)
 
-        # TODO: should we run upgrade hook again here?
+        # run the optional upgrade hook
+        self._run_upgrade_hook(config, KEY_POST_UPGRADE, app_name, stable_app_ver, app_version)
 
         # run tests again
         self._run_pytest(config.chart_file, app_version, app_config_file_path)
@@ -312,10 +316,18 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         # TODO: implement
         raise NotImplementedError()
 
-    def _run_upgrade_hook(self, config: argparse.Namespace) -> None:
-        # TODO: implement
-        upgrade_hook_exe = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)
+    def _run_upgrade_hook(
+        self, config: argparse.Namespace, stage_name: str, app_name: str, from_version: str, to_version: str
+    ) -> None:
+        upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)
         if not upgrade_hook_exe:
             logger.info("No upgrade test upgrade hook configured. Moving on.")
             return
-        logger.info(f"Executing upgrade hook: '{upgrade_hook_exe}'.")
+        logger.info(f"Executing upgrade hook: '{upgrade_hook_exe}' with stage '{stage_name}'.")
+        args = upgrade_hook_exe.split(" ")
+        args += [stage_name, app_name, from_version, to_version]
+        run_res = run_and_log(args, cwd=self._pytest_dir)  # nosec, no user input here
+        if run_res.returncode != 0:
+            raise TestError(
+                f"Upgrade hook for stage '{stage_name}' returned non-zero exit code: '{run_res.returncode}'."
+            )

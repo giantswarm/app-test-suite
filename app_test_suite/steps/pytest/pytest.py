@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 from abc import ABC
+from distutils.version import LooseVersion
 from typing import cast, List, Optional
 
 import configargparse
@@ -11,15 +12,18 @@ import yaml
 from pytest_helm_charts.giantswarm_app_platform.app_catalog import get_app_catalog_obj
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_helm_charts.giantswarm_app_platform.utils import delete_app
+from requests import RequestException
 from validators.url import url as validator_url
+from yaml import YAMLError
+from yaml.parser import ParserError
 
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
 from app_test_suite.config import (
-    key_cfg_stable_app_url,
-    key_cfg_stable_app_version,
-    key_cfg_stable_app_config,
     key_cfg_upgrade_hook,
+    key_cfg_stable_app_config,
+    key_cfg_stable_app_version,
+    key_cfg_stable_app_url,
 )
 from app_test_suite.errors import TestError
 from app_test_suite.steps.base_test_runner import (
@@ -187,6 +191,7 @@ class PytestSmokeTestRunner(PytestTestRunner):
 
 
 class PytestUpgradeTestRunner(PytestTestRunner):
+    # TODO: allow to run from local file, not from remote catalog entry
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
         self._original_value_skip_deploy = None
@@ -266,12 +271,12 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         logger.debug(f"Creating AppCatalog '{app_catalog_cr.name}' with the stable app version.")
         app_catalog_cr.create()
 
+        app_name = context[context_key_chart_yaml]["name"]
         app_version = context[context_key_chart_yaml]["version"]
         stable_app_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
         if stable_app_ver == "latest":
-            stable_app_ver = self._get_latest_app_version(config)
+            stable_app_ver = self._get_latest_app_version(catalog_url, app_name)
 
-        app_name = context[context_key_chart_yaml]["name"]
         deploy_namespace = get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
         )
@@ -327,14 +332,39 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         logger.info("Updating App CR to point to the newer version.")
         app_cr.app.update()
 
-    def _get_latest_app_version(self, config: argparse.Namespace) -> str:
-        # TODO: implement
+    def _get_latest_app_version(self, stable_app_catalog_url: str, app_name: str) -> str:
         logger.info("Trying to detect latest app version available in the catalog.")
-        catalog_index_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url) + "/index.yaml"
+        catalog_index_url = stable_app_catalog_url + "/index.yaml"
         logger.debug(f"Trying to download catalog index '{catalog_index_url}'.")
-        index = requests.get(catalog_index_url)
-        print(index)
-        raise NotImplementedError()
+        try:
+            index_response = requests.get(catalog_index_url)
+            if not index_response.ok:
+                raise TestError(
+                    f"Couldn't get the 'index.yaml' fetched from '{catalog_index_url}'. "
+                    f"Reason: [{index_response.status_code}] {index_response.reason}."
+                )
+            index = yaml.safe_load(index_response.text)
+            index_response.close()
+        except RequestException as e:
+            logger.error(
+                f"Error when trying to fetch remote '{catalog_index_url}' to detect what the 'latest'"
+                f" version of the app is: '{e}'."
+            )
+            raise
+        except (YAMLError, ParserError) as e:
+            logger.error(
+                f"Error when trying to parse YAML from a remote '{catalog_index_url}' to detect what"
+                f" the 'latest' version of the app is: '{e}'."
+            )
+            raise
+
+        if "entries" not in index:
+            raise TestError(f"'entries' field was not found in the 'index.yaml' fetched from '{catalog_index_url}'.")
+        if app_name not in index["entries"]:
+            raise TestError(f"App '{app_name}' was not found in the 'index.yaml' fetched from '{catalog_index_url}'.")
+        versions = [e["version"] for e in index["entries"][app_name]]
+        versions.sort(key=LooseVersion, reverse=True)
+        return versions[0]
 
     def _run_upgrade_hook(
         self,

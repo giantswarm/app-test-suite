@@ -270,7 +270,7 @@ class BaseTestRunner(BuildStep, ABC):
 
         # prepare app platform and upload artifacts
         self._ensure_app_platform_ready(self._cluster_info.kube_config_path)
-        self._upload_chart_to_app_catalog(config, context)
+        self._upload_chart_to_app_catalog(config, config.chart_file)
 
         try:
             if not get_config_value_by_cmd_line_option(
@@ -324,10 +324,10 @@ class BaseTestRunner(BuildStep, ABC):
         )
         return app_obj
 
-    def _upload_chart_to_app_catalog(self, config: argparse.Namespace, context: Context) -> None:
+    def _upload_chart_to_app_catalog(self, config: argparse.Namespace, chart_file_path: str) -> None:
         # in future, if we want to support multiple chart repositories, we need to make this configurable
         # right now, static dependency will do
-        ChartMuseumAppRepository(self._kube_client).upload_artifacts(config, context)
+        ChartMuseumAppRepository(self._kube_client).upload_artifact(config, chart_file_path)
 
     # noinspection PyMethodMayBeStatic
     def _delete_app(self, config: argparse.Namespace, context: Context) -> None:

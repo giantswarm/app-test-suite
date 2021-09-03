@@ -5,6 +5,12 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Added
+  - new test type - upgrade test
+
+- Changed
+  - changed interface for the `AppRepository` class
+
 ## [0.1.2]
 
 ### Changed

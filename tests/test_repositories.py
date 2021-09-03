@@ -22,7 +22,7 @@ class TestChartMuseumRepository:
 
         cmr = ChartMuseumAppRepository(mock_client)
         mocker.patch("builtins.open", mocker.mock_open(read_data="test"))
-        cmr.upload_artifacts(config, {})
+        cmr.upload_artifact(config, "")
 
         app_test_suite.steps.repositories.Service.objects.called_once_with(mock_client)
         filter_mock.filter.assert_called_once_with(namespace="giantswarm")

@@ -67,7 +67,7 @@ def test_pytest_runner_run(mocker: MockerFixture) -> None:
     )
     # uploaded the correct chart to chart repository
     cast(
-        unittest.mock.Mock, app_test_suite.steps.base_test_runner.ChartMuseumAppRepository.upload_artifacts
+        unittest.mock.Mock, app_test_suite.steps.base_test_runner.ChartMuseumAppRepository.upload_artifact
     ).assert_called_once_with(config, context)
     # deploys app cr and waits for it to run
     cast(unittest.mock.Mock, app_test_suite.steps.base_test_runner.create_app).assert_called_once_with(

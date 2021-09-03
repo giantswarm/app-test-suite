@@ -11,6 +11,7 @@ from app_test_suite.config import (
     key_cfg_stable_app_version,
     key_cfg_stable_app_config,
     key_cfg_upgrade_hook,
+    key_cfg_stable_app_file,
 )
 from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
 from app_test_suite.steps.types import ALL_STEPS
@@ -68,10 +69,18 @@ def configure_global_options(config_parser: configargparse.ArgParser) -> None:
 
 def configure_test_specific_options(config_parser: configargparse.ArgParser) -> None:
     config_parser_group = config_parser.add_argument_group("Upgrade testing options")
-    config_parser_group.add_argument(
+    app_source_group = config_parser_group.add_mutually_exclusive_group()
+    app_source_group.add_argument(
         key_cfg_stable_app_url,
         required=False,
-        help="URL of the catalog where the stable version of the app (the version to test upgrade from) is available",
+        help="URL of the catalog where the stable version of the app (the version to test upgrade from) is available. "
+        f"Mutually exclusive with '{key_cfg_stable_app_file}'.",
+    )
+    app_source_group.add_argument(
+        key_cfg_stable_app_file,
+        required=False,
+        help="Local file name with the stable version of the app (the version to test upgrade from). "
+        f"Mutually exclusive with '{key_cfg_stable_app_url}'.",
     )
     config_parser_group.add_argument(
         key_cfg_stable_app_config,
@@ -84,7 +93,8 @@ def configure_test_specific_options(config_parser: configargparse.ArgParser) -> 
         default="latest",
         help=f"Version of the app to test the upgrade from. If not given, the default value of 'latest' is used, which "
         "means latest version available will be detected and used. The version configured must be present "
-        f"in the catalog configured with '{key_cfg_stable_app_url}'.",
+        f"in the catalog configured with '{key_cfg_stable_app_url}'. "
+        f"Used only if '{key_cfg_stable_app_url} is used.'",
     )
     config_parser_group.add_argument(
         key_cfg_upgrade_hook,

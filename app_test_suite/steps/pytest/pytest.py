@@ -1,15 +1,18 @@
 import argparse
 import logging
 import os
+import re
 import shutil
 from abc import ABC
 from distutils.version import LooseVersion
-from typing import cast, List, Optional
+from re import Match
+from typing import cast, List, Optional, Tuple
 
 import configargparse
 import requests
 import yaml
 from pytest_helm_charts.giantswarm_app_platform.app_catalog import get_app_catalog_obj
+from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCatalogCR
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_helm_charts.giantswarm_app_platform.utils import delete_app
 from requests import RequestException
@@ -24,6 +27,7 @@ from app_test_suite.config import (
     key_cfg_stable_app_config,
     key_cfg_stable_app_version,
     key_cfg_stable_app_url,
+    key_cfg_stable_app_file,
 )
 from app_test_suite.errors import TestError
 from app_test_suite.steps.base_test_runner import (
@@ -191,11 +195,13 @@ class PytestSmokeTestRunner(PytestTestRunner):
 
 
 class PytestUpgradeTestRunner(PytestTestRunner):
-    # TODO: allow to run from local file, not from remote catalog entry
+    _STABLE_APP_CATALOG_NAME = "stable"
+
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
         self._original_value_skip_deploy = None
-        self._stable_app_catalog_name = "stable"
+        self._stable_from_local_file = False
+        self._semver_regex_match = re.compile(r"^.+((0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*).*\.tgz)$")
 
     @property
     def test_provided(self) -> StepType:
@@ -205,15 +211,30 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         super().pre_run(config)
 
         catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
-        url_validation_res = validator_url(catalog_url)
-        # FIXME: doesn't correctly validate 'http://chartmuseum-chartmuseum:8080/charts/' - needs at least 1 dot in
-        #  the domain name
-        if url_validation_res is not True:
-            raise ConfigError(key_cfg_stable_app_url, f"Wrong catalog URL: '{url_validation_res.args[1]['value']}'")
+        stable_chart_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_file)
+        if catalog_url:
+            url_validation_res = validator_url(catalog_url)
+            # FIXME: doesn't correctly validate 'http://chartmuseum-chartmuseum:8080/charts/' - needs at least 1 dot in
+            #  the domain name
+            if url_validation_res is not True:
+                raise ConfigError(key_cfg_stable_app_url, f"Wrong catalog URL: '{url_validation_res.args[1]['value']}'")
 
-        app_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
-        if not app_ver:
-            raise ConfigError(key_cfg_stable_app_version, "Version of app to upgrade from can't be empty")
+            app_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
+            if not app_ver:
+                raise ConfigError(key_cfg_stable_app_version, "Version of app to upgrade from can't be empty")
+        elif stable_chart_file:
+            if not os.path.isfile(stable_chart_file):
+                raise ConfigError(
+                    key_cfg_stable_app_file,
+                    f"Upgrade test from a stable chart in file '{stable_chart_file}' was requested, but "
+                    "the file doesn't exist.",
+                )
+            self._stable_from_local_file = True
+        else:
+            raise ConfigError(
+                f"{key_cfg_stable_app_url},{key_cfg_stable_app_file}",
+                "Exactly one of these options must be configured.",
+            )
 
         app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
         if app_cfg_file and not os.path.isfile(app_cfg_file):
@@ -260,22 +281,37 @@ class PytestUpgradeTestRunner(PytestTestRunner):
                 False,
             )
 
+    def _prepare_stable_app(self, config: argparse.Namespace, app_name: str) -> Tuple[str, str, str]:
+        if self._stable_from_local_file:
+            # upload file to existing catalog
+            stable_chart_file_path = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_file)
+            self._upload_chart_to_app_catalog(config, stable_chart_file_path)
+            app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_by_name(TEST_APP_CATALOG_NAME)
+            stable_ver_match = self._semver_regex_match.fullmatch(stable_chart_file_path)
+            stable_app_version = cast(Match, stable_ver_match).group(0)
+            return stable_app_version, TEST_APP_CATALOG_NAME, app_catalog_cr.obj["spec"]["storage"]["URL"]
+
+        catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
+        logger.info(f"Adding new app catalog named '{self._STABLE_APP_CATALOG_NAME}' with URL '{catalog_url}'.")
+        app_catalog_cr = get_app_catalog_obj(self._STABLE_APP_CATALOG_NAME, catalog_url, self._kube_client)
+        logger.debug(f"Creating AppCatalog '{app_catalog_cr.name}' with the stable app version.")
+        app_catalog_cr.create()
+
+        stable_app_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
+        if stable_app_ver == "latest":
+            stable_app_ver = self._get_latest_app_version(catalog_url, app_name)
+
+        return stable_app_ver, self._STABLE_APP_CATALOG_NAME, catalog_url
+
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         if self._skip_tests:
             logger.warning("Not running any pytest tests, as validation failed in pre_run step.")
             return
 
-        catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
-        logger.info(f"Adding new app catalog named '{self._stable_app_catalog_name}' with URL '{catalog_url}'.")
-        app_catalog_cr = get_app_catalog_obj(self._stable_app_catalog_name, catalog_url, self._kube_client)
-        logger.debug(f"Creating AppCatalog '{app_catalog_cr.name}' with the stable app version.")
-        app_catalog_cr.create()
-
         app_name = context[context_key_chart_yaml]["name"]
         app_version = context[context_key_chart_yaml]["version"]
-        stable_app_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
-        if stable_app_ver == "latest":
-            stable_app_ver = self._get_latest_app_version(catalog_url, app_name)
+
+        stable_app_ver, stable_app_catalog_name, stable_app_catalog_url = self._prepare_stable_app(config, app_name)
 
         deploy_namespace = get_config_value_by_cmd_line_option(
             config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
@@ -284,11 +320,11 @@ class PytestUpgradeTestRunner(PytestTestRunner):
 
         # deploy the stable version
         app_cr = self._deploy_chart(
-            app_name, stable_app_ver, deploy_namespace, app_cfg_file, self._stable_app_catalog_name
+            app_name, stable_app_ver, deploy_namespace, app_cfg_file, self._STABLE_APP_CATALOG_NAME
         )
 
         # run tests
-        stable_chart_url = f"{catalog_url}/{app_name}-{stable_app_ver}.tar.gz"
+        stable_chart_url = f"{stable_app_catalog_url}/{app_name}-{stable_app_ver}.tar.gz"
         self._run_pytest(stable_chart_url, stable_app_ver, app_cfg_file)
 
         # run the optional upgrade hook
@@ -310,9 +346,11 @@ class PytestUpgradeTestRunner(PytestTestRunner):
         logger.info(f"Deleting App CR '{app_cr.app.name}'.")
         delete_app(app_cr)
 
-        # delete Catalog CR
-        logger.debug(f"Deleting AppCatalog '{app_catalog_cr.name}'.")
-        app_catalog_cr.delete()
+        # delete Catalog CR, if it was created
+        app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_or_none(self._STABLE_APP_CATALOG_NAME)
+        if app_catalog_cr:
+            logger.debug(f"Deleting AppCatalog '{app_catalog_cr.name}'.")
+            app_catalog_cr.delete()
 
         # TODO: save upgrade metadata
 

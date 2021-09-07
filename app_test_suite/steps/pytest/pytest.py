@@ -198,9 +198,7 @@ class PytestTestRunner(PytestTestRunnerConfigAndValidationMixin, BaseTestRunner,
             test_type=self.test_provided,
             test_dir=self._pytest_dir,
         )
-        # self._create_virtualenv()
         self.prepare_test_environment(exec_info)
-        # self._run_pytest(config.chart_file, context[context_key_chart_yaml]["version"], app_config_file_path)
         self.execute_test(exec_info)
 
 
@@ -470,11 +468,15 @@ class BaseUpgradeTestRunner(BaseTestRunner):
         raise NotImplementedError()
 
 
-class PytestUpgradeTestRunner(BaseUpgradeTestRunner):
+class PytestUpgradeTestRunner(PytestTestRunnerConfigAndValidationMixin, BaseUpgradeTestRunner):
     def __init__(self, cluster_manager: ClusterManager):
         test_executor = PytestExecutor()
         super().__init__(cluster_manager, test_executor)
         self._pytest_dir = ""
+
+    def pre_run(self, config: argparse.Namespace) -> None:
+        super().pre_run(config)
+        self.validate_pytest(config, self.name)
 
     def _get_test_exec_info(self, chart_path: str, chart_ver: str, chart_config_file: str) -> TestExecInfo:
         cluster_info = cast(ClusterInfo, self._cluster_info)

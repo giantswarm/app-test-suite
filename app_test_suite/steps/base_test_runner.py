@@ -182,6 +182,17 @@ class BaseTestRunner(BuildStep, ABC):
     def _config_cluster_config_file_attribute_name(self) -> str:
         return f"--{self.test_provided}-tests-cluster-config-file"
 
+    @property
+    def _test_cluster_type(self) -> str:
+        if self._cluster_info is None:
+            raise ValueError("_cluster_info can't be None")
+        cluster_type = (
+            self._cluster_info.overridden_cluster_type
+            if self._cluster_info.overridden_cluster_type
+            else self._cluster_info.cluster_type
+        )
+        return cluster_type
+
     def _ensure_app_platform_ready(self, kube_config_path: str) -> None:
         """
         Ensures that app platform components are already running in the requested cluster.

@@ -470,7 +470,7 @@ class BaseUpgradeTestRunner(BaseTestRunner):
         raise NotImplementedError()
 
 
-class PytestUpgradeTestRunner(BaseUpgradeTestRunner, PytestExecutor):
+class PytestUpgradeTestRunner(BaseUpgradeTestRunner):
     def __init__(self, cluster_manager: ClusterManager):
         test_executor = PytestExecutor()
         super().__init__(cluster_manager, test_executor)

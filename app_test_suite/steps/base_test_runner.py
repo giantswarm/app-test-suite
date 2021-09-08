@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from tempfile import TemporaryDirectory
 from typing import Set, Optional, List, cast
 
@@ -355,3 +356,26 @@ class BaseTestRunner(BuildStep, ABC):
         delete_app(ConfiguredApp(app_obj, values_cm))
         wait_for_app_to_be_deleted(self._kube_client, app_obj.name, app_obj.namespace, self._app_deletion_timeout_sec)
         logger.info("Application deleted")
+
+
+@dataclass
+class TestExecInfo:
+    chart_path: str
+    chart_ver: str
+    app_config_file_path: Optional[str]
+    cluster_type: str
+    cluster_version: str
+    kube_config_path: str
+    test_type: str
+    test_dir: str
+
+
+class TestExecutor(ABC):
+    def validate(self, config: argparse.Namespace, module_name: str) -> None:
+        raise NotImplementedError()
+
+    def execute_test(self, exec_info: TestExecInfo) -> None:
+        raise NotImplementedError()
+
+    def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
+        raise NotImplementedError()

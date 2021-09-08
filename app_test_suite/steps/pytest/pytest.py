@@ -38,7 +38,7 @@ from app_test_suite.steps.base_test_runner import (
     context_key_chart_yaml,
     TEST_APP_CATALOG_NAME,
 )
-from app_test_suite.steps.types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL, STEP_TEST_UPGRADE
+from app_test_suite.steps.test_types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL, STEP_TEST_UPGRADE
 from step_exec_lib.errors import ValidationError, ConfigError
 from step_exec_lib.types import Context, StepType
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option, get_config_attribute_from_cmd_line_option

@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Set
 import configargparse
 
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType, ClusterProvider
-from app_test_suite.steps.types import TEST_TYPE_ALL, config_option_cluster_type_for_test_type
+from app_test_suite.steps.test_types import TEST_TYPE_ALL, config_option_cluster_type_for_test_type
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 
 logger = logging.getLogger(__name__)

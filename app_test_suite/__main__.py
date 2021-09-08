@@ -14,7 +14,7 @@ from app_test_suite.config import (
     key_cfg_stable_app_file,
 )
 from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
-from app_test_suite.steps.types import ALL_STEPS
+from app_test_suite.steps.test_types import ALL_STEPS
 from step_exec_lib.errors import ConfigError
 from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
 from step_exec_lib.types import STEP_ALL

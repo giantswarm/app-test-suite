@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import re
 import shutil
@@ -35,7 +36,6 @@ from app_test_suite.steps.base_test_runner import (
     context_key_chart_yaml,
     TestExecInfo,
 )
-from app_test_suite.steps.pytest.pytest import logger
 from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
 from step_exec_lib.errors import ConfigError
 from step_exec_lib.types import StepType, Context
@@ -44,6 +44,8 @@ from step_exec_lib.utils.processes import run_and_log
 
 KEY_PRE_UPGRADE = "pre-upgrade"
 KEY_POST_UPGRADE = "post-upgrade"
+
+logger = logging.getLogger(__name__)
 
 
 class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):

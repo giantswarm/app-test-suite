@@ -7,7 +7,7 @@ from abc import ABC
 from dataclasses import dataclass
 from distutils.version import LooseVersion
 from re import Match
-from typing import cast, List, Optional, Tuple
+from typing import cast, List, Optional, Tuple, Any
 
 import configargparse
 import requests
@@ -92,6 +92,9 @@ class TestExecInfo:
 
 
 class TestExecutor(ABC):
+    def validate(self, config: argparse.Namespace, module_name: str) -> None:
+        raise NotImplementedError()
+
     def execute_test(self, exec_info: TestExecInfo) -> None:
         raise NotImplementedError()
 
@@ -99,9 +102,15 @@ class TestExecutor(ABC):
         raise NotImplementedError()
 
 
-class PytestExecutor(TestExecutor):
+class PytestExecutorMixin(TestExecutor):
     _PIPENV_BIN = "pipenv"
     _PYTEST_BIN = "pytest"
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # This class is intended to be used as a mixin, that forwards constructor call to any other type
+        #  inherited from except the mixin itself.
+        super().__init__(*args, **kwargs)  # type: ignore
+        self._pytest_dir = ""
 
     def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
         args = [self._PIPENV_BIN, "install", "--deploy"]
@@ -109,9 +118,13 @@ class PytestExecutor(TestExecutor):
             f"Running {self._PIPENV_BIN} tool in '{exec_info.test_dir}' directory to install virtual env "
             f"for running tests."
         )
-        run_res = run_and_log(args, cwd=exec_info.test_dir)  # nosec, no user input here
+        pipenv_env = os.environ
+        pipenv_env["PIPENV_IGNORE_VIRTUALENVS"] = "1"
+
+        run_res = run_and_log(args, cwd=exec_info.test_dir, env=pipenv_env)  # nosec, no user input here
         if run_res.returncode != 0:
             raise TestError(f"Running '{args}' in directory '{exec_info.test_dir}' failed.")
+        run_and_log([self._PIPENV_BIN, "--venv"], cwd=exec_info.test_dir)  # nosec, no user input here
 
     def execute_test(self, exec_info: TestExecInfo) -> None:
         args = [
@@ -137,15 +150,12 @@ class PytestExecutor(TestExecutor):
         if exec_info.app_config_file_path:
             args += ["--values-file", exec_info.app_config_file_path]
         logger.info(f"Running {self._PYTEST_BIN} tool in '{exec_info.test_dir}' directory.")
+        run_and_log([self._PIPENV_BIN, "--venv"], cwd=exec_info.test_dir)  # nosec, no user input here
         run_res = run_and_log(args, cwd=exec_info.test_dir)  # nosec, no user input here
         if run_res.returncode != 0:
             raise TestError(f"Pytest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
 
-
-class PytestTestRunnerConfigAndValidationMixin:
-    _pipenv_bin = "pipenv"
-
-    def validate_pytest(self, config: argparse.Namespace, module_name: str) -> str:
+    def validate(self, config: argparse.Namespace, module_name: str) -> None:
         pytest_dir = get_config_value_by_cmd_line_option(
             config, PytestTestFilteringPipeline.key_config_option_pytest_dir
         )
@@ -162,26 +172,25 @@ class PytestTestRunnerConfigAndValidationMixin:
                 f"Pytest tests were requested, but no python source code file was found in"
                 f" directory '{pytest_dir}'.",
             )
-        if shutil.which(self._pipenv_bin) is None:
+        if shutil.which(self._PIPENV_BIN) is None:
             raise ValidationError(
                 module_name,
-                f"In order to install pytest virtual env, you need to have " f"'{self._pipenv_bin}' installed.",
+                f"In order to install pytest virtual env, you need to have " f"'{self._PIPENV_BIN}' installed.",
             )
-        return pytest_dir
+        self._pytest_dir = pytest_dir
 
 
-class PytestTestRunner(PytestTestRunnerConfigAndValidationMixin, BaseTestRunner, ABC):
+class PytestTestRunner(PytestExecutorMixin, BaseTestRunner, ABC):
     _pipenv_bin = "pipenv"
     _pytest_bin = "pytest"
 
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
-        self._test_executor = PytestExecutor()
         self._pytest_dir = ""
 
     def pre_run(self, config: argparse.Namespace) -> None:
         super().pre_run(config)
-        self._pytest_dir = self.validate_pytest(config, self.name)
+        self.validate(config, self.name)
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         app_config_file_path = get_config_value_by_cmd_line_option(
@@ -220,15 +229,14 @@ class PytestSmokeTestRunner(PytestTestRunner):
         return STEP_TEST_SMOKE
 
 
-class BaseUpgradeTestRunner(BaseTestRunner):
+class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
     _STABLE_APP_CATALOG_NAME = "stable"
 
-    def __init__(self, cluster_manager: ClusterManager, test_executor: TestExecutor):
+    def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
-        self._test_executor = test_executor
         self._original_value_skip_deploy = None
         self._stable_from_local_file = False
-        self._semver_regex_match = re.compile(r"^.+((0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*).*\.tgz)$")
+        self._semver_regex_match = re.compile(r"^.+((0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*).*)\.tgz$")
 
     @property
     def test_provided(self) -> StepType:
@@ -315,7 +323,7 @@ class BaseUpgradeTestRunner(BaseTestRunner):
             self._upload_chart_to_app_catalog(config, stable_chart_file_path)
             app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_by_name(TEST_APP_CATALOG_NAME)
             stable_ver_match = self._semver_regex_match.fullmatch(stable_chart_file_path)
-            stable_app_version = cast(Match, stable_ver_match).group(0)
+            stable_app_version = cast(Match, stable_ver_match).group(1)
             return stable_app_version, TEST_APP_CATALOG_NAME, app_catalog_cr.obj["spec"]["storage"]["URL"]
 
         catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
@@ -342,15 +350,13 @@ class BaseUpgradeTestRunner(BaseTestRunner):
         app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
 
         # deploy the stable version
-        app_cr = self._deploy_chart(
-            app_name, stable_app_ver, deploy_namespace, app_cfg_file, self._STABLE_APP_CATALOG_NAME
-        )
+        app_cr = self._deploy_chart(app_name, stable_app_ver, deploy_namespace, app_cfg_file, stable_app_catalog_name)
 
         # run tests
         stable_chart_url = f"{stable_app_catalog_url}/{app_name}-{stable_app_ver}.tar.gz"
         exec_info = self._get_test_exec_info(stable_chart_url, stable_app_ver, app_cfg_file)
-        self._test_executor.prepare_test_environment(exec_info)
-        self._test_executor.execute_test(exec_info)
+        self.prepare_test_environment(exec_info)
+        self.execute_test(exec_info)
 
         # run the optional upgrade hook
         self._run_upgrade_hook(config, KEY_PRE_UPGRADE, app_name, stable_app_ver, app_version)
@@ -368,14 +374,14 @@ class BaseUpgradeTestRunner(BaseTestRunner):
         exec_info.chart_path = config.chart_file
         exec_info.chart_ver = app_version
         exec_info.app_config_file_path = app_config_file_path
-        self._test_executor.execute_test(exec_info)
+        self.execute_test(exec_info)
 
         # delete App CR
         logger.info(f"Deleting App CR '{app_cr.app.name}'.")
         delete_app(app_cr)
 
         # delete Catalog CR, if it was created
-        app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_or_none(self._STABLE_APP_CATALOG_NAME)
+        app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_or_none(name=self._STABLE_APP_CATALOG_NAME)
         if app_catalog_cr:
             logger.debug(f"Deleting AppCatalog '{app_catalog_cr.name}'.")
             app_catalog_cr.delete()
@@ -442,7 +448,7 @@ class BaseUpgradeTestRunner(BaseTestRunner):
     ) -> None:
         upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)
         if not upgrade_hook_exe:
-            logger.info("No upgrade test upgrade hook configured. Moving on.")
+            logger.info(f"No upgrade test {stage_name} hook configured. Moving on.")
             return
 
         logger.info(f"Executing upgrade hook: '{upgrade_hook_exe}' with stage '{stage_name}'.")
@@ -468,15 +474,13 @@ class BaseUpgradeTestRunner(BaseTestRunner):
         raise NotImplementedError()
 
 
-class PytestUpgradeTestRunner(PytestTestRunnerConfigAndValidationMixin, BaseUpgradeTestRunner):
+class PytestUpgradeTestRunner(PytestExecutorMixin, BaseUpgradeTestRunner):
     def __init__(self, cluster_manager: ClusterManager):
-        test_executor = PytestExecutor()
-        super().__init__(cluster_manager, test_executor)
-        self._pytest_dir = ""
+        super().__init__(cluster_manager)
 
     def pre_run(self, config: argparse.Namespace) -> None:
         super().pre_run(config)
-        self.validate_pytest(config, self.name)
+        self.validate(config, self.name)
 
     def _get_test_exec_info(self, chart_path: str, chart_ver: str, chart_config_file: str) -> TestExecInfo:
         cluster_info = cast(ClusterInfo, self._cluster_info)

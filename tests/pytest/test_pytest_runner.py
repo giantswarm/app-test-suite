@@ -41,7 +41,7 @@ def test_pytest_runner_run(mocker: MockerFixture) -> None:
     system_call_result_mock = mocker.Mock(name="SysCallResult")
     type(system_call_result_mock).returncode = mocker.PropertyMock(return_value=0)
     mocker.patch("app_test_suite.steps.base_test_runner.run_and_log", return_value=system_call_result_mock)
-    mocker.patch("app_test_suite.steps.base_test_runner.ChartMuseumAppRepository.upload_artifacts")
+    mocker.patch("app_test_suite.steps.base_test_runner.ChartMuseumAppRepository.upload_artifact")
     mocker.patch("app_test_suite.steps.base_test_runner.create_app")
     mocker.patch("app_test_suite.steps.base_test_runner.wait_for_apps_to_run")
     mocker.patch("app_test_suite.steps.base_test_runner.delete_app")
@@ -49,11 +49,12 @@ def test_pytest_runner_run(mocker: MockerFixture) -> None:
 
     mocker.patch("app_test_suite.steps.pytest.pytest.run_and_log", return_value=system_call_result_mock)
 
+    mock_chart_file_name = "mock_chart.tar.gz"
     config = mocker.Mock(name="ConfigMock")
     config.app_tests_skip_app_deploy = False
     config.app_tests_deploy_namespace = mock_app_deploy_ns
     config.app_tests_app_config_file = ""
-    config.chart_file = "mock_chart.tar.gz"
+    config.chart_file = mock_chart_file_name
     context = {context_key_chart_yaml: {"name": mock_app_name, "version": mock_app_version}}
     runner = PytestTestTimeRunner(mock_cluster_manager)
     runner.run(config, context)
@@ -68,7 +69,7 @@ def test_pytest_runner_run(mocker: MockerFixture) -> None:
     # uploaded the correct chart to chart repository
     cast(
         unittest.mock.Mock, app_test_suite.steps.base_test_runner.ChartMuseumAppRepository.upload_artifact
-    ).assert_called_once_with(config, context)
+    ).assert_called_once_with(config, mock_chart_file_name)
     # deploys app cr and waits for it to run
     cast(unittest.mock.Mock, app_test_suite.steps.base_test_runner.create_app).assert_called_once_with(
         unittest.mock.ANY, mock_app_name, mock_app_version, "chartmuseum", "default", mock_app_deploy_ns, None

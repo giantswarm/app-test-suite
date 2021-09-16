@@ -1,6 +1,6 @@
 #!/bin/sh
 
-DATS_TAG=${DATS_TAG:-"latest"}
+DATS_TAG=${DATS_TAG:-"0.1.3"}
 
 docker run -it --rm \
   -e USE_UID="$(id -u "${USER}")" \

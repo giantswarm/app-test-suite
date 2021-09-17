@@ -294,7 +294,7 @@ class BaseTestRunner(BuildStep, ABC):
         config_values = None
         if app_config_file_path:
             with open(app_config_file_path) as f:
-                config_values = f.read()
+                config_values = yaml.safe_load(f)
 
         app_obj = create_app(
             self._kube_client, app_name, app_version, "chartmuseum", app_cr_namespace, deploy_namespace, config_values

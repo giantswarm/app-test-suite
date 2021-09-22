@@ -28,6 +28,7 @@ mock_kube_config_path = "/nonexisting-flsdhge235/kube.config"
 mock_app_name = "mock_app"
 mock_app_deploy_ns = "mock_deploy_ns"
 mock_app_version = "1.2.3"
+mock_chart_file_name = "mock_chart.tar.gz"
 
 
 def test_pytest_runner_run(mocker: MockerFixture) -> None:
@@ -49,7 +50,6 @@ def test_pytest_runner_run(mocker: MockerFixture) -> None:
 
     mocker.patch("app_test_suite.steps.pytest.pytest.run_and_log", return_value=system_call_result_mock)
 
-    mock_chart_file_name = "mock_chart.tar.gz"
     config = mocker.Mock(name="ConfigMock")
     config.app_tests_skip_app_deploy = False
     config.app_tests_deploy_namespace = mock_app_deploy_ns

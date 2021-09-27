@@ -78,11 +78,10 @@ class GotestExecutorMixin(TestExecutor):
             "test",
             "-v",
             "-tags",
-            "k8srequired",
-            # exec_info.test_type,
+            exec_info.test_type,
         ]
         logger.info(f"Running {self._GOTEST_BIN} tool in '{exec_info.test_dir}' directory.")
-        run_res = run_and_log(args, cwd=exec_info.test_dir)  # nosec, no user input here
+        run_res = run_and_log(args, cwd=exec_info.test_dir, env=env_vars)  # nosec, no user input here
         if run_res.returncode != 0:
             raise TestError(f"Gotest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
 

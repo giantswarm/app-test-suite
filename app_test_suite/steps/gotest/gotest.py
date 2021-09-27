@@ -106,8 +106,6 @@ class GotestExecutorMixin(TestExecutor):
 
 
 class GotestTestRunner(GotestExecutorMixin, BaseTestRunner, ABC):
-    _gotest_bin = "gotest"
-
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
         self._gotest_dir = ""

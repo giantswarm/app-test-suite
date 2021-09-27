@@ -1,5 +1,5 @@
-//go:build k8srequired
-// +build k8srequired
+//go:build smoke
+// +build smoke
 
 package metrics
 

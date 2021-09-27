@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	namespace   = "giantswarm"
+	namespace   = metav1.NamespaceDefault
 	projectName = "app-exporter"
 	serverPort  = 8000
 )

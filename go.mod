@@ -1,10 +1,10 @@
 module github.com/giantswarm/app-test-suite
 
-go 1.17
+go 1.16
 
 require (
 	github.com/giantswarm/apiextensions/v3 v3.32.0
-	github.com/giantswarm/apptest v0.11.1-0.20210818101731-a83be2ef13a6
+	github.com/giantswarm/apptest v0.12.0
 	github.com/giantswarm/backoff v0.2.0
 	github.com/giantswarm/k8sportforward/v2 v2.0.0
 	github.com/giantswarm/microerror v0.3.0

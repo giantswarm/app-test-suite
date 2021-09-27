@@ -14,7 +14,7 @@ from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCatal
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_helm_charts.giantswarm_app_platform.utils import delete_app
 from requests import RequestException
-from validators import url as validator_url
+# from validators import url as validator_url
 from yaml import YAMLError
 from yaml.parser import ParserError
 

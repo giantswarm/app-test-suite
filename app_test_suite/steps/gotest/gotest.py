@@ -71,7 +71,16 @@ class GotestExecutorMixin(TestExecutor):
 
     def execute_test(self, exec_info: TestExecInfo) -> None:
         env_vars = os.environ.copy()
-        env_vars["E2E_KUBECONFIG"] = exec_info.kube_config_path
+        env_vars["ATS_CHART_PATH"] = exec_info.chart_path
+        env_vars["ATS_CHART_VERSION"] = exec_info.chart_ver
+        env_vars["ATS_CLUSTER_TYPE"] = exec_info.cluster_type
+        env_vars["ATS_CLUSTER_VERSION"] = exec_info.cluster_version
+        env_vars["ATS_KUBE_CONFIG_PATH"] = exec_info.kube_config_path
+        env_vars["ATS_TEST_TYPE"] = exec_info.test_type
+        env_vars["ATS_TEST_DIR"] = exec_info.test_dir
+
+        if exec_info.app_config_file_path is not None:
+            env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
 
         args = [
             self._GOTEST_BIN,

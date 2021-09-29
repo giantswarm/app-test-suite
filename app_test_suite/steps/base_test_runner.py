@@ -61,7 +61,7 @@ class BaseTestRunnersFilteringPipeline(BuildStepsFilteringPipeline):
         )
         config_parser.add_argument(
             "--github-token",
-            env_var="GITHUB_TOKEN",
+            env_var="ATS_GITHUB_TOKEN",
             required=False,
             help="GitHub token for apptestctl for ensuring CRDs.",
         )

@@ -28,7 +28,7 @@ mock_kube_config_path = "/nonexisting-flsdhge235/kube.config"
 mock_app_name = "mock_app"
 mock_app_deploy_ns = "mock_deploy_ns"
 mock_app_version = "1.2.3"
-mock_github_token = "secret"
+mock_github_token = "secret"  # nosec
 
 
 def test_pytest_runner_run(mocker: MockerFixture) -> None:

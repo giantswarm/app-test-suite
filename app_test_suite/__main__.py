@@ -119,8 +119,10 @@ def get_config(steps: List[BuildStep]) -> configargparse.Namespace:
     logger.info(f"\n{values}")
     return config
 
+
 def sanitize_values(config: configargparse.Namespace, input: str) -> str:
     return input.replace(config.github_token, "*****")
+
 
 def main():
     log_format = "%(asctime)s %(name)s %(levelname)s: %(message)s"

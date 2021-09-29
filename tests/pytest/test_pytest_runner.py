@@ -28,6 +28,7 @@ mock_kube_config_path = "/nonexisting-flsdhge235/kube.config"
 mock_app_name = "mock_app"
 mock_app_deploy_ns = "mock_deploy_ns"
 mock_app_version = "1.2.3"
+mock_github_token = "secret"
 
 
 def test_pytest_runner_run(mocker: MockerFixture) -> None:
@@ -54,6 +55,8 @@ def test_pytest_runner_run(mocker: MockerFixture) -> None:
     config.app_tests_deploy_namespace = mock_app_deploy_ns
     config.app_tests_app_config_file = ""
     config.chart_file = "mock_chart.tar.gz"
+    config.github_token = mock_github_token
+
     context = {context_key_chart_yaml: {"name": mock_app_name, "version": mock_app_version}}
     runner = PytestTestTimeRunner(mock_cluster_manager)
     runner.run(config, context)
@@ -63,7 +66,13 @@ def test_pytest_runner_run(mocker: MockerFixture) -> None:
     cast(unittest.mock.Mock, app_test_suite.steps.base_test_runner.HTTPClient).called_once()
     # assert ensure app platform ready
     cast(unittest.mock.Mock, app_test_suite.steps.base_test_runner.run_and_log).assert_called_with(
-        ["apptestctl", "bootstrap", f"--kubeconfig-path={mock_kube_config_path}", "--wait"]
+        [
+            "apptestctl",
+            "bootstrap",
+            f"--kubeconfig-path={mock_kube_config_path}",
+            "--wait",
+            f"--github-token={mock_github_token}",
+        ]
     )
     # uploaded the correct chart to chart repository
     cast(

@@ -105,7 +105,6 @@ class PytestExecutorMixin(TestExecutor):
         if exec_info.app_config_file_path:
             args += ["--values-file", exec_info.app_config_file_path]
         logger.info(f"Running {self._PYTEST_BIN} tool in '{exec_info.test_dir}' directory.")
-        run_and_log([self._PIPENV_BIN, "--venv"], cwd=exec_info.test_dir)  # nosec, no user input here
         run_res = run_and_log(args, cwd=exec_info.test_dir)  # nosec, no user input here
         if run_res.returncode != 0:
             raise TestError(f"Pytest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")

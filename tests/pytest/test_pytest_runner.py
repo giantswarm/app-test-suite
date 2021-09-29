@@ -1,6 +1,7 @@
 import unittest.mock
 from typing import cast
 
+from configargparse import Namespace
 from pytest_mock import MockerFixture
 
 import app_test_suite
@@ -29,23 +30,20 @@ from tests.helpers import (
 def test_upgrade_pytest_runner_run(mocker: MockerFixture) -> None:
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
+
+    configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, mock_app_name, mock_app_ns)
     patch_base_test_runner(mocker, run_and_log_call_result_mock, mock_app_name, mock_app_ns)
-
-    mocker.patch("app_test_suite.steps.pytest.pytest.run_and_log", return_value=run_and_log_call_result_mock)
-
-    mocker.patch("app_test_suite.steps.upgrade_test_runner.get_app_catalog_obj")
-    mocker.patch("app_test_suite.steps.upgrade_test_runner.run_and_log", return_value=run_and_log_call_result_mock)
-
-    mock_app_catalog_cr = mocker.MagicMock(name="AppCatalogCR mock")
-    app_catalog_cr_objects_res = mocker.MagicMock(name="AppCatalogCR.objects()")
-    app_catalog_cr_objects_res.get_or_none.return_value = mock_app_catalog_cr
-    mocker.patch(
-        "app_test_suite.steps.upgrade_test_runner.AppCatalogCR.objects", return_value=app_catalog_cr_objects_res
-    )
-
-    # app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_or_none(name=self._STABLE_APP_CATALOG_NAME)
+    mock_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
 
     config = get_base_config(mocker)
+    configure_for_upgrade_test(config)
+
+    context = {context_key_chart_yaml: {"name": mock_app_name, "version": mock_app_version}}
+    runner = PytestUpgradeTestRunner(mock_cluster_manager)
+    runner.run(config, context)
+
+
+def configure_for_upgrade_test(config: Namespace):
     config.upgrade_tests_app_catalog_url = "http://chartmuseum-chartmuseum.giantswarm:8080/charts/"
     config.upgrade_tests_app_version = "0.2.4-1"
     config.upgrade_tests_app_config_file = ""
@@ -55,9 +53,19 @@ def test_upgrade_pytest_runner_run(mocker: MockerFixture) -> None:
     # since we're not calling pre_run() here, we need override in config
     config.app_tests_skip_app_deploy = True
 
-    context = {context_key_chart_yaml: {"name": mock_app_name, "version": mock_app_version}}
-    runner = PytestUpgradeTestRunner(mock_cluster_manager)
-    runner.run(config, context)
+
+def patch_upgrade_test_runner(
+    mocker: MockerFixture, run_and_log_call_result_mock: unittest.mock.Mock
+) -> unittest.mock.Mock:
+    mocker.patch("app_test_suite.steps.upgrade_test_runner.get_app_catalog_obj")
+    mocker.patch("app_test_suite.steps.upgrade_test_runner.run_and_log", return_value=run_and_log_call_result_mock)
+    mock_app_catalog_cr = mocker.MagicMock(name="AppCatalogCR mock")
+    app_catalog_cr_objects_res = mocker.MagicMock(name="AppCatalogCR.objects()")
+    app_catalog_cr_objects_res.get_or_none.return_value = mock_app_catalog_cr
+    mocker.patch(
+        "app_test_suite.steps.upgrade_test_runner.AppCatalogCR.objects", return_value=app_catalog_cr_objects_res
+    )
+    return mock_app_catalog_cr
 
 
 def test_pytest_smoke_runner_run(mocker: MockerFixture) -> None:

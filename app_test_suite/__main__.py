@@ -113,10 +113,14 @@ def get_config(steps: List[BuildStep]) -> configargparse.Namespace:
         logger.error(f"Error when checking config option '{e.config_option}': {e.msg}")
         sys.exit(1)
 
+    values = sanitize_values(config, config_parser.format_values())
+
     logger.info("Starting test with the following options")
-    logger.info(f"\n{config_parser.format_values()}")
+    logger.info(f"\n{values}")
     return config
 
+def sanitize_values(config: configargparse.Namespace, input: str) -> str:
+    return input.replace(config.github_token, "*****")
 
 def main():
     log_format = "%(asctime)s %(name)s %(levelname)s: %(message)s"

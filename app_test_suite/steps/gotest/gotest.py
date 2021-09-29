@@ -108,8 +108,7 @@ class GotestExecutorMixin(TestExecutor):
         if not any(f.endswith(".go") for f in cast(List[str], os.listdir(gotest_dir))):
             raise ValidationError(
                 module_name,
-                f"Gotest tests were requested, but no go source code file was found in"
-                f" directory '{gotest_dir}'.",
+                f"Gotest tests were requested, but no go source code file was found in directory '{gotest_dir}'.",
             )
         self._gotest_dir = gotest_dir
 

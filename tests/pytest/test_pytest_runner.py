@@ -32,7 +32,7 @@ def test_upgrade_pytest_runner_run(mocker: MockerFixture) -> None:
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
 
     configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, mock_app_name, mock_app_ns)
-    patch_base_test_runner(mocker, run_and_log_call_result_mock, mock_app_name, mock_app_ns)
+    patch_pytest_test_runner(mocker, run_and_log_call_result_mock)
     mock_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
 
     config = get_base_config(mocker)

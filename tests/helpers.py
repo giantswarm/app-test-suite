@@ -1,5 +1,5 @@
 import unittest.mock
-from typing import cast
+from typing import cast, Tuple
 
 import pykube
 from configargparse import Namespace
@@ -11,13 +11,19 @@ from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers import ExternalClusterProvider
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
 from app_test_suite.steps.base_test_runner import BaseTestRunner
+from app_test_suite.steps.upgrade_test_runner import STABLE_APP_CATALOG_NAME
 
-mock_kube_config_path = "/nonexisting-flsdhge235/kube.config"
-mock_app_name = "mock_app"
-mock_app_ns = "mock_ns"
-mock_app_deploy_ns = "mock_deploy_ns"
-mock_app_version = "1.2.3"
-mock_chart_file_name = "mock_chart.tar.gz"
+MOCK_UPGRADE_CATALOG_URL = "http://chartmuseum-chartmuseum.giantswarm:8080/charts/"
+MOCK_KUBE_CONFIG_PATH = "/nonexisting-flsdhge235/kube.config"
+MOCK_APP_NAME = "mock_app"
+MOCK_APP_NS = "mock_ns"
+MOCK_APP_DEPLOY_NS = "mock_deploy_ns"
+MOCK_APP_VERSION = "0.2.5"
+MOCK_CHART_FILE_NAME = f"{MOCK_APP_NAME}-{MOCK_APP_VERSION}.tar.gz"
+MOCK_UPGRADE_UPGRADE_HOOK = "mock.sh"
+MOCK_UPGRADE_APP_CONFIG_FILE = ""
+MOCK_UPGRADE_APP_VERSION = "0.2.4-1"
+MOCK_UPGRADE_CHART_FILE_NAME = f"{MOCK_UPGRADE_CATALOG_URL}/{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tar.gz"
 
 
 def assert_deletes_app(configured_app_mock: ConfiguredApp) -> None:
@@ -33,9 +39,9 @@ def assert_deletes_app(configured_app_mock: ConfiguredApp) -> None:
     )
 
 
-def assert_deploy_and_wait_for_app_cr(app_name: str, app_version: str, app_deploy_ns: str) -> None:
+def assert_deploy_and_wait_for_app_cr(app_name: str, app_version: str, app_deploy_ns: str, catalog_name: str) -> None:
     cast(unittest.mock.Mock, app_test_suite.steps.base_test_runner.create_app).assert_called_once_with(
-        unittest.mock.ANY, app_name, app_version, "chartmuseum", "default", app_deploy_ns, None
+        unittest.mock.ANY, app_name, app_version, catalog_name, "default", app_deploy_ns, None
     )
     # noinspection PyProtectedMember
     cast(unittest.mock.Mock, app_test_suite.steps.base_test_runner.wait_for_apps_to_run).assert_called_once_with(
@@ -63,9 +69,9 @@ def assert_cluster_connection_created(kube_config_path: str) -> None:
 def get_base_config(mocker: MockerFixture) -> Namespace:
     config = mocker.Mock(name="ConfigMock")
     config.app_tests_skip_app_deploy = False
-    config.app_tests_deploy_namespace = mock_app_deploy_ns
+    config.app_tests_deploy_namespace = MOCK_APP_DEPLOY_NS
     config.app_tests_app_config_file = ""
-    config.chart_file = mock_chart_file_name
+    config.chart_file = MOCK_CHART_FILE_NAME
     return config
 
 
@@ -96,6 +102,36 @@ def patch_base_test_runner(
 def get_mock_cluster_manager(mocker: MockerFixture) -> ClusterManager:
     mock_cluster_manager = mocker.MagicMock(spec=ClusterManager, name="MockClusterManager")
     mock_cluster_manager.get_cluster_for_test_type.return_value = ClusterInfo(
-        ClusterType("mock"), None, "1.19.1", "mock_cluster_id", mock_kube_config_path, ExternalClusterProvider(), ""
+        ClusterType("mock"), None, "1.19.1", "mock_cluster_id", MOCK_KUBE_CONFIG_PATH, ExternalClusterProvider(), ""
     )
     return mock_cluster_manager
+
+
+def configure_for_upgrade_test(config: Namespace):
+    config.upgrade_tests_app_catalog_url = MOCK_UPGRADE_CATALOG_URL
+    config.upgrade_tests_app_version = MOCK_UPGRADE_APP_VERSION
+    config.upgrade_tests_app_config_file = MOCK_UPGRADE_APP_CONFIG_FILE
+    config.upgrade_tests_upgrade_hook = MOCK_UPGRADE_UPGRADE_HOOK
+    # normally, `pre_run` method does this in this case to stop the default logic from
+    # deploying the current chart before the stable chart can be deployed
+    # since we're not calling pre_run() here, we need override in config
+    config.app_tests_skip_app_deploy = True
+
+
+def patch_upgrade_test_runner(
+    mocker: MockerFixture, run_and_log_call_result_mock: unittest.mock.Mock
+) -> Tuple[unittest.mock.Mock, unittest.mock.Mock]:
+    mock_stable_app_catalog_cr = mocker.MagicMock(name="stable AppCatalogCR Mock")
+    mocker.patch("app_test_suite.steps.upgrade_test_runner.get_app_catalog_obj", return_value=mock_stable_app_catalog_cr)
+    mocker.patch("app_test_suite.steps.upgrade_test_runner.run_and_log", return_value=run_and_log_call_result_mock)
+    mock_app_catalog_cr = mocker.MagicMock(name="AppCatalogCR mock")
+    app_catalog_cr_objects_res = mocker.MagicMock(name="AppCatalogCR.objects()")
+    
+    def get_or_none(*args, **kwargs):
+        res = mock_stable_app_catalog_cr if kwargs["name"] == STABLE_APP_CATALOG_NAME else mock_app_catalog_cr
+        return res
+    app_catalog_cr_objects_res.get_or_none.side_effect = get_or_none
+    mocker.patch(
+        "app_test_suite.steps.upgrade_test_runner.AppCatalogCR.objects", return_value=app_catalog_cr_objects_res
+    )
+    return mock_app_catalog_cr, mock_stable_app_catalog_cr

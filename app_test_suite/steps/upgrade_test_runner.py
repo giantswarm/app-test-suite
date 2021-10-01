@@ -44,13 +44,12 @@ from step_exec_lib.utils.processes import run_and_log
 
 KEY_PRE_UPGRADE = "pre-upgrade"
 KEY_POST_UPGRADE = "post-upgrade"
+STABLE_APP_CATALOG_NAME = "stable"
 
 logger = logging.getLogger(__name__)
 
 
 class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
-    _STABLE_APP_CATALOG_NAME = "stable"
-
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
         self._original_value_skip_deploy = None
@@ -146,8 +145,8 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
             return stable_app_version, TEST_APP_CATALOG_NAME, app_catalog_cr.obj["spec"]["storage"]["URL"]
 
         catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
-        logger.info(f"Adding new app catalog named '{self._STABLE_APP_CATALOG_NAME}' with URL '{catalog_url}'.")
-        app_catalog_cr = get_app_catalog_obj(self._STABLE_APP_CATALOG_NAME, catalog_url, self._kube_client)
+        logger.info(f"Adding new app catalog named '{STABLE_APP_CATALOG_NAME}' with URL '{catalog_url}'.")
+        app_catalog_cr = get_app_catalog_obj(STABLE_APP_CATALOG_NAME, catalog_url, self._kube_client)
         logger.debug(f"Creating AppCatalog '{app_catalog_cr.name}' with the stable app version.")
         app_catalog_cr.create()
 
@@ -155,7 +154,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         if stable_app_ver == "latest":
             stable_app_ver = self._get_latest_app_version(catalog_url, app_name)
 
-        return stable_app_ver, self._STABLE_APP_CATALOG_NAME, catalog_url
+        return stable_app_ver, STABLE_APP_CATALOG_NAME, catalog_url
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         app_name = context[context_key_chart_yaml]["name"]
@@ -200,7 +199,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         delete_app(app_cr)
 
         # delete Catalog CR, if it was created
-        app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_or_none(name=self._STABLE_APP_CATALOG_NAME)
+        app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_or_none(name=STABLE_APP_CATALOG_NAME)
         if app_catalog_cr:
             logger.debug(f"Deleting AppCatalog '{app_catalog_cr.name}'.")
             app_catalog_cr.delete()

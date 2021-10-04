@@ -161,6 +161,7 @@ class BaseTestRunner(BuildStep, ABC):
         self._kube_client: Optional[HTTPClient] = None
         self._cluster_info: Optional[ClusterInfo] = None
         self._default_app_cr_namespace = "default"
+        self._skip_app_deploy = False
 
     @property
     def steps_provided(self) -> Set[StepType]:
@@ -285,8 +286,11 @@ class BaseTestRunner(BuildStep, ABC):
         self._upload_chart_to_app_catalog(config, config.chart_file)
 
         try:
-            if not get_config_value_by_cmd_line_option(
-                config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
+            if (
+                not get_config_value_by_cmd_line_option(
+                    config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
+                )
+                and not self._skip_app_deploy
             ):
                 self._deploy_tested_chart_as_app(config, context)
             self.run_tests(config, context)
@@ -322,6 +326,7 @@ class BaseTestRunner(BuildStep, ABC):
             with open(app_config_file_path) as f:
                 config_values_raw = f.read()
                 config_values = yaml.safe_load(config_values_raw)
+        logger.info(f"Deploying App CR '{app_name}' into '{self._default_app_cr_namespace}' namespace.")
         app_obj = create_app(
             self._kube_client,
             app_name,
@@ -331,6 +336,7 @@ class BaseTestRunner(BuildStep, ABC):
             deploy_namespace,
             config_values,
         )
+        logger.debug(f"Waiting for app '{app_name}' to run...")
         wait_for_apps_to_run(
             self._kube_client, [app_name], self._default_app_cr_namespace, self._app_deployment_timeout_sec
         )

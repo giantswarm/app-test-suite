@@ -14,6 +14,10 @@ from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCatal
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_helm_charts.giantswarm_app_platform.utils import delete_app, wait_for_app_to_be_deleted
 from requests import RequestException
+from step_exec_lib.errors import ConfigError
+from step_exec_lib.types import StepType, Context
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
+from step_exec_lib.utils.processes import run_and_log
 from validators import url as validator_url
 from yaml import YAMLError
 from yaml.parser import ParserError
@@ -37,10 +41,6 @@ from app_test_suite.steps.base_test_runner import (
     TestExecInfo,
 )
 from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
-from step_exec_lib.errors import ConfigError
-from step_exec_lib.types import StepType, Context
-from step_exec_lib.utils.config import get_config_value_by_cmd_line_option, get_config_attribute_from_cmd_line_option
-from step_exec_lib.utils.processes import run_and_log
 
 KEY_PRE_UPGRADE = "pre-upgrade"
 KEY_POST_UPGRADE = "post-upgrade"
@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
-        self._original_value_skip_deploy = None
+        self._skip_app_deploy = True
         self._stable_from_local_file = False
         self._semver_regex_match = re.compile(r"^.+((0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*).*)\.tgz$")
 
@@ -104,35 +104,6 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
                     key_cfg_upgrade_hook,
                     f"Upgrade hook was configured, but '{cmd}' was not " f"found to be a valid executable.",
                 )
-
-        self._original_value_skip_deploy = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
-        )
-        # for upgrade testing we need to deploy the stable version of an app first, so we force skipping
-        # automated deployment by `PytestTestRunner` here. Original value is restored in `cleanup`.
-        if not self._original_value_skip_deploy:
-            config.__setattr__(
-                get_config_attribute_from_cmd_line_option(
-                    BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
-                ),
-                True,
-            )
-
-    def cleanup(
-        self,
-        config: argparse.Namespace,
-        context: Context,
-        has_build_failed: bool,
-    ) -> None:
-        super().cleanup(config, context, has_build_failed)
-        # restore original value of it wasn't True (see comment in pre_run)
-        if not self._original_value_skip_deploy:
-            config.__setattr__(
-                get_config_attribute_from_cmd_line_option(
-                    BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
-                ),
-                False,
-            )
 
     def _prepare_stable_app(self, config: argparse.Namespace, app_name: str) -> Tuple[str, str, str]:
         if self._stable_from_local_file:

@@ -9,7 +9,6 @@ from app_test_suite.steps.pytest.pytest import PytestSmokeTestRunner, PytestUpgr
 from app_test_suite.steps.upgrade_test_runner import STABLE_APP_CATALOG_NAME, KEY_PRE_UPGRADE, KEY_POST_UPGRADE
 from step_exec_lib.types import StepType
 from tests.helpers import (
-    assert_deletes_app,
     assert_deploy_and_wait_for_app_cr,
     assert_chart_file_uploaded,
     assert_app_platform_ready,
@@ -26,7 +25,12 @@ from tests.helpers import (
     MOCK_APP_DEPLOY_NS,
     configure_for_upgrade_test,
     patch_upgrade_test_runner,
-    MOCK_UPGRADE_APP_VERSION, MOCK_UPGRADE_CHART_FILE_NAME, MOCK_UPGRADE_UPGRADE_HOOK,
+    MOCK_UPGRADE_APP_VERSION,
+    MOCK_UPGRADE_CHART_FILE_NAME,
+    assert_base_tester_deletes_app,
+    assert_upgrade_tester_deletes_app,
+    assert_app_updated,
+    assert_upgrade_tester_exec_hook,
 )
 
 
@@ -53,21 +57,29 @@ def test_upgrade_pytest_runner_run(mocker: MockerFixture) -> None:
     )
     assert_prepare_pytest_test_environment()
     mock_stable_app_catalog_cr.create.assert_any_call()
-    assert_run_pytest(runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_UPGRADE_CHART_FILE_NAME,
-                      MOCK_UPGRADE_APP_VERSION)
-    assert_exec_hook(KEY_PRE_UPGRADE, MOCK_APP_NAME, MOCK_UPGRADE_APP_VERSION, MOCK_APP_VERSION, MOCK_KUBE_CONFIG_PATH,
-                     MOCK_APP_DEPLOY_NS)
+    assert_run_pytest(
+        runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_UPGRADE_CHART_FILE_NAME, MOCK_UPGRADE_APP_VERSION
+    )
+    assert_upgrade_tester_exec_hook(
+        KEY_PRE_UPGRADE,
+        MOCK_APP_NAME,
+        MOCK_UPGRADE_APP_VERSION,
+        MOCK_APP_VERSION,
+        MOCK_KUBE_CONFIG_PATH,
+        MOCK_APP_DEPLOY_NS,
+    )
     assert_app_updated(configured_app_mock)
-    assert_exec_hook(KEY_POST_UPGRADE, MOCK_APP_NAME, MOCK_UPGRADE_APP_VERSION, MOCK_APP_VERSION, MOCK_KUBE_CONFIG_PATH,
-                     MOCK_APP_DEPLOY_NS)
+    assert_upgrade_tester_exec_hook(
+        KEY_POST_UPGRADE,
+        MOCK_APP_NAME,
+        MOCK_UPGRADE_APP_VERSION,
+        MOCK_APP_VERSION,
+        MOCK_KUBE_CONFIG_PATH,
+        MOCK_APP_DEPLOY_NS,
+    )
     assert_run_pytest(runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_CHART_FILE_NAME, MOCK_APP_VERSION)
-    assert_deletes_app(configured_app_mock)
-    mock_app_catalog_cr.delete.assert_called_once()
-
-
-def assert_app_updated(configured_app_mock):
-    cast(unittest.mock.Mock, configured_app_mock.app.reload).assert_called_once()
-    cast(unittest.mock.Mock, configured_app_mock.app.update).assert_called_once()
+    assert_upgrade_tester_deletes_app(configured_app_mock)
+    mock_stable_app_catalog_cr.delete.assert_called_once()
 
 
 def test_pytest_smoke_runner_run(mocker: MockerFixture) -> None:
@@ -88,7 +100,7 @@ def test_pytest_smoke_runner_run(mocker: MockerFixture) -> None:
     assert_deploy_and_wait_for_app_cr(MOCK_APP_NAME, MOCK_APP_VERSION, MOCK_APP_DEPLOY_NS, TEST_APP_CATALOG_NAME)
     assert_prepare_pytest_test_environment()
     assert_run_pytest(runner.test_provided, MOCK_KUBE_CONFIG_PATH, config.chart_file, MOCK_APP_VERSION)
-    assert_deletes_app(configured_app_mock)
+    assert_base_tester_deletes_app(configured_app_mock)
 
 
 def assert_run_pytest(test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str) -> None:
@@ -128,21 +140,6 @@ def assert_prepare_pytest_test_environment() -> None:
         "pipenv",
         "--venv",
     ]
-
-
-def assert_exec_hook(stage_name: str, app_name: str, from_version: str, to_version: str, kube_config_path: str,
-                     deploy_namespace: str) -> None:
-    cast(unittest.mock.Mock, app_test_suite.steps.upgrade_test_runner.run_and_log).assert_any_call(
-        [
-            MOCK_UPGRADE_UPGRADE_HOOK,
-            stage_name,
-            app_name,
-            from_version,
-            to_version,
-            kube_config_path,
-            deploy_namespace
-        ],
-    )
 
 
 def patch_pytest_test_runner(mocker: MockerFixture, run_and_log_res: unittest.mock.Mock) -> None:

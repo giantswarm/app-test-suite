@@ -12,7 +12,7 @@ import yaml
 from pytest_helm_charts.giantswarm_app_platform.app_catalog import get_app_catalog_obj
 from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCatalogCR
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
-from pytest_helm_charts.giantswarm_app_platform.utils import delete_app
+from pytest_helm_charts.giantswarm_app_platform.utils import delete_app, wait_for_app_to_be_deleted
 from requests import RequestException
 from validators import url as validator_url
 from yaml import YAMLError
@@ -197,6 +197,9 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         # delete App CR
         logger.info(f"Deleting App CR '{app_cr.app.name}'.")
         delete_app(app_cr)
+        wait_for_app_to_be_deleted(
+            self._kube_client, app_cr.app.name, app_cr.app.namespace, self._app_deletion_timeout_sec
+        )
 
         # delete Catalog CR, if it was created
         app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_or_none(name=STABLE_APP_CATALOG_NAME)

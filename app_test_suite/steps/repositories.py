@@ -5,7 +5,7 @@ from typing import cast
 
 from pykube import HTTPClient, Service
 
-from app_test_suite.errors import TestError
+from app_test_suite.errors import ATSTestError
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class ChartMuseumAppRepository(AppRepository):
             .get_or_none(name=self._CM_SERVICE_NAME),
         )
         if cm_srv is None:
-            raise TestError(
+            raise ATSTestError(
                 f"Repository service '{self._CM_SERVICE_NAME}' not found in namespace"
                 f" '{self._CM_SERVICE_NAMESPACE}'. Can't upload chart."
             )
@@ -39,4 +39,4 @@ class ChartMuseumAppRepository(AppRepository):
         with open(chart_file_path, "rb") as f:
             resp = cm_srv.proxy_http_post("/api/charts/", data=f.read())
             if not resp.ok:
-                raise TestError("Error uploading chart to chartmuseum")
+                raise ATSTestError("Error uploading chart to chartmuseum")

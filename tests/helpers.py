@@ -11,7 +11,7 @@ import app_test_suite
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers import ExternalClusterProvider
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
-from app_test_suite.steps.base_test_runner import BaseTestRunner
+from app_test_suite.steps.base_test_runner import BaseTestScenario
 from app_test_suite.steps.upgrade_test_runner import STABLE_APP_CATALOG_NAME
 
 MOCK_UPGRADE_CATALOG_URL = "http://chartmuseum-chartmuseum.giantswarm:8080/charts/"
@@ -34,7 +34,7 @@ def assert_runner_deletes_app(runner: ModuleType, configured_app_mock: Configure
         unittest.mock.ANY,
         configured_app_mock.app.name,
         configured_app_mock.app.namespace,
-        BaseTestRunner._APP_DELETION_TIMEOUT_SEC,
+        BaseTestScenario._APP_DELETION_TIMEOUT_SEC,
     )
 
 
@@ -52,7 +52,7 @@ def assert_deploy_and_wait_for_app_cr(app_name: str, app_version: str, app_deplo
     )
     # noinspection PyProtectedMember
     cast(unittest.mock.Mock, app_test_suite.steps.base_test_runner.wait_for_apps_to_run).assert_called_once_with(
-        unittest.mock.ANY, [app_name], "default", BaseTestRunner._APP_DEPLOYMENT_TIMEOUT_SEC
+        unittest.mock.ANY, [app_name], "default", BaseTestScenario._APP_DEPLOYMENT_TIMEOUT_SEC
     )
 
 

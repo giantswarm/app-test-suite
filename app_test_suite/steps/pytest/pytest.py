@@ -9,17 +9,17 @@ import configargparse
 
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
-from app_test_suite.errors import TestError
+from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base_test_runner import (
-    BaseTestRunnersFilteringPipeline,
+    BaseTestScenariosFilteringPipeline,
     TestInfoProvider,
-    BaseTestRunner,
+    BaseTestScenario,
     context_key_chart_yaml,
     TestExecInfo,
     TestExecutor,
 )
 from app_test_suite.steps.test_types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL
-from app_test_suite.steps.upgrade_test_runner import BaseUpgradeTestRunner
+from app_test_suite.steps.upgrade_test_runner import BaseUpgradeTestScenario
 from step_exec_lib.errors import ValidationError
 from step_exec_lib.types import Context, StepType
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
@@ -28,7 +28,7 @@ from step_exec_lib.utils.processes import run_and_log
 logger = logging.getLogger(__name__)
 
 
-class PytestTestFilteringPipeline(BaseTestRunnersFilteringPipeline):
+class PytestScenariosFilteringPipeline(BaseTestScenariosFilteringPipeline):
     key_config_option_pytest_dir = "--app-tests-pytest-tests-dir"
 
     def __init__(self) -> None:
@@ -36,9 +36,9 @@ class PytestTestFilteringPipeline(BaseTestRunnersFilteringPipeline):
         super().__init__(
             [
                 TestInfoProvider(),
-                PytestSmokeTestRunner(cluster_manager),
-                PytestFunctionalTestRunner(cluster_manager),
-                PytestUpgradeTestRunner(cluster_manager),
+                PytestSmokeTestScenario(cluster_manager),
+                PytestFunctionalTestScenario(cluster_manager),
+                PytestUpgradeTestScenario(cluster_manager),
             ],
             cluster_manager,
         )
@@ -78,7 +78,7 @@ class PytestExecutorMixin(TestExecutor):
 
         run_res = run_and_log(args, cwd=exec_info.test_dir, env=pipenv_env)  # nosec, no user input here
         if run_res.returncode != 0:
-            raise TestError(f"Running '{args}' in directory '{exec_info.test_dir}' failed.")
+            raise ATSTestError(f"Running '{args}' in directory '{exec_info.test_dir}' failed.")
         run_and_log([self._PIPENV_BIN, "--venv"], cwd=exec_info.test_dir)  # nosec, no user input here
 
     def execute_test(self, exec_info: TestExecInfo) -> None:
@@ -107,11 +107,11 @@ class PytestExecutorMixin(TestExecutor):
         logger.info(f"Running {self._PYTEST_BIN} tool in '{exec_info.test_dir}' directory.")
         run_res = run_and_log(args, cwd=exec_info.test_dir)  # nosec, no user input here
         if run_res.returncode != 0:
-            raise TestError(f"Pytest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
+            raise ATSTestError(f"Pytest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
         pytest_dir = get_config_value_by_cmd_line_option(
-            config, PytestTestFilteringPipeline.key_config_option_pytest_dir
+            config, PytestScenariosFilteringPipeline.key_config_option_pytest_dir
         )
         pytest_dir = os.path.join(os.path.dirname(config.chart_file), pytest_dir)
         if not os.path.isdir(pytest_dir):
@@ -134,7 +134,7 @@ class PytestExecutorMixin(TestExecutor):
         self._pytest_dir = pytest_dir
 
 
-class PytestTestRunner(PytestExecutorMixin, BaseTestRunner, ABC):
+class PytestTestScenario(PytestExecutorMixin, BaseTestScenario, ABC):
     _pipenv_bin = "pipenv"
     _pytest_bin = "pytest"
 
@@ -148,7 +148,7 @@ class PytestTestRunner(PytestExecutorMixin, BaseTestRunner, ABC):
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         app_config_file_path = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
+            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_config_file
         )
         cluster_info = cast(ClusterInfo, self._cluster_info)
         exec_info = TestExecInfo(
@@ -165,7 +165,7 @@ class PytestTestRunner(PytestExecutorMixin, BaseTestRunner, ABC):
         self.execute_test(exec_info)
 
 
-class PytestFunctionalTestRunner(PytestTestRunner):
+class PytestFunctionalTestScenario(PytestTestScenario):
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
 
@@ -174,7 +174,7 @@ class PytestFunctionalTestRunner(PytestTestRunner):
         return STEP_TEST_FUNCTIONAL
 
 
-class PytestSmokeTestRunner(PytestTestRunner):
+class PytestSmokeTestScenario(PytestTestScenario):
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
 
@@ -183,7 +183,7 @@ class PytestSmokeTestRunner(PytestTestRunner):
         return STEP_TEST_SMOKE
 
 
-class PytestUpgradeTestRunner(PytestExecutorMixin, BaseUpgradeTestRunner):
+class PytestUpgradeTestScenario(PytestExecutorMixin, BaseUpgradeTestScenario):
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
 

@@ -31,11 +31,11 @@ from app_test_suite.config import (
     key_cfg_stable_app_config,
     key_cfg_upgrade_hook,
 )
-from app_test_suite.errors import TestError
+from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base_test_runner import (
-    BaseTestRunner,
+    BaseTestScenario,
     TestExecutor,
-    BaseTestRunnersFilteringPipeline,
+    BaseTestScenariosFilteringPipeline,
     TEST_APP_CATALOG_NAME,
     context_key_chart_yaml,
     TestExecInfo,
@@ -49,7 +49,7 @@ STABLE_APP_CATALOG_NAME = "stable"
 logger = logging.getLogger(__name__)
 
 
-class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
+class BaseUpgradeTestScenario(BaseTestScenario, TestExecutor, ABC):
     """
     Base class to implement upgrade test scenario for any test executor.
 
@@ -140,7 +140,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         stable_app_ver, stable_app_catalog_name, stable_app_catalog_url = self._prepare_stable_app(config, app_name)
 
         deploy_namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
+            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_namespace
         )
         app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
 
@@ -158,7 +158,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
 
         # reconfigure App CR to point to the new version UT
         app_config_file_path = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
+            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_config_file
         )
         self._upgrade_app_cr(app_cr, app_version, app_config_file_path)
 
@@ -209,7 +209,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         try:
             index_response = requests.get(catalog_index_url)
             if not index_response.ok:
-                raise TestError(
+                raise ATSTestError(
                     f"Couldn't get the 'index.yaml' fetched from '{catalog_index_url}'. "
                     f"Reason: [{index_response.status_code}] {index_response.reason}."
                 )
@@ -229,9 +229,11 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
             raise
 
         if "entries" not in index:
-            raise TestError(f"'entries' field was not found in the 'index.yaml' fetched from '{catalog_index_url}'.")
+            raise ATSTestError(f"'entries' field was not found in the 'index.yaml' fetched from '{catalog_index_url}'.")
         if app_name not in index["entries"]:
-            raise TestError(f"App '{app_name}' was not found in the 'index.yaml' fetched from '{catalog_index_url}'.")
+            raise ATSTestError(
+                f"App '{app_name}' was not found in the 'index.yaml' fetched from '{catalog_index_url}'."
+            )
         versions = [e["version"] for e in index["entries"][app_name]]
         versions.sort(key=LooseVersion, reverse=True)
         return versions[0]
@@ -251,7 +253,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
 
         logger.info(f"Executing upgrade hook: '{upgrade_hook_exe}' with stage '{stage_name}'.")
         deploy_namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
+            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_namespace
         )
         args = upgrade_hook_exe.split(" ")
         args += [
@@ -264,7 +266,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         ]
         run_res = run_and_log(args)  # nosec, user configurable input, but we have to accept it here
         if run_res.returncode != 0:
-            raise TestError(
+            raise ATSTestError(
                 f"Upgrade hook for stage '{stage_name}' returned non-zero exit code: '{run_res.returncode}'."
             )
 

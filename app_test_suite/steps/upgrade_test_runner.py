@@ -50,6 +50,12 @@ logger = logging.getLogger(__name__)
 
 
 class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
+    """
+    Base class to implement upgrade test scenario for any test executor.
+
+    Do a mixin of this class and a test executor mixin derived from TestExecutor class to get a test scenario.
+    """
+
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
         self._skip_app_deploy = True
@@ -169,7 +175,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         logger.info(f"Deleting App CR '{app_cr.app.name}'.")
         delete_app(app_cr)
         wait_for_app_to_be_deleted(
-            self._kube_client, app_cr.app.name, app_cr.app.namespace, self._app_deletion_timeout_sec
+            self._kube_client, app_cr.app.name, app_cr.app.namespace, self._APP_DELETION_TIMEOUT_SEC
         )
 
         # delete Catalog CR, if it was created

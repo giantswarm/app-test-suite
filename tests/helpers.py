@@ -34,7 +34,7 @@ def assert_runner_deletes_app(runner: ModuleType, configured_app_mock: Configure
         unittest.mock.ANY,
         configured_app_mock.app.name,
         configured_app_mock.app.namespace,
-        BaseTestRunner._app_deletion_timeout_sec,
+        BaseTestRunner._APP_DELETION_TIMEOUT_SEC,
     )
 
 
@@ -52,7 +52,7 @@ def assert_deploy_and_wait_for_app_cr(app_name: str, app_version: str, app_deplo
     )
     # noinspection PyProtectedMember
     cast(unittest.mock.Mock, app_test_suite.steps.base_test_runner.wait_for_apps_to_run).assert_called_once_with(
-        unittest.mock.ANY, [app_name], "default", BaseTestRunner._app_deployment_timeout_sec
+        unittest.mock.ANY, [app_name], "default", BaseTestRunner._APP_DEPLOYMENT_TIMEOUT_SEC
     )
 
 

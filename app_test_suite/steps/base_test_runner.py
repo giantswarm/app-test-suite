@@ -150,6 +150,9 @@ class BaseTestRunner(BuildStep, ABC):
     """
     BaseTestRunner is a base class that can be used to implement a specific test scenario.
     It provides basic methods that are test-executor independent.
+
+    Do a mixin of this class and a test executor mixin derived from TestExecutor class to get a provider specific
+    test scenario.
     """
 
     _APPTESTCTL_BIN = "apptestctl"

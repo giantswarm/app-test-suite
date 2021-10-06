@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Set
 import configargparse
 
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType, ClusterProvider
-from app_test_suite.steps.types import TEST_TYPE_ALL, config_option_cluster_type_for_test_type
+from app_test_suite.steps.test_types import TEST_TYPE_ALL, config_option_cluster_type_for_test_type
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class ClusterManager:
     to correlate clusters created here with what's really running in the infrastructure.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # config is necessary for cluster providers to configure clusters; we'll set it once config is loaded
         self._config: Optional[argparse.Namespace] = None
         # list to track created clusters
@@ -29,7 +29,7 @@ class ClusterManager:
         self._cluster_providers: Dict[ClusterType, ClusterProvider] = {}
         # find and create cluster providers
         for cls in ClusterProvider.__subclasses__():
-            instance = cls()
+            instance = cls()  # type: ignore
             self._cluster_providers[instance.provided_cluster_type] = instance
 
     def get_registered_cluster_types(self) -> List[ClusterType]:

@@ -1,0 +1,41 @@
+apiVersion: v1
+entries:
+  hello-world-app:
+  - annotations:
+      application.giantswarm.io/metadata: http://localhost/hello-world-app-0.2.4.tgz-meta/main.yaml
+      application.giantswarm.io/readme: https://raw.githubusercontent.com/giantswarm/hello-world-app/v0.0.1/README.md
+      application.giantswarm.io/values-schema: http://localhost/hello-world-app-0.2.4.tgz-meta/values.schema.json
+    apiVersion: v1
+    appVersion: v0.0.1
+    created: "2021-09-01T14:56:41.519303502Z"
+    description: A chart that deploys a basic hello world site and lets you test values
+      merging of user values configmap and secrets.
+    digest: d5d067b94bdc1a4e31da718e65a2920a43cfa09a4940c179202bb64c658abc52
+    home: https://github.com/giantswarm/hello-world-app
+    icon: https://raw.githubusercontent.com/giantswarm/hello-world-app/v0.0.1/app-icon.png
+    name: hello-world-app
+    sources:
+    - https://github.com/giantswarm/hello-world-app
+    urls:
+    - charts/hello-world-app-0.2.4.tgz
+    version: 0.2.4
+  - annotations:
+      application.giantswarm.io/metadata: http://localhost/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz-meta/main.yaml
+      application.giantswarm.io/readme: https://raw.githubusercontent.com/giantswarm/hello-world-app/v0.0.1/README.md
+      application.giantswarm.io/values-schema: http://localhost/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz-meta/values.schema.json
+    apiVersion: v1
+    appVersion: v0.0.1
+    created: "2021-09-01T12:52:10.832043834Z"
+    description: A chart that deploys a basic hello world site and lets you test values
+      merging of user values configmap and secrets.
+    digest: 7749d5e2aeade640c263b29375ba75f6775da52886d52427ecd52cfd1e2245d9
+    home: https://github.com/giantswarm/hello-world-app
+    icon: https://raw.githubusercontent.com/giantswarm/hello-world-app/v0.0.1/app-icon.png
+    name: hello-world-app
+    sources:
+    - https://github.com/giantswarm/hello-world-app
+    urls:
+    - charts/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz
+    version: 0.2.3-90e2f60e6810ddf35968221c193340984236fe2a
+generated: "2021-09-01T14:58:55Z"
+serverInfo: {}

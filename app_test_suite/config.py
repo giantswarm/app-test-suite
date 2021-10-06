@@ -1,0 +1,5 @@
+key_cfg_stable_app_url = "--upgrade-tests-app-catalog-url"
+key_cfg_stable_app_file = "--upgrade-tests-app-file"
+key_cfg_stable_app_version = "--upgrade-tests-app-version"
+key_cfg_stable_app_config = "--upgrade-tests-app-config-file"
+key_cfg_upgrade_hook = "--upgrade-tests-upgrade-hook"

@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+from typing import Any
 
 import configargparse
 from step_exec_lib.errors import ConfigError
@@ -18,7 +19,7 @@ class ExternalClusterProvider(cluster_provider.ClusterProvider):
     key_config_option_cluster_type = "--external-cluster-type"
     key_config_option_cluster_version = "--external-cluster-version"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.__kubeconfig_path = ""
 
     @property
@@ -65,7 +66,7 @@ class ExternalClusterProvider(cluster_provider.ClusterProvider):
             )
 
     def get_cluster(
-        self, cluster_type: cluster_provider.ClusterType, config: argparse.Namespace, **kwargs
+        self, cluster_type: cluster_provider.ClusterType, config: argparse.Namespace, **kwargs: Any
     ) -> cluster_provider.ClusterInfo:
         overridden_cluster_type = get_config_value_by_cmd_line_option(config, self.key_config_option_cluster_type)
         cluster_version = get_config_value_by_cmd_line_option(config, self.key_config_option_cluster_version)
@@ -80,5 +81,5 @@ class ExternalClusterProvider(cluster_provider.ClusterProvider):
             config_file="",
         )
 
-    def delete_cluster(self, cluster_info: cluster_provider.ClusterInfo):
+    def delete_cluster(self, cluster_info: cluster_provider.ClusterInfo) -> None:
         logger.debug("External cluster manager ignoring cluster deletion request (as expected).")

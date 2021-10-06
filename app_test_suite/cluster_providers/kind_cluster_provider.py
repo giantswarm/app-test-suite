@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import uuid
+from typing import Any
 
 import configargparse
 from step_exec_lib.utils import config as config_ats
@@ -9,7 +10,7 @@ from step_exec_lib.utils import files
 from step_exec_lib.utils.processes import run_and_log
 
 from app_test_suite.cluster_providers import cluster_provider
-from app_test_suite.errors import TestError
+from app_test_suite.errors import ATSTestError
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
         return f"{name}.kube.config"
 
     def get_cluster(
-        self, cluster_type: cluster_provider.ClusterType, config: argparse.Namespace, **kwargs
+        self, cluster_type: cluster_provider.ClusterType, config: argparse.Namespace, **kwargs: Any
     ) -> cluster_provider.ClusterInfo:
         cluster_name = str(uuid.uuid4())
         kube_config_path = self.__get_kube_config_from_name(cluster_name)
@@ -58,7 +59,7 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
         run_res = run_and_log(kind_args, capture_output=True)  # nosec
         logger.debug(run_res.stderr)
         if run_res.returncode != 0:
-            raise TestError(f"Error when creating KinD cluster. Exit code is: {run_res.returncode}")
+            raise ATSTestError(f"Error when creating KinD cluster. Exit code is: {run_res.returncode}")
         cluster_version_line = run_res.stderr.splitlines()[1]
         cluster_version = cluster_version_line.split(":")[1].split(")")[0].strip()
         logger.info("KinD cluster started successfully")
@@ -72,13 +73,13 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
             config_file=config_file,
         )
 
-    def delete_cluster(self, cluster_info: cluster_provider.ClusterInfo):
+    def delete_cluster(self, cluster_info: cluster_provider.ClusterInfo) -> None:
         logger.info(f"Deleting KinD cluster with ID '{cluster_info.cluster_id}'...")
         kube_config_path = self.__get_kube_config_from_name(cluster_info.cluster_id)
         kind_args = [self._kind_bin, "delete", "cluster", "--name", cluster_info.cluster_id]
         run_res = run_and_log(kind_args, capture_output=True)  # nosec
         logger.debug(run_res.stderr)
         if run_res.returncode != 0:
-            raise TestError(f"Error when deleting KinD cluster. Exit code is: {run_res.returncode}")
+            raise ATSTestError(f"Error when deleting KinD cluster. Exit code is: {run_res.returncode}")
         os.remove(kube_config_path)
         logger.info("KinD cluster deleted successfully")

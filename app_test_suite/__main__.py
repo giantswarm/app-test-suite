@@ -1,16 +1,23 @@
 """Main module. Loads configuration and executes main control loops."""
 import logging
 import os
-import sys
 from typing import List
 
 import configargparse
+import sys
+
+from app_test_suite.config import (
+    key_cfg_stable_app_url,
+    key_cfg_stable_app_version,
+    key_cfg_stable_app_config,
+    key_cfg_upgrade_hook,
+    key_cfg_stable_app_file,
+)
+from app_test_suite.steps.pytest.pytest import PytestScenariosFilteringPipeline
+from app_test_suite.steps.test_types import ALL_STEPS
 from step_exec_lib.errors import ConfigError
 from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
 from step_exec_lib.types import STEP_ALL
-
-from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
-from app_test_suite.steps.types import ALL_STEPS
 
 ver = "v0.0.0-dev"
 app_name = "app_test_suite"
@@ -29,11 +36,11 @@ def get_version() -> str:
 def get_pipeline() -> List[BuildStepsFilteringPipeline]:
     return [
         # FIXME: once we have more than 1 test engine, this has to be configurable
-        PytestTestFilteringPipeline(),
+        PytestScenariosFilteringPipeline(),
     ]
 
 
-def configure_global_options(config_parser: configargparse.ArgParser):
+def configure_global_options(config_parser: configargparse.ArgParser) -> None:
     config_parser.add_argument(
         "-d",
         "--debug",
@@ -57,6 +64,43 @@ def configure_global_options(config_parser: configargparse.ArgParser):
         help=f"List of steps to skip. Available steps: {ALL_STEPS}",
         required=False,
         default=[],
+    )
+
+
+def configure_test_specific_options(config_parser: configargparse.ArgParser) -> None:
+    config_parser_group = config_parser.add_argument_group("Upgrade testing options")
+    app_source_group = config_parser_group.add_mutually_exclusive_group()
+    app_source_group.add_argument(
+        key_cfg_stable_app_url,
+        required=False,
+        help="URL of the catalog where the stable version of the app (the version to test upgrade from) is available. "
+        f"Mutually exclusive with '{key_cfg_stable_app_file}'.",
+    )
+    app_source_group.add_argument(
+        key_cfg_stable_app_file,
+        required=False,
+        help="Local file name with the stable version of the app (the version to test upgrade from). "
+        f"Mutually exclusive with '{key_cfg_stable_app_url}'.",
+    )
+    config_parser_group.add_argument(
+        key_cfg_stable_app_config,
+        required=False,
+        help="Path for a configuration file (values file) for your app when it's deployed for testing.",
+    )
+    config_parser_group.add_argument(
+        key_cfg_stable_app_version,
+        required=False,
+        default="latest",
+        help=f"Version of the app to test the upgrade from. If not given, the default value of 'latest' is used, which "
+        "means latest version available will be detected and used. The version configured must be present "
+        f"in the catalog configured with '{key_cfg_stable_app_url}'. "
+        f"Used only if '{key_cfg_stable_app_url} is used.'",
+    )
+    config_parser_group.add_argument(
+        key_cfg_upgrade_hook,
+        required=False,
+        help="A command (executable) that is run after the tests for the stable version of the app completed"
+        " successfully, but before the app is upgraded and tested again.",
     )
 
 
@@ -88,10 +132,11 @@ def get_global_config_parser(add_help: bool = True) -> configargparse.ArgParser:
         add_help=add_help,
     )
     configure_global_options(config_parser)
+    configure_test_specific_options(config_parser)
     return config_parser
 
 
-def validate_global_config(config: configargparse.Namespace):
+def validate_global_config(config: configargparse.Namespace) -> None:
     # validate steps; '--steps' and '--skip-steps' can't be used together, but that is already
     # enforced by the argparse library
     if STEP_ALL in config.skip_steps:
@@ -118,7 +163,7 @@ def get_config(steps: List[BuildStep]) -> configargparse.Namespace:
     return config
 
 
-def main():
+def main() -> None:
     log_format = "%(asctime)s %(name)s %(levelname)s: %(message)s"
     logging.basicConfig(format=log_format)
     logging.getLogger().setLevel(logging.INFO)

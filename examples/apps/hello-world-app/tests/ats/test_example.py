@@ -12,6 +12,7 @@ def test_we_have_environment(kube_cluster: Cluster) -> None:
 
 
 @pytest.mark.functional
+@pytest.mark.upgrade
 def test_hello_working(kube_cluster: Cluster) -> None:
     srv = cast(
         pykube.Service, pykube.Service.objects(kube_cluster.kube_client).get_or_none(name="hello-world-app-service")

@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from tempfile import TemporaryDirectory
 from typing import Set, Optional, List, cast
 
@@ -20,14 +21,16 @@ from pytest_helm_charts.giantswarm_app_platform.utils import (
 
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
-from app_test_suite.errors import TestError
+from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.repositories import ChartMuseumAppRepository
-from app_test_suite.steps.types import config_option_cluster_type_for_test_type
+from app_test_suite.steps.test_types import config_option_cluster_type_for_test_type
 from step_exec_lib.errors import ConfigError, ValidationError
 from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep
 from step_exec_lib.types import Context, StepType, STEP_ALL
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 from step_exec_lib.utils.processes import run_and_log
+
+TEST_APP_CATALOG_NAME: str = "chartmuseum"
 
 context_key_chart_yaml: str = "chart_yaml"
 context_key_app_cr: str = "app_cr"
@@ -37,12 +40,12 @@ _chart_yaml = "Chart.yaml"
 logger = logging.getLogger(__name__)
 
 
-class BaseTestRunnersFilteringPipeline(BuildStepsFilteringPipeline):
+class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
     """
     Pipeline that combines all the steps required to run application tests.
     """
 
-    key_config_group_name = "App testing options"
+    key_config_group_name = "Base app testing options"
     key_config_option_skip_deploy_app = "--app-tests-skip-app-deploy"
     key_config_option_deploy_namespace = "--app-tests-deploy-namespace"
     key_config_option_deploy_config_file = "--app-tests-app-config-file"
@@ -92,7 +95,7 @@ class BaseTestRunnersFilteringPipeline(BuildStepsFilteringPipeline):
         app_config_file = get_config_value_by_cmd_line_option(config, self.key_config_option_deploy_config_file)
         if app_config_file:
             if not os.path.isfile(app_config_file):
-                raise TestError(
+                raise ATSTestError(
                     f"Application test run was configured to use '{app_config_file}' as app"
                     f" config file, but it doesn't exist."
                 )
@@ -100,7 +103,7 @@ class BaseTestRunnersFilteringPipeline(BuildStepsFilteringPipeline):
                 with open(app_config_file, "r") as file:
                     yaml.safe_load(file)
             except Exception:
-                raise TestError(
+                raise ATSTestError(
                     f"Application config file '{app_config_file}' found, but can't be loaded"
                     f"as a correct YAML document."
                 )
@@ -143,13 +146,21 @@ class TestInfoProvider(BuildStep):
                 )
 
 
-class BaseTestRunner(BuildStep, ABC):
-    _apptestctl_bin = "apptestctl"
-    _apptestctl_bootstrap_timeout_sec = 180
-    _min_apptestctl_version = "0.7.0"
-    _max_apptestctl_version = "1.0.0"
-    _app_deployment_timeout_sec = 1800
-    _app_deletion_timeout_sec = 600
+class BaseTestScenario(BuildStep, ABC):
+    """
+    BaseTestRunner is a base class that can be used to implement a specific test scenario.
+    It provides basic methods that are test-executor independent.
+
+    Do a mixin of this class and a test executor mixin derived from TestExecutor class to get a provider specific
+    test scenario.
+    """
+
+    _APPTESTCTL_BIN = "apptestctl"
+    _APPTESTCTL_BOOTSTRAP_TIMEOUT_SEC = 180
+    _MIN_APPTESTCTL_VERSION = "0.7.0"
+    _MAX_APPTESTCTL_VERSION = "1.0.0"
+    _APP_DEPLOYMENT_TIMEOUT_SEC = 1800
+    _APP_DELETION_TIMEOUT_SEC = 600
 
     def __init__(self, cluster_manager: ClusterManager):
         self._cluster_manager = cluster_manager
@@ -157,6 +168,8 @@ class BaseTestRunner(BuildStep, ABC):
         self._configured_cluster_config_file = ""
         self._kube_client: Optional[HTTPClient] = None
         self._cluster_info: Optional[ClusterInfo] = None
+        self._default_app_cr_namespace = "default"
+        self._skip_app_deploy = False
 
     @property
     def steps_provided(self) -> Set[StepType]:
@@ -168,7 +181,7 @@ class BaseTestRunner(BuildStep, ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def run_tests(self, config: argparse.Namespace, context: Context):
+    def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         raise NotImplementedError
 
     @property
@@ -178,6 +191,17 @@ class BaseTestRunner(BuildStep, ABC):
     @property
     def _config_cluster_config_file_attribute_name(self) -> str:
         return f"--{self.test_provided}-tests-cluster-config-file"
+
+    @property
+    def _test_cluster_type(self) -> str:
+        if self._cluster_info is None:
+            raise ValueError("_cluster_info can't be None")
+        cluster_type = (
+            self._cluster_info.overridden_cluster_type
+            if self._cluster_info.overridden_cluster_type
+            else self._cluster_info.cluster_type
+        )
+        return cluster_type
 
     def _ensure_app_platform_ready(self, kube_config_path: str) -> None:
         """
@@ -195,11 +219,11 @@ class BaseTestRunner(BuildStep, ABC):
         """
 
         # run the tool
-        args = [self._apptestctl_bin, "bootstrap", f"--kubeconfig-path={kube_config_path}", "--wait"]
-        logger.info(f"Running {self._apptestctl_bin} tool to ensure app platform components on the target cluster")
+        args = [self._APPTESTCTL_BIN, "bootstrap", f"--kubeconfig-path={kube_config_path}", "--wait"]
+        logger.info(f"Running {self._APPTESTCTL_BIN} tool to ensure app platform components on the target cluster")
         run_res = run_and_log(args)  # nosec, file is either autogenerated or in user's responsibility
         if run_res.returncode != 0:
-            raise TestError("Bootstrapping app platform on the target cluster failed")
+            raise ATSTestError("Bootstrapping app platform on the target cluster failed")
         logger.info("App platform components bootstrapped and ready to use.")
 
     def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
@@ -216,13 +240,13 @@ class BaseTestRunner(BuildStep, ABC):
 
     def pre_run(self, config: argparse.Namespace) -> None:
         # verify if binary present
-        self._assert_binary_present_in_path(self._apptestctl_bin)
+        self._assert_binary_present_in_path(self._APPTESTCTL_BIN)
         # verify version
-        run_res = run_and_log([self._apptestctl_bin, "version"], capture_output=True)  # nosec
+        run_res = run_and_log([self._APPTESTCTL_BIN, "version"], capture_output=True)  # nosec
         version_line = run_res.stdout.splitlines()[0]
         version = version_line.split(":")[1].strip()
         self._assert_version_in_range(
-            self._apptestctl_bin, version, self._min_apptestctl_version, self._max_apptestctl_version
+            self._APPTESTCTL_BIN, version, self._MIN_APPTESTCTL_VERSION, self._MAX_APPTESTCTL_VERSION
         )
 
         cluster_type = ClusterType(
@@ -263,55 +287,78 @@ class BaseTestRunner(BuildStep, ABC):
             kube_config = KubeConfig.from_file(self._cluster_info.kube_config_path)
             self._kube_client = HTTPClient(kube_config)
         except Exception:
-            raise TestError("Can't establish connection to the new test cluster")
+            raise ATSTestError("Can't establish connection to the new test cluster")
 
         # prepare app platform and upload artifacts
         self._ensure_app_platform_ready(self._cluster_info.kube_config_path)
-        self._upload_chart_to_app_catalog(config, context)
+        self._upload_chart_to_app_catalog(config, config.chart_file)
 
         try:
-            if not get_config_value_by_cmd_line_option(
-                config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
+            if (
+                not get_config_value_by_cmd_line_option(
+                    config, BaseTestScenariosFilteringPipeline.key_config_option_skip_deploy_app
+                )
+                and not self._skip_app_deploy
             ):
-                self._deploy_chart_as_app(config, context)
+                self._deploy_tested_chart_as_app(config, context)
             self.run_tests(config, context)
         except Exception as e:
-            raise TestError(f"Application deployment failed: {e}")
+            raise ATSTestError(f"Application deployment failed: {e}")
         finally:
-            self._delete_app(config, context)
+            if not get_config_value_by_cmd_line_option(
+                config, BaseTestScenariosFilteringPipeline.key_config_option_skip_deploy_app
+            ):
+                self._delete_app(config, context)
 
-    def _deploy_chart_as_app(self, config: argparse.Namespace, context: Context) -> None:
+    def _deploy_tested_chart_as_app(self, config: argparse.Namespace, context: Context) -> None:
         app_name = context[context_key_chart_yaml]["name"]
         app_version = context[context_key_chart_yaml]["version"]
-        app_cr_namespace = "default"
         deploy_namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
+            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_namespace
         )
         app_config_file_path = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
+            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_config_file
         )
 
-        config_values = None
-        if app_config_file_path:
-            with open(app_config_file_path) as f:
-                config_values = yaml.safe_load(f)
-
-        app_obj = create_app(
-            self._kube_client, app_name, app_version, "chartmuseum", app_cr_namespace, deploy_namespace, config_values
+        app_obj = self._deploy_chart(
+            app_name, app_version, deploy_namespace, app_config_file_path, TEST_APP_CATALOG_NAME
         )
-        wait_for_apps_to_run(self._kube_client, [app_name], app_cr_namespace, self._app_deployment_timeout_sec)
         context[context_key_app_cr] = app_obj.app
         context[context_key_app_cm_cr] = app_obj.app_cm
 
-    def _upload_chart_to_app_catalog(self, config: argparse.Namespace, context: Context):
+    def _deploy_chart(
+        self, app_name: str, app_version: str, deploy_namespace: str, app_config_file_path: str, app_catalog_name: str
+    ) -> ConfiguredApp:
+        config_values = None
+        if app_config_file_path:
+            with open(app_config_file_path) as f:
+                config_values_raw = f.read()
+                config_values = yaml.safe_load(config_values_raw)
+        logger.info(f"Deploying App CR '{app_name}' into '{self._default_app_cr_namespace}' namespace.")
+        app_obj = create_app(
+            self._kube_client,
+            app_name,
+            app_version,
+            app_catalog_name,
+            self._default_app_cr_namespace,
+            deploy_namespace,
+            config_values,
+        )
+        logger.debug(f"Waiting for app '{app_name}' to run...")
+        wait_for_apps_to_run(
+            self._kube_client, [app_name], self._default_app_cr_namespace, self._APP_DEPLOYMENT_TIMEOUT_SEC
+        )
+        return app_obj
+
+    def _upload_chart_to_app_catalog(self, config: argparse.Namespace, chart_file_path: str) -> None:
         # in future, if we want to support multiple chart repositories, we need to make this configurable
         # right now, static dependency will do
-        ChartMuseumAppRepository(self._kube_client).upload_artifacts(config, context)
+        ChartMuseumAppRepository(self._kube_client).upload_artifact(config, chart_file_path)
 
     # noinspection PyMethodMayBeStatic
-    def _delete_app(self, config: argparse.Namespace, context: Context):
+    def _delete_app(self, config: argparse.Namespace, context: Context) -> None:
         if get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
+            config, BaseTestScenariosFilteringPipeline.key_config_option_skip_deploy_app
         ):
             return
 
@@ -321,5 +368,50 @@ class BaseTestRunner(BuildStep, ABC):
             values_cm = cast(ConfigMap, context[context_key_app_cm_cr])
         logger.info("Deleting App CR and its values CM")
         delete_app(ConfiguredApp(app_obj, values_cm))
-        wait_for_app_to_be_deleted(self._kube_client, app_obj.name, app_obj.namespace, self._app_deletion_timeout_sec)
+        wait_for_app_to_be_deleted(self._kube_client, app_obj.name, app_obj.namespace, self._APP_DELETION_TIMEOUT_SEC)
         logger.info("Application deleted")
+
+
+@dataclass
+class TestExecInfo:
+    """
+    TestExecInfo provides all the information that is passed from a test scenario to test executor.
+    """
+
+    chart_path: str
+    """Path to the chart file under test."""
+    chart_ver: str
+    """Chart version detected from the chart."""
+    app_config_file_path: Optional[str]
+    """Path to an optional Helm values file used to configure the chart under test."""
+    cluster_type: str
+    """A string representing a cluster type that the test scenario is running on."""
+    cluster_version: str
+    """Kubernetes cluster version of a cluster the test scenario is running on."""
+    kube_config_path: str
+    """Path to kube.config to connect to the cluster."""
+    test_type: str
+    """Type of test to execute by the test executor."""
+    test_dir: str
+    """Path to a directory where test code is available."""
+
+
+class TestExecutor(ABC):
+    """
+    Base abstract class to implement different test executors.
+
+    Test executors are responsible for running actual tests in a scenario using a specific
+    test platform like `pytest` or `go test`.
+    """
+
+    def validate(self, config: argparse.Namespace, module_name: str) -> None:
+        """Validate any configuration related to the test executor."""
+        raise NotImplementedError()
+
+    def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
+        """Optional step to prepare environment where your tests are executed (ie. installing dependencies)."""
+        raise NotImplementedError()
+
+    def execute_test(self, exec_info: TestExecInfo) -> None:
+        """Execute test using a specific test executor and information provided as exec_info."""
+        raise NotImplementedError()

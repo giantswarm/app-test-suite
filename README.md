@@ -15,9 +15,6 @@ This tool is a development and CI/CD tool that allows you to test your chart aft
 To build the Chart, please consider the companion [app-build-suite](https://github.com/giantswarm/app-build-suite) project.
 
 ---
-*Big fat warning* This tool is available as a development version!
-
----
 
 ## Index
 
@@ -54,6 +51,28 @@ with [tutorial](docs/tutorial.md).
 
 ### Quick start
 
+`app-test-suite` provides App Platform bootstrapping and test scenarios for your Managed Apps charts.
+Currently, it offers 3 test scenarios, which are executed one after the other unless [configured](#configuring-app-test-suite)
+otherwise. Each test scenario ensures that the App Platform components are deployed to the cluster, then invokes
+test logic, which for different scenarios works like below:
+
+1. The `smoke` tests scenario: just run the test executor with `smoke` as a test type filter. Use this scenario
+    and test type to run any tests that will allow you to fail fast and save time and resources on running more complex
+    tests.
+2. The `functional` tests scenario: just run the test executor with `functional` as a test type filter. As this is
+    executed after the `smoke` scenario succeeds, you know that the basic stuff is ready and you can ensure your app
+    under test is functioning properly.
+3. The `upgrade` tests scenario requires additional configuration. It takes one version of your app and tests if
+    it is safe to upgrade it to the version under test. As such it needs either `--upgrade-tests-app-catalog-url`
+    and `--upgrade-tests-app-version` config options pair or a local chart file `--upgrade-tests-app-file`.
+    The scenario executes the following steps:
+   1. From-version app is deployed as configured using the `--upgrade-tests-app-*` options.
+   2. Test executor is executed to run all the tests with `upgrade` annotation.
+   3. Optional `pre-upgrade` hook configured with `--upgrade-tests-upgrade-hook` is executed as a system binary.
+   4. App under test is upgraded to the `--chart-file` indicated chart version.
+   5. Optional `post-upgrade` hook configured with `--upgrade-tests-upgrade-hook` is executed as a system binary.
+   6. Test executor is executed again to run all the tests with `upgrade` annotation.
+
 Executing `dats.sh` is the most straight forward way to run `app-test-suite`. As an example, we have included a chart
 in this repository in
 [`examples/apps/hello-world-app`](examples/apps/hello-world-app). Its configuration file for
@@ -83,6 +102,7 @@ when you execute:
 dats.sh -c examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz \
   --functional-tests-cluster-type external \
   --smoke-tests-cluster-type external \
+  --skip-steps upgrade \
   --external-cluster-kubeconfig-path ./kube.config \
   --external-cluster-type kind \
   --external-cluster-version "1.19.0"
@@ -151,6 +171,13 @@ variables or command line when needed. This way you can easily override configs 
 `ats` is prepared to work with multiple different test engines. Please check below for available
 ones and steps they provide.
 
+### Test executors
+
+`app-test-suite` supports multiple test execution engines that can be used to run the same set of test scenarios.
+Currently, the following are supported:
+
+- `pytest` - the first test executor, allows you to run any tests written in `python` and `pytest`.
+
 ### Test pipelines
 
 There are a few assumptions related to how testing invoked by `ats` works.
@@ -178,8 +205,6 @@ something like this:
 2. Run `functional` tests on `kind` cluster. We might reuse the `kind` cluster from the step above. But we might also
    need a more powerful setup to be able to test all the `functional` scenarios, so we might request a real AWS cluster
    for that kind of tests. It's for the test developer to choose.
-
-Currently, we only support [`pytest` test pipeline](docs/pytest-test-pipeline.md).
 
 ## How to contribute
 

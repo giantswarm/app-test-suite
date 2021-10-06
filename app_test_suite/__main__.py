@@ -1,10 +1,13 @@
 """Main module. Loads configuration and executes main control loops."""
 import logging
 import os
+import sys
 from typing import List
 
 import configargparse
-import sys
+from step_exec_lib.errors import ConfigError
+from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
+from step_exec_lib.types import STEP_ALL
 
 from app_test_suite.config import (
     key_cfg_stable_app_url,
@@ -13,12 +16,9 @@ from app_test_suite.config import (
     key_cfg_upgrade_hook,
     key_cfg_stable_app_file,
 )
-from app_test_suite.steps.gotest.gotest import GotestTestFilteringPipeline
-from app_test_suite.steps.pytest.pytest import PytestTestFilteringPipeline
+from app_test_suite.steps.pytest.pytest import PytestScenariosFilteringPipeline
 from app_test_suite.steps.test_types import ALL_STEPS
-from step_exec_lib.errors import ConfigError
-from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
-from step_exec_lib.types import STEP_ALL
+from steps.gotest.gotest import GotestTestFilteringPipeline
 
 ver = "v0.0.0-dev"
 app_name = "app_test_suite"
@@ -34,10 +34,10 @@ def get_version() -> str:
         return ver
 
 
-def get_pipeline(test_executor) -> List[BuildStepsFilteringPipeline]:
+def get_pipeline(test_executor: str) -> List[BuildStepsFilteringPipeline]:
     if test_executor == "pytest":
         return [
-            PytestTestFilteringPipeline(),
+            PytestScenariosFilteringPipeline(),
         ]
     elif test_executor == "gotest":
         return [
@@ -45,6 +45,7 @@ def get_pipeline(test_executor) -> List[BuildStepsFilteringPipeline]:
         ]
     else:
         raise ConfigError("test-executor", f"Unknown executor '{test_executor}'.")
+
 
 def configure_global_options(config_parser: configargparse.ArgParser) -> None:
     config_parser.add_argument(

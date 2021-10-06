@@ -9,18 +9,18 @@ from yaml.parser import ParserError
 import app_test_suite
 import app_test_suite.steps.upgrade_test_runner
 from app_test_suite.cluster_manager import ClusterManager
-from app_test_suite.errors import TestError
-from app_test_suite.steps.pytest.pytest import PytestUpgradeTestRunner
+from app_test_suite.errors import ATSTestError
+from app_test_suite.steps.pytest.pytest import PytestUpgradeTestScenario
 
 
 @pytest.mark.parametrize(
     "resp_code,resp_reason,resp_text,error_type,ver_found",
     [
         (200, "OK", "", None, "0.2.4"),
-        (404, "Not found", "", TestError, ""),
+        (404, "Not found", "", ATSTestError, ""),
         (200, "OK", ": - : not a YAML", ParserError, ""),
-        (200, "OK", "yaml: {}", TestError, ""),
-        (200, "OK", "entries: {}", TestError, ""),
+        (200, "OK", "yaml: {}", ATSTestError, ""),
+        (200, "OK", "entries: {}", ATSTestError, ""),
     ],
     ids=["response OK", "index.yaml not found", "bad YAML", "no 'entries' in YAML", "app entry not found"],
 )
@@ -28,7 +28,7 @@ def test_find_latest_version(
     mocker: MockerFixture, resp_code: int, resp_reason: str, resp_text: str, error_type: type, ver_found: str
 ) -> None:
     mock_cluster_manager = mocker.MagicMock(spec=ClusterManager)
-    runner = PytestUpgradeTestRunner(mock_cluster_manager)
+    runner = PytestUpgradeTestScenario(mock_cluster_manager)
     with open("tests/assets/test_index.yaml", "r") as file:
         test_index_yaml = file.read()
 

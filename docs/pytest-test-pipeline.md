@@ -17,8 +17,13 @@ To make your tests automatically invocable from `ats`, you must adhere to the fo
 The `pytest` pipeline invokes following series of steps:
 
 1. TestInfoProvider: gathers some additional info required for running the tests.
-1. PytestSmokeTestRunner: invokes `pytest` with `smoke` tag to run smoke tests only.
-1. PytestFunctionalTestRunner: invokes `pytest` with `functional` tag to run functional tests only.
+2. PytestSmokeTestRunner: invokes `pytest` with `smoke` tag to run smoke tests only.
+3. PytestFunctionalTestRunner: invokes `pytest` with `functional` tag to run functional tests only.
+4. PytestUpgradeTestRunner: deploys your app as specified with `--upgrade-tests-app-catalog-url`
+    and `--upgrade-tests-app-version` or directly local chart file `--upgrade-tests-app-file`. Then
+    tests are executed on the stable app version using the `upgrade` type, a pre-upgrade hook is executed,
+    your app is upgraded to the version under the test, post-upgrade hook is executed and then again test are invoked
+    using `upgrade` test type.
 
 ## Configuring test scenarios
 

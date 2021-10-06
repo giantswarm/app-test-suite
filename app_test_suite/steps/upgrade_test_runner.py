@@ -12,9 +12,13 @@ import yaml
 from pytest_helm_charts.giantswarm_app_platform.app_catalog import get_app_catalog_obj
 from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCatalogCR
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
-from pytest_helm_charts.giantswarm_app_platform.utils import delete_app
+from pytest_helm_charts.giantswarm_app_platform.utils import delete_app, wait_for_app_to_be_deleted
 from requests import RequestException
-# from validators import url as validator_url
+from step_exec_lib.errors import ConfigError
+from step_exec_lib.types import StepType, Context
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
+from step_exec_lib.utils.processes import run_and_log
+from validators import url as validator_url
 from yaml import YAMLError
 from yaml.parser import ParserError
 
@@ -27,33 +31,34 @@ from app_test_suite.config import (
     key_cfg_stable_app_config,
     key_cfg_upgrade_hook,
 )
-from app_test_suite.errors import TestError
+from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base_test_runner import (
-    BaseTestRunner,
+    BaseTestScenario,
     TestExecutor,
-    BaseTestRunnersFilteringPipeline,
+    BaseTestScenariosFilteringPipeline,
     TEST_APP_CATALOG_NAME,
     context_key_chart_yaml,
     TestExecInfo,
 )
 from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
-from step_exec_lib.errors import ConfigError
-from step_exec_lib.types import StepType, Context
-from step_exec_lib.utils.config import get_config_value_by_cmd_line_option, get_config_attribute_from_cmd_line_option
-from step_exec_lib.utils.processes import run_and_log
 
 KEY_PRE_UPGRADE = "pre-upgrade"
 KEY_POST_UPGRADE = "post-upgrade"
+STABLE_APP_CATALOG_NAME = "stable"
 
 logger = logging.getLogger(__name__)
 
 
-class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
-    _STABLE_APP_CATALOG_NAME = "stable"
+class BaseUpgradeTestScenario(BaseTestScenario, TestExecutor, ABC):
+    """
+    Base class to implement upgrade test scenario for any test executor.
+
+    Do a mixin of this class and a test executor mixin derived from TestExecutor class to get a test scenario.
+    """
 
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
-        self._original_value_skip_deploy = None
+        self._skip_app_deploy = True
         self._stable_from_local_file = False
         self._semver_regex_match = re.compile(r"^.+((0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*).*)\.tgz$")
 
@@ -94,7 +99,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         if app_cfg_file and not os.path.isfile(app_cfg_file):
             raise ConfigError(
                 key_cfg_stable_app_config,
-                "Config file for the app to upgrade from was given, " f"but not found. File name: '{app_cfg_file}'.",
+                f"Config file for the app to upgrade from was given, but not found. File name: '{app_cfg_file}'.",
             )
 
         upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)
@@ -105,35 +110,6 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
                     key_cfg_upgrade_hook,
                     f"Upgrade hook was configured, but '{cmd}' was not " f"found to be a valid executable.",
                 )
-
-        self._original_value_skip_deploy = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
-        )
-        # for upgrade testing we need to deploy the stable version of an app first, so we force skipping
-        # automated deployment by `PytestTestRunner` here. Original value is restored in `cleanup`.
-        if not self._original_value_skip_deploy:
-            config.__setattr__(
-                get_config_attribute_from_cmd_line_option(
-                    BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
-                ),
-                True,
-            )
-
-    def cleanup(
-        self,
-        config: argparse.Namespace,
-        context: Context,
-        has_build_failed: bool,
-    ) -> None:
-        super().cleanup(config, context, has_build_failed)
-        # restore original value of it wasn't True (see comment in pre_run)
-        if not self._original_value_skip_deploy:
-            config.__setattr__(
-                get_config_attribute_from_cmd_line_option(
-                    BaseTestRunnersFilteringPipeline.key_config_option_skip_deploy_app
-                ),
-                False,
-            )
 
     def _prepare_stable_app(self, config: argparse.Namespace, app_name: str) -> Tuple[str, str, str]:
         if self._stable_from_local_file:
@@ -146,8 +122,8 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
             return stable_app_version, TEST_APP_CATALOG_NAME, app_catalog_cr.obj["spec"]["storage"]["URL"]
 
         catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
-        logger.info(f"Adding new app catalog named '{self._STABLE_APP_CATALOG_NAME}' with URL '{catalog_url}'.")
-        app_catalog_cr = get_app_catalog_obj(self._STABLE_APP_CATALOG_NAME, catalog_url, self._kube_client)
+        logger.info(f"Adding new app catalog named '{STABLE_APP_CATALOG_NAME}' with URL '{catalog_url}'.")
+        app_catalog_cr = get_app_catalog_obj(STABLE_APP_CATALOG_NAME, catalog_url, self._kube_client)
         logger.debug(f"Creating AppCatalog '{app_catalog_cr.name}' with the stable app version.")
         app_catalog_cr.create()
 
@@ -155,7 +131,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         if stable_app_ver == "latest":
             stable_app_ver = self._get_latest_app_version(catalog_url, app_name)
 
-        return stable_app_ver, self._STABLE_APP_CATALOG_NAME, catalog_url
+        return stable_app_ver, STABLE_APP_CATALOG_NAME, catalog_url
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         app_name = context[context_key_chart_yaml]["name"]
@@ -164,7 +140,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         stable_app_ver, stable_app_catalog_name, stable_app_catalog_url = self._prepare_stable_app(config, app_name)
 
         deploy_namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
+            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_namespace
         )
         app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
 
@@ -182,7 +158,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
 
         # reconfigure App CR to point to the new version UT
         app_config_file_path = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
+            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_config_file
         )
         self._upgrade_app_cr(app_cr, app_version, app_config_file_path)
 
@@ -198,9 +174,12 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         # delete App CR
         logger.info(f"Deleting App CR '{app_cr.app.name}'.")
         delete_app(app_cr)
+        wait_for_app_to_be_deleted(
+            self._kube_client, app_cr.app.name, app_cr.app.namespace, self._APP_DELETION_TIMEOUT_SEC
+        )
 
         # delete Catalog CR, if it was created
-        app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_or_none(name=self._STABLE_APP_CATALOG_NAME)
+        app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_or_none(name=STABLE_APP_CATALOG_NAME)
         if app_catalog_cr:
             logger.debug(f"Deleting AppCatalog '{app_catalog_cr.name}'.")
             app_catalog_cr.delete()
@@ -230,7 +209,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         try:
             index_response = requests.get(catalog_index_url)
             if not index_response.ok:
-                raise TestError(
+                raise ATSTestError(
                     f"Couldn't get the 'index.yaml' fetched from '{catalog_index_url}'. "
                     f"Reason: [{index_response.status_code}] {index_response.reason}."
                 )
@@ -250,9 +229,11 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
             raise
 
         if "entries" not in index:
-            raise TestError(f"'entries' field was not found in the 'index.yaml' fetched from '{catalog_index_url}'.")
+            raise ATSTestError(f"'entries' field was not found in the 'index.yaml' fetched from '{catalog_index_url}'.")
         if app_name not in index["entries"]:
-            raise TestError(f"App '{app_name}' was not found in the 'index.yaml' fetched from '{catalog_index_url}'.")
+            raise ATSTestError(
+                f"App '{app_name}' was not found in the 'index.yaml' fetched from '{catalog_index_url}'."
+            )
         versions = [e["version"] for e in index["entries"][app_name]]
         versions.sort(key=LooseVersion, reverse=True)
         return versions[0]
@@ -272,7 +253,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
 
         logger.info(f"Executing upgrade hook: '{upgrade_hook_exe}' with stage '{stage_name}'.")
         deploy_namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_namespace
+            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_namespace
         )
         args = upgrade_hook_exe.split(" ")
         args += [
@@ -285,7 +266,7 @@ class BaseUpgradeTestRunner(BaseTestRunner, TestExecutor, ABC):
         ]
         run_res = run_and_log(args)  # nosec, user configurable input, but we have to accept it here
         if run_res.returncode != 0:
-            raise TestError(
+            raise ATSTestError(
                 f"Upgrade hook for stage '{stage_name}' returned non-zero exit code: '{run_res.returncode}'."
             )
 

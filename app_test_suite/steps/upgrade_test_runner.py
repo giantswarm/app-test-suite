@@ -99,7 +99,7 @@ class BaseUpgradeTestScenario(BaseTestScenario, TestExecutor, ABC):
         if app_cfg_file and not os.path.isfile(app_cfg_file):
             raise ConfigError(
                 key_cfg_stable_app_config,
-                "Config file for the app to upgrade from was given, " f"but not found. File name: '{app_cfg_file}'.",
+                f"Config file for the app to upgrade from was given, but not found. File name: '{app_cfg_file}'.",
             )
 
         upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)

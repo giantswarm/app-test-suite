@@ -16,6 +16,7 @@ from tests.helpers import (
     assert_cluster_connection_created,
     get_base_config,
     get_run_and_log_result_mock,
+    get_run_and_handle_error_result_mock,
     patch_base_test_runner,
     get_mock_cluster_manager,
     MOCK_APP_NAME,
@@ -38,6 +39,7 @@ from tests.helpers import (
 def test_upgrade_gotest_runner_run(mocker: MockerFixture) -> None:
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
+    run_and_handle_error_call_result_mock = get_run_and_handle_error_result_mock(mocker)
 
     configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
     patch_gotest_test_runner(mocker, run_and_log_call_result_mock)
@@ -113,7 +115,7 @@ def assert_run_gotest(test_provided: StepType, kube_config_path: str, chart_file
     env_vars["ATS_TEST_TYPE"] = test_provided
     env_vars["ATS_TEST_DIR"] = ""
 
-    cast(unittest.mock.Mock, app_test_suite.steps.gotest.gotest.run_and_log).assert_any_call(
+    cast(unittest.mock.Mock, app_test_suite.steps.gotest.gotest.run_and_handle_error).assert_any_call(
         [
             "go",
             "test",
@@ -121,10 +123,11 @@ def assert_run_gotest(test_provided: StepType, kube_config_path: str, chart_file
             "-tags",
             test_provided,
         ],
+        "build constraints exclude all Go files",
         cwd="",
         env=env_vars,
     )
 
 
-def patch_gotest_test_runner(mocker: MockerFixture, run_and_log_res: unittest.mock.Mock) -> None:
-    mocker.patch("app_test_suite.steps.gotest.gotest.run_and_log", return_value=run_and_log_res)
+def patch_gotest_test_runner(mocker: MockerFixture, run_and_handle_error_res: unittest.mock.Mock) -> None:
+    mocker.patch("app_test_suite.steps.gotest.gotest.run_and_handle_error", return_value=run_and_handle_error_res)

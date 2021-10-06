@@ -8,7 +8,7 @@ import configargparse
 from step_exec_lib.errors import ValidationError
 from step_exec_lib.types import Context, StepType
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
-from step_exec_lib.utils.processes import run_and_log
+from step_exec_lib.utils.processes import run_and_handle_error
 
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
@@ -89,7 +89,11 @@ class GotestExecutorMixin(TestExecutor):
             exec_info.test_type,
         ]
         logger.info(f"Running {self._GOTEST_BIN} tool in '{exec_info.test_dir}' directory.")
-        run_res = run_and_log(args, cwd=exec_info.test_dir, env=env_vars)  # nosec, no user input here
+
+        # If there are no Go tests with build tags for this test type we handle the error.
+        run_res = run_and_handle_error(
+            args, "build constraints exclude all Go files", cwd=exec_info.test_dir, env=env_vars
+        )  # nosec, no user input here
         if run_res.returncode != 0:
             raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
 

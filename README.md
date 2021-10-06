@@ -51,7 +51,7 @@ with [tutorial](docs/tutorial.md).
 
 ### Quick start
 
-`app-build-suite` offers app-platform bootstrapping and test scenarios for your Managed Apps charts.
+`app-test-suite` provides App Platform bootstrapping and test scenarios for your Managed Apps charts.
 Currently, it offers 3 test scenarios, which are executed one after the other unless [configured](#configuring-app-test-suite)
 otherwise. Each test scenario ensures that the App Platform components are deployed to the cluster, then invokes
 test logic, which for different scenarios works like below:

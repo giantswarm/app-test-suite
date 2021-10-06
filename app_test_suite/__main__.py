@@ -18,7 +18,7 @@ from app_test_suite.config import (
 )
 from app_test_suite.steps.pytest.pytest import PytestScenariosFilteringPipeline
 from app_test_suite.steps.test_types import ALL_STEPS
-from steps.gotest.gotest import GotestTestFilteringPipeline
+from app_test_suite.steps.gotest.gotest import GotestTestFilteringPipeline
 
 ver = "v0.0.0-dev"
 app_name = "app_test_suite"

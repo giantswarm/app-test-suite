@@ -1,34 +1,33 @@
 import argparse
 import logging
 import os
-import shutil
 from abc import ABC
 from typing import cast, List, Any
 
 import configargparse
-
-from app_test_suite.cluster_manager import ClusterManager
-from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
-from app_test_suite.errors import TestError
-from app_test_suite.steps.base_test_runner import (
-    BaseTestRunnersFilteringPipeline,
-    TestInfoProvider,
-    BaseTestRunner,
-    context_key_chart_yaml,
-    TestExecInfo,
-    TestExecutor,
-)
-from app_test_suite.steps.test_types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL
-from app_test_suite.steps.upgrade_test_runner import BaseUpgradeTestRunner
 from step_exec_lib.errors import ValidationError
 from step_exec_lib.types import Context, StepType
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 from step_exec_lib.utils.processes import run_and_log
 
+from app_test_suite.cluster_manager import ClusterManager
+from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
+from app_test_suite.errors import ATSTestError
+from app_test_suite.steps.base_test_runner import BaseTestScenario
+from app_test_suite.steps.base_test_runner import (
+    TestInfoProvider,
+    context_key_chart_yaml,
+    TestExecInfo,
+    TestExecutor,
+    BaseTestScenariosFilteringPipeline,
+)
+from app_test_suite.steps.test_types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL
+from app_test_suite.steps.upgrade_test_runner import BaseUpgradeTestScenario
+
 logger = logging.getLogger(__name__)
 
 
-class GotestTestFilteringPipeline(BaseTestRunnersFilteringPipeline):
+class GotestTestFilteringPipeline(BaseTestScenariosFilteringPipeline):
     key_config_option_gotest_dir = "--app-tests-gotest-tests-dir"
 
     def __init__(self) -> None:
@@ -36,9 +35,9 @@ class GotestTestFilteringPipeline(BaseTestRunnersFilteringPipeline):
         super().__init__(
             [
                 TestInfoProvider(),
-                GotestSmokeTestRunner(cluster_manager),
-                GotestFunctionalTestRunner(cluster_manager),
-                GotestUpgradeTestRunner(cluster_manager),
+                GotestSmokeTestScenario(cluster_manager),
+                GotestFunctionalTestScenario(cluster_manager),
+                GotestUpgradeTestScenario(cluster_manager),
             ],
             cluster_manager,
         )
@@ -92,7 +91,7 @@ class GotestExecutorMixin(TestExecutor):
         logger.info(f"Running {self._GOTEST_BIN} tool in '{exec_info.test_dir}' directory.")
         run_res = run_and_log(args, cwd=exec_info.test_dir, env=env_vars)  # nosec, no user input here
         if run_res.returncode != 0:
-            raise TestError(f"Gotest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
+            raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
         gotest_dir = get_config_value_by_cmd_line_option(
@@ -113,7 +112,7 @@ class GotestExecutorMixin(TestExecutor):
         self._gotest_dir = gotest_dir
 
 
-class GotestTestRunner(GotestExecutorMixin, BaseTestRunner, ABC):
+class GotestTestScenario(GotestExecutorMixin, BaseTestScenario, ABC):
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
         self._gotest_dir = ""
@@ -124,7 +123,7 @@ class GotestTestRunner(GotestExecutorMixin, BaseTestRunner, ABC):
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         app_config_file_path = get_config_value_by_cmd_line_option(
-            config, BaseTestRunnersFilteringPipeline.key_config_option_deploy_config_file
+            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_config_file
         )
         cluster_info = cast(ClusterInfo, self._cluster_info)
         exec_info = TestExecInfo(
@@ -141,7 +140,7 @@ class GotestTestRunner(GotestExecutorMixin, BaseTestRunner, ABC):
         self.execute_test(exec_info)
 
 
-class GotestFunctionalTestRunner(GotestTestRunner):
+class GotestFunctionalTestScenario(GotestTestScenario):
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
 
@@ -150,7 +149,7 @@ class GotestFunctionalTestRunner(GotestTestRunner):
         return STEP_TEST_FUNCTIONAL
 
 
-class GotestSmokeTestRunner(GotestTestRunner):
+class GotestSmokeTestScenario(GotestTestScenario):
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
 
@@ -159,7 +158,7 @@ class GotestSmokeTestRunner(GotestTestRunner):
         return STEP_TEST_SMOKE
 
 
-class GotestUpgradeTestRunner(GotestExecutorMixin, BaseUpgradeTestRunner):
+class GotestUpgradeTestScenario(GotestExecutorMixin, BaseUpgradeTestScenario):
     def __init__(self, cluster_manager: ClusterManager):
         super().__init__(cluster_manager)
 

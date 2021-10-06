@@ -9,7 +9,7 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - new test type - upgrade test
 
 - Changed
-  - changed interface for the `AppRepository` class
+  - Changed interface for the `AppRepository` class
 
 ## [0.1.4] - 2021-09-17
 

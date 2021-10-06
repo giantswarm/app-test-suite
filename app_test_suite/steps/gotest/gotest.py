@@ -69,7 +69,7 @@ class GotestExecutorMixin(TestExecutor):
         return
 
     def execute_test(self, exec_info: TestExecInfo) -> None:
-        env_vars = os.environ.copy()
+        env_vars = {}
         env_vars["ATS_CHART_PATH"] = exec_info.chart_path
         env_vars["ATS_CHART_VERSION"] = exec_info.chart_ver
         env_vars["ATS_CLUSTER_TYPE"] = exec_info.cluster_type

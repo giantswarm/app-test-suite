@@ -16,6 +16,7 @@ from app_test_suite.steps.upgrade_test_runner import STABLE_APP_CATALOG_NAME
 
 MOCK_UPGRADE_CATALOG_URL = "http://chartmuseum-chartmuseum.giantswarm:8080/charts/"
 MOCK_KUBE_CONFIG_PATH = "/nonexisting-flsdhge235/kube.config"
+MOCK_KUBE_VERSION= "1.19.1"
 MOCK_APP_NAME = "mock_app"
 MOCK_APP_NS = "mock_ns"
 MOCK_APP_DEPLOY_NS = "mock_deploy_ns"
@@ -109,7 +110,7 @@ def patch_base_test_runner(
 def get_mock_cluster_manager(mocker: MockerFixture) -> ClusterManager:
     mock_cluster_manager = mocker.MagicMock(spec=ClusterManager, name="MockClusterManager")
     mock_cluster_manager.get_cluster_for_test_type.return_value = ClusterInfo(
-        ClusterType("mock"), None, "1.19.1", "mock_cluster_id", MOCK_KUBE_CONFIG_PATH, ExternalClusterProvider(), ""
+        ClusterType("mock"), None, MOCK_KUBE_VERSION, "mock_cluster_id", MOCK_KUBE_CONFIG_PATH, ExternalClusterProvider(), ""
     )
     return mock_cluster_manager
 

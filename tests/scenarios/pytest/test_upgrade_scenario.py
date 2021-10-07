@@ -7,10 +7,10 @@ from requests import Response
 from yaml.parser import ParserError
 
 import app_test_suite
-import app_test_suite.steps.upgrade_test_runner
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import ATSTestError
-from app_test_suite.steps.gotest.gotest import GotestUpgradeTestScenario
+from steps.base import TestExecutor
+from steps.scenarios.upgrade import UpgradeTestScenario
 
 
 @pytest.mark.parametrize(
@@ -28,7 +28,8 @@ def test_find_latest_version(
     mocker: MockerFixture, resp_code: int, resp_reason: str, resp_text: str, error_type: type, ver_found: str
 ) -> None:
     mock_cluster_manager = mocker.MagicMock(spec=ClusterManager)
-    runner = GotestUpgradeTestScenario(mock_cluster_manager)
+    test_executor = mocker.MagicMock(spec=TestExecutor, name="Mock Test Executor")
+    runner = UpgradeTestScenario(mock_cluster_manager, test_executor)
     with open("tests/assets/test_index.yaml", "r") as file:
         test_index_yaml = file.read()
 
@@ -52,6 +53,4 @@ def test_find_latest_version(
         assert type(catched_error) == error_type
     else:
         assert ver == ver_found
-    cast(Mock, app_test_suite.steps.upgrade_test_runner.requests.get).assert_called_once_with(
-        catalog_url + "/index.yaml"
-    )
+    cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(catalog_url + "/index.yaml")

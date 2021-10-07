@@ -1,3 +1,5 @@
+# mypy: ignore-errors
+
 import argparse
 import logging
 import os
@@ -81,20 +83,24 @@ class GotestExecutorMixin(TestExecutor):
         if exec_info.app_config_file_path is not None:
             env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
 
+        # Set env vars needed by Go.
+        env_vars["GOPATH"] = os.getenv("GOPATH")
+        env_vars["HOME"] = os.getenv("HOME")
+        env_vars["PATH"] = os.getenv("PATH")
+
         args = [
             self._GOTEST_BIN,
             "test",
             "-v",
-            "-tags",
-            exec_info.test_type,
+            f"-tags={exec_info.test_type}",
         ]
         logger.info(f"Running {self._GOTEST_BIN} tool in '{exec_info.test_dir}' directory.")
 
         # If there are no Go tests with build tags for this test type we handle the error.
-        run_res = run_and_handle_error(
+        ret_code = run_and_handle_error(
             args, "build constraints exclude all Go files", cwd=exec_info.test_dir, env=env_vars
         )  # nosec, no user input here
-        if run_res.returncode != 0:
+        if ret_code != 0:
             raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:

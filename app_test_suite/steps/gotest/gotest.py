@@ -10,21 +10,20 @@ from step_exec_lib.utils.processes import run_and_handle_error
 
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import ATSTestError
-from app_test_suite.steps.base_test_runner import (
+from app_test_suite.steps.base import (
     TestInfoProvider,
     TestExecInfo,
     TestExecutor,
     BaseTestScenariosFilteringPipeline,
-    SmokeTestScenario,
-    FunctionalTestScenario,
 )
-from steps.upgrade_test_runner import UpgradeTestScenario
+from steps.scenarios.simple import FunctionalTestScenario, SmokeTestScenario
+from steps.scenarios.upgrade import UpgradeTestScenario
 
 logger = logging.getLogger(__name__)
 
 
 class GotestTestFilteringPipeline(BaseTestScenariosFilteringPipeline):
-    key_config_option_gotest_dir = "--app-tests-gotest-tests-dir"
+    KEY_CONFIG_OPTION_GOTEST_DIR = "--app-tests-gotest-tests-dir"
 
     def __init__(self) -> None:
         cluster_manager = ClusterManager()
@@ -46,7 +45,7 @@ class GotestTestFilteringPipeline(BaseTestScenariosFilteringPipeline):
             config_parser.add_argument_group("Gotest specific options"),
         )
         self._config_parser_group.add_argument(
-            self.key_config_option_gotest_dir,
+            self.KEY_CONFIG_OPTION_GOTEST_DIR,
             required=False,
             default=os.path.join("tests", "ats"),
             help="Directory, where go tests source code can be found.",
@@ -63,14 +62,15 @@ class GotestExecutor(TestExecutor):
         return
 
     def execute_test(self, exec_info: TestExecInfo) -> None:
-        env_vars = {}
-        env_vars["ATS_CHART_PATH"] = exec_info.chart_path
-        env_vars["ATS_CHART_VERSION"] = exec_info.chart_ver
-        env_vars["ATS_CLUSTER_TYPE"] = exec_info.cluster_type
-        env_vars["ATS_CLUSTER_VERSION"] = exec_info.cluster_version
-        env_vars["ATS_KUBE_CONFIG_PATH"] = exec_info.kube_config_path
-        env_vars["ATS_TEST_TYPE"] = exec_info.test_type
-        env_vars["ATS_TEST_DIR"] = exec_info.test_dir
+        env_vars = {
+            "ATS_CHART_PATH": exec_info.chart_path,
+            "ATS_CHART_VERSION": exec_info.chart_ver,
+            "ATS_CLUSTER_TYPE": exec_info.cluster_type,
+            "ATS_CLUSTER_VERSION": exec_info.cluster_version,
+            "ATS_KUBE_CONFIG_PATH": exec_info.kube_config_path,
+            "ATS_TEST_TYPE": exec_info.test_type,
+            "ATS_TEST_DIR": exec_info.test_dir,
+        }
 
         if exec_info.app_config_file_path is not None:
             env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
@@ -88,12 +88,12 @@ class GotestExecutor(TestExecutor):
         run_res = run_and_handle_error(
             args, "build constraints exclude all Go files", cwd=exec_info.test_dir, env=env_vars
         )  # nosec, no user input here
-        if run_res.returncode != 0:
+        if run_res != 0:
             raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
         gotest_dir = get_config_value_by_cmd_line_option(
-            config, GotestTestFilteringPipeline.key_config_option_gotest_dir
+            config, GotestTestFilteringPipeline.KEY_CONFIG_OPTION_GOTEST_DIR
         )
         gotest_dir = os.path.join(os.path.dirname(config.chart_file), gotest_dir)
         if not os.path.isdir(gotest_dir):

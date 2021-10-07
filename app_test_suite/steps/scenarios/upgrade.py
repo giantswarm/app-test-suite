@@ -21,25 +21,19 @@ from validators import url as validator_url
 from yaml import YAMLError
 from yaml.parser import ParserError
 
-from app_test_suite.cluster_manager import ClusterManager
-from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
-from app_test_suite.config import (
+from cluster_manager import ClusterManager
+from cluster_providers.cluster_provider import ClusterInfo
+from config import (
     key_cfg_stable_app_url,
     key_cfg_stable_app_file,
     key_cfg_stable_app_version,
     key_cfg_stable_app_config,
     key_cfg_upgrade_hook,
 )
-from app_test_suite.errors import ATSTestError
-from app_test_suite.steps.base_test_runner import (
-    TestExecutor,
-    BaseTestScenariosFilteringPipeline,
-    TEST_APP_CATALOG_NAME,
-    context_key_chart_yaml,
-    TestExecInfo,
-    SimpleTestScenario,
-)
-from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
+from errors import ATSTestError
+from steps.base import TestExecutor, CONTEXT_KEY_CHART_YAML, BaseTestScenariosFilteringPipeline, TestExecInfo
+from steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME
+from steps.test_types import STEP_TEST_UPGRADE
 
 KEY_PRE_UPGRADE = "pre-upgrade"
 KEY_POST_UPGRADE = "post-upgrade"
@@ -134,13 +128,13 @@ class UpgradeTestScenario(SimpleTestScenario):
         return stable_app_ver, STABLE_APP_CATALOG_NAME, catalog_url
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
-        app_name = context[context_key_chart_yaml]["name"]
-        app_version = context[context_key_chart_yaml]["version"]
+        app_name = context[CONTEXT_KEY_CHART_YAML]["name"]
+        app_version = context[CONTEXT_KEY_CHART_YAML]["version"]
 
         stable_app_ver, stable_app_catalog_name, stable_app_catalog_url = self._prepare_stable_app(config, app_name)
 
         deploy_namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_namespace
+            config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE
         )
         app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
 
@@ -158,7 +152,7 @@ class UpgradeTestScenario(SimpleTestScenario):
 
         # reconfigure App CR to point to the new version UT
         app_config_file_path = get_config_value_by_cmd_line_option(
-            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_config_file
+            config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE
         )
         self._upgrade_app_cr(app_cr, app_version, app_config_file_path)
 
@@ -253,7 +247,7 @@ class UpgradeTestScenario(SimpleTestScenario):
 
         logger.info(f"Executing upgrade hook: '{upgrade_hook_exe}' with stage '{stage_name}'.")
         deploy_namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_namespace
+            config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE
         )
         args = upgrade_hook_exe.split(" ")
         args += [

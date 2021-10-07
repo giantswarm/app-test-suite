@@ -4,7 +4,7 @@ from typing import cast
 from pytest_mock import MockerFixture
 
 import app_test_suite
-from app_test_suite.steps.base_test_runner import context_key_chart_yaml, TEST_APP_CATALOG_NAME
+from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML, TEST_APP_CATALOG_NAME
 from app_test_suite.steps.gotest.gotest import GotestSmokeTestScenario, GotestUpgradeTestScenario
 from app_test_suite.steps.upgrade_test_runner import STABLE_APP_CATALOG_NAME, KEY_PRE_UPGRADE, KEY_POST_UPGRADE
 from step_exec_lib.types import StepType
@@ -46,7 +46,7 @@ def test_upgrade_gotest_runner_run(mocker: MockerFixture) -> None:
     config = get_base_config(mocker)
     configure_for_upgrade_test(config)
 
-    context = {context_key_chart_yaml: {"name": MOCK_APP_NAME, "version": MOCK_APP_VERSION}}
+    context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_APP_VERSION}}
     runner = GotestUpgradeTestScenario(mock_cluster_manager)
     runner.run(config, context)
 
@@ -90,7 +90,7 @@ def test_gotest_smoke_runner_run(mocker: MockerFixture) -> None:
     patch_gotest_test_runner(mocker, run_and_log_call_result_mock)
 
     config = get_base_config(mocker)
-    context = {context_key_chart_yaml: {"name": MOCK_APP_NAME, "version": MOCK_APP_VERSION}}
+    context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_APP_VERSION}}
     runner = GotestSmokeTestScenario(mock_cluster_manager)
     runner.run(config, context)
 

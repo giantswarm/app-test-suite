@@ -10,7 +10,7 @@ import app_test_suite
 import app_test_suite.steps.upgrade_test_runner
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import ATSTestError
-from app_test_suite.steps.pytest.pytest import UpgradeTestScenario
+from steps.scenarios.upgrade import UpgradeTestScenario
 
 
 @pytest.mark.parametrize(

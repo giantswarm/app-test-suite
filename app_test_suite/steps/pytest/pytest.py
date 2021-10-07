@@ -11,20 +11,20 @@ from step_exec_lib.utils.processes import run_and_log
 
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import ATSTestError
-from app_test_suite.steps.base_test_runner import (
+from app_test_suite.steps.base import (
     BaseTestScenariosFilteringPipeline,
     TestInfoProvider,
     TestExecInfo,
     TestExecutor,
 )
-from steps.base_test_runner import FunctionalTestScenario, SmokeTestScenario
-from steps.upgrade_test_runner import UpgradeTestScenario
+from steps.scenarios.simple import FunctionalTestScenario, SmokeTestScenario
+from steps.scenarios.upgrade import UpgradeTestScenario
 
 logger = logging.getLogger(__name__)
 
 
 class PytestScenariosFilteringPipeline(BaseTestScenariosFilteringPipeline):
-    key_config_option_pytest_dir = "--app-tests-pytest-tests-dir"
+    KEY_CONFIG_OPTION_PYTEST_DIR = "--app-tests-pytest-tests-dir"
 
     def __init__(self) -> None:
         cluster_manager = ClusterManager()
@@ -46,7 +46,7 @@ class PytestScenariosFilteringPipeline(BaseTestScenariosFilteringPipeline):
             config_parser.add_argument_group("Pytest specific options"),
         )
         self._config_parser_group.add_argument(
-            self.key_config_option_pytest_dir,
+            self.KEY_CONFIG_OPTION_PYTEST_DIR,
             required=False,
             default=os.path.join("tests", "ats"),
             help="Directory, where pytest tests source code can be found.",
@@ -104,7 +104,7 @@ class PytestExecutor(TestExecutor):
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
         pytest_dir = get_config_value_by_cmd_line_option(
-            config, PytestScenariosFilteringPipeline.key_config_option_pytest_dir
+            config, PytestScenariosFilteringPipeline.KEY_CONFIG_OPTION_PYTEST_DIR
         )
         pytest_dir = os.path.join(os.path.dirname(config.chart_file), pytest_dir)
         if not os.path.isdir(pytest_dir):

@@ -11,7 +11,7 @@ import app_test_suite
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers import ExternalClusterProvider
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
-from app_test_suite.steps.base_test_runner import SimpleTestScenario
+from steps.scenarios.simple import SimpleTestScenario
 from app_test_suite.steps.upgrade_test_runner import STABLE_APP_CATALOG_NAME
 
 MOCK_UPGRADE_CATALOG_URL = "http://chartmuseum-chartmuseum.giantswarm:8080/charts/"

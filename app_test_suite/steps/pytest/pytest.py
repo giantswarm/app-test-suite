@@ -2,28 +2,23 @@ import argparse
 import logging
 import os
 import shutil
-from abc import ABC
-from typing import cast, List, Any
+from typing import cast, List
 
 import configargparse
+from step_exec_lib.errors import ValidationError
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
+from step_exec_lib.utils.processes import run_and_log
 
 from app_test_suite.cluster_manager import ClusterManager
-from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base_test_runner import (
     BaseTestScenariosFilteringPipeline,
     TestInfoProvider,
-    BaseTestScenario,
-    context_key_chart_yaml,
     TestExecInfo,
     TestExecutor,
 )
-from app_test_suite.steps.test_types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL
-from app_test_suite.steps.upgrade_test_runner import BaseUpgradeTestScenario
-from step_exec_lib.errors import ValidationError
-from step_exec_lib.types import Context, StepType
-from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
-from step_exec_lib.utils.processes import run_and_log
+from steps.base_test_runner import FunctionalTestScenario, SmokeTestScenario
+from steps.upgrade_test_runner import UpgradeTestScenario
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +28,13 @@ class PytestScenariosFilteringPipeline(BaseTestScenariosFilteringPipeline):
 
     def __init__(self) -> None:
         cluster_manager = ClusterManager()
+        test_executor = PytestExecutor()
         super().__init__(
             [
                 TestInfoProvider(),
-                PytestSmokeTestScenario(cluster_manager),
-                PytestFunctionalTestScenario(cluster_manager),
-                PytestUpgradeTestScenario(cluster_manager),
+                SmokeTestScenario(cluster_manager, test_executor),
+                FunctionalTestScenario(cluster_manager, test_executor),
+                UpgradeTestScenario(cluster_manager, test_executor),
             ],
             cluster_manager,
         )
@@ -57,15 +53,12 @@ class PytestScenariosFilteringPipeline(BaseTestScenariosFilteringPipeline):
         )
 
 
-class PytestExecutorMixin(TestExecutor):
+class PytestExecutor(TestExecutor):
     _PIPENV_BIN = "pipenv"
     _PYTEST_BIN = "pytest"
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        # This class is intended to be used as a mixin, that forwards constructor call to any other type
-        #  inherited from except the mixin itself.
-        super().__init__(*args, **kwargs)  # type: ignore
-        self._pytest_dir = ""
+    def __init__(self) -> None:
+        self._test_dir = ""
 
     def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
         args = [self._PIPENV_BIN, "install", "--deploy"]
@@ -131,76 +124,4 @@ class PytestExecutorMixin(TestExecutor):
                 module_name,
                 f"In order to install pytest virtual env, you need to have " f"'{self._PIPENV_BIN}' installed.",
             )
-        self._pytest_dir = pytest_dir
-
-
-class PytestTestScenario(PytestExecutorMixin, BaseTestScenario, ABC):
-    _pipenv_bin = "pipenv"
-    _pytest_bin = "pytest"
-
-    def __init__(self, cluster_manager: ClusterManager):
-        super().__init__(cluster_manager)
-        self._pytest_dir = ""
-
-    def pre_run(self, config: argparse.Namespace) -> None:
-        super().pre_run(config)
-        self.validate(config, self.name)
-
-    def run_tests(self, config: argparse.Namespace, context: Context) -> None:
-        app_config_file_path = get_config_value_by_cmd_line_option(
-            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_config_file
-        )
-        cluster_info = cast(ClusterInfo, self._cluster_info)
-        exec_info = TestExecInfo(
-            chart_path=config.chart_file,
-            chart_ver=context[context_key_chart_yaml]["version"],
-            app_config_file_path=app_config_file_path,
-            cluster_type=self._test_cluster_type,
-            cluster_version=cluster_info.version,
-            kube_config_path=os.path.abspath(cluster_info.kube_config_path),
-            test_type=self.test_provided,
-            test_dir=self._pytest_dir,
-        )
-        self.prepare_test_environment(exec_info)
-        self.execute_test(exec_info)
-
-
-class PytestFunctionalTestScenario(PytestTestScenario):
-    def __init__(self, cluster_manager: ClusterManager):
-        super().__init__(cluster_manager)
-
-    @property
-    def test_provided(self) -> StepType:
-        return STEP_TEST_FUNCTIONAL
-
-
-class PytestSmokeTestScenario(PytestTestScenario):
-    def __init__(self, cluster_manager: ClusterManager):
-        super().__init__(cluster_manager)
-
-    @property
-    def test_provided(self) -> StepType:
-        return STEP_TEST_SMOKE
-
-
-class PytestUpgradeTestScenario(PytestExecutorMixin, BaseUpgradeTestScenario):
-    def __init__(self, cluster_manager: ClusterManager):
-        super().__init__(cluster_manager)
-
-    def pre_run(self, config: argparse.Namespace) -> None:
-        super().pre_run(config)
-        self.validate(config, self.name)
-
-    def _get_test_exec_info(self, chart_path: str, chart_ver: str, chart_config_file: str) -> TestExecInfo:
-        cluster_info = cast(ClusterInfo, self._cluster_info)
-        exec_info = TestExecInfo(
-            chart_path=chart_path,
-            chart_ver=chart_ver,
-            app_config_file_path=chart_config_file,
-            cluster_type=self._test_cluster_type,
-            cluster_version=cluster_info.version,
-            kube_config_path=os.path.abspath(cluster_info.kube_config_path),
-            test_type=self.test_provided,
-            test_dir=self._pytest_dir,
-        )
-        return exec_info
+        self._test_dir = pytest_dir

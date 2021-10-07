@@ -5,7 +5,8 @@ from pytest_mock import MockerFixture
 
 import app_test_suite
 from app_test_suite.steps.base_test_runner import context_key_chart_yaml, TEST_APP_CATALOG_NAME
-from app_test_suite.steps.pytest.pytest import PytestSmokeTestScenario, PytestUpgradeTestScenario
+from app_test_suite.steps.pytest.pytest import UpgradeTestScenario
+from steps.base_test_runner import SmokeTestScenario
 from app_test_suite.steps.upgrade_test_runner import STABLE_APP_CATALOG_NAME, KEY_PRE_UPGRADE, KEY_POST_UPGRADE
 from step_exec_lib.types import StepType
 from tests.helpers import (
@@ -46,7 +47,7 @@ def test_upgrade_pytest_runner_run(mocker: MockerFixture) -> None:
     configure_for_upgrade_test(config)
 
     context = {context_key_chart_yaml: {"name": MOCK_APP_NAME, "version": MOCK_APP_VERSION}}
-    runner = PytestUpgradeTestScenario(mock_cluster_manager)
+    runner = UpgradeTestScenario(mock_cluster_manager)
     runner.run(config, context)
 
     assert_cluster_connection_created(MOCK_KUBE_CONFIG_PATH)
@@ -91,7 +92,7 @@ def test_pytest_smoke_runner_run(mocker: MockerFixture) -> None:
 
     config = get_base_config(mocker)
     context = {context_key_chart_yaml: {"name": MOCK_APP_NAME, "version": MOCK_APP_VERSION}}
-    runner = PytestSmokeTestScenario(mock_cluster_manager)
+    runner = SmokeTestScenario(mock_cluster_manager)
     runner.run(config, context)
 
     assert_cluster_connection_created(MOCK_KUBE_CONFIG_PATH)

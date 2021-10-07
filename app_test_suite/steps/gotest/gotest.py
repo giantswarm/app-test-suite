@@ -1,28 +1,24 @@
 import argparse
 import logging
 import os
-from abc import ABC
-from typing import cast, List, Any
+from typing import cast, List
 
 import configargparse
 from step_exec_lib.errors import ValidationError
-from step_exec_lib.types import Context, StepType
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 from step_exec_lib.utils.processes import run_and_handle_error
 
 from app_test_suite.cluster_manager import ClusterManager
-from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
 from app_test_suite.errors import ATSTestError
-from app_test_suite.steps.base_test_runner import BaseTestScenario
 from app_test_suite.steps.base_test_runner import (
     TestInfoProvider,
-    context_key_chart_yaml,
     TestExecInfo,
     TestExecutor,
     BaseTestScenariosFilteringPipeline,
+    SmokeTestScenario,
+    FunctionalTestScenario,
 )
-from app_test_suite.steps.test_types import STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL
-from app_test_suite.steps.upgrade_test_runner import BaseUpgradeTestScenario
+from steps.upgrade_test_runner import UpgradeTestScenario
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +28,13 @@ class GotestTestFilteringPipeline(BaseTestScenariosFilteringPipeline):
 
     def __init__(self) -> None:
         cluster_manager = ClusterManager()
+        test_executor = GotestExecutor()
         super().__init__(
             [
                 TestInfoProvider(),
-                GotestSmokeTestScenario(cluster_manager),
-                GotestFunctionalTestScenario(cluster_manager),
-                GotestUpgradeTestScenario(cluster_manager),
+                SmokeTestScenario(cluster_manager, test_executor),
+                FunctionalTestScenario(cluster_manager, test_executor),
+                UpgradeTestScenario(cluster_manager, test_executor),
             ],
             cluster_manager,
         )
@@ -56,13 +53,10 @@ class GotestTestFilteringPipeline(BaseTestScenariosFilteringPipeline):
         )
 
 
-class GotestExecutorMixin(TestExecutor):
+class GotestExecutor(TestExecutor):
     _GOTEST_BIN = "go"
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        # This class is intended to be used as a mixin, that forwards constructor call to any other type
-        #  inherited from except the mixin itself.
-        super().__init__(*args, **kwargs)  # type: ignore
+    def __init__(self) -> None:
         self._gotest_dir = ""
 
     def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
@@ -114,72 +108,3 @@ class GotestExecutorMixin(TestExecutor):
                 f"Gotest tests were requested, but no go source code file was found in directory '{gotest_dir}'.",
             )
         self._gotest_dir = gotest_dir
-
-
-class GotestTestScenario(GotestExecutorMixin, BaseTestScenario, ABC):
-    def __init__(self, cluster_manager: ClusterManager):
-        super().__init__(cluster_manager)
-        self._gotest_dir = ""
-
-    def pre_run(self, config: argparse.Namespace) -> None:
-        super().pre_run(config)
-        self.validate(config, self.name)
-
-    def run_tests(self, config: argparse.Namespace, context: Context) -> None:
-        app_config_file_path = get_config_value_by_cmd_line_option(
-            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_config_file
-        )
-        cluster_info = cast(ClusterInfo, self._cluster_info)
-        exec_info = TestExecInfo(
-            chart_path=config.chart_file,
-            chart_ver=context[context_key_chart_yaml]["version"],
-            app_config_file_path=app_config_file_path,
-            cluster_type=self._test_cluster_type,
-            cluster_version=cluster_info.version,
-            kube_config_path=os.path.abspath(cluster_info.kube_config_path),
-            test_type=self.test_provided,
-            test_dir=self._gotest_dir,
-        )
-        self.prepare_test_environment(exec_info)
-        self.execute_test(exec_info)
-
-
-class GotestFunctionalTestScenario(GotestTestScenario):
-    def __init__(self, cluster_manager: ClusterManager):
-        super().__init__(cluster_manager)
-
-    @property
-    def test_provided(self) -> StepType:
-        return STEP_TEST_FUNCTIONAL
-
-
-class GotestSmokeTestScenario(GotestTestScenario):
-    def __init__(self, cluster_manager: ClusterManager):
-        super().__init__(cluster_manager)
-
-    @property
-    def test_provided(self) -> StepType:
-        return STEP_TEST_SMOKE
-
-
-class GotestUpgradeTestScenario(GotestExecutorMixin, BaseUpgradeTestScenario):
-    def __init__(self, cluster_manager: ClusterManager):
-        super().__init__(cluster_manager)
-
-    def pre_run(self, config: argparse.Namespace) -> None:
-        super().pre_run(config)
-        self.validate(config, self.name)
-
-    def _get_test_exec_info(self, chart_path: str, chart_ver: str, chart_config_file: str) -> TestExecInfo:
-        cluster_info = cast(ClusterInfo, self._cluster_info)
-        exec_info = TestExecInfo(
-            chart_path=chart_path,
-            chart_ver=chart_ver,
-            app_config_file_path=chart_config_file,
-            cluster_type=self._test_cluster_type,
-            cluster_version=cluster_info.version,
-            kube_config_path=os.path.abspath(cluster_info.kube_config_path),
-            test_type=self.test_provided,
-            test_dir=self._gotest_dir,
-        )
-        return exec_info

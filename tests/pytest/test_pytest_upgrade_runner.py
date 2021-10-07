@@ -10,7 +10,7 @@ import app_test_suite
 import app_test_suite.steps.upgrade_test_runner
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import ATSTestError
-from app_test_suite.steps.pytest.pytest import PytestUpgradeTestScenario
+from app_test_suite.steps.pytest.pytest import UpgradeTestScenario
 
 
 @pytest.mark.parametrize(
@@ -28,7 +28,7 @@ def test_find_latest_version(
     mocker: MockerFixture, resp_code: int, resp_reason: str, resp_text: str, error_type: type, ver_found: str
 ) -> None:
     mock_cluster_manager = mocker.MagicMock(spec=ClusterManager)
-    runner = PytestUpgradeTestScenario(mock_cluster_manager)
+    runner = UpgradeTestScenario(mock_cluster_manager)
     with open("tests/assets/test_index.yaml", "r") as file:
         test_index_yaml = file.read()
 

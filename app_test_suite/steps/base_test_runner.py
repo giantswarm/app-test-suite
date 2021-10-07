@@ -18,17 +18,18 @@ from pytest_helm_charts.giantswarm_app_platform.utils import (
     create_app,
     wait_for_apps_to_run,
 )
-
-from app_test_suite.cluster_manager import ClusterManager
-from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
-from app_test_suite.errors import ATSTestError
-from app_test_suite.steps.repositories import ChartMuseumAppRepository
-from app_test_suite.steps.test_types import config_option_cluster_type_for_test_type
 from step_exec_lib.errors import ConfigError, ValidationError
 from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep
 from step_exec_lib.types import Context, StepType, STEP_ALL
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 from step_exec_lib.utils.processes import run_and_log
+
+from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
+from app_test_suite.errors import ATSTestError
+from app_test_suite.steps.repositories import ChartMuseumAppRepository
+from app_test_suite.steps.test_types import config_option_cluster_type_for_test_type
+from cluster_manager import ClusterManager
+from steps.test_types import STEP_TEST_FUNCTIONAL, STEP_TEST_SMOKE
 
 TEST_APP_CATALOG_NAME: str = "chartmuseum"
 
@@ -117,6 +118,51 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
         self._cluster_manager.cleanup()
 
 
+@dataclass
+class TestExecInfo:
+    """
+    TestExecInfo provides all the information that is passed from a test scenario to test executor.
+    """
+
+    chart_path: str
+    """Path to the chart file under test."""
+    chart_ver: str
+    """Chart version detected from the chart."""
+    app_config_file_path: Optional[str]
+    """Path to an optional Helm values file used to configure the chart under test."""
+    cluster_type: str
+    """A string representing a cluster type that the test scenario is running on."""
+    cluster_version: str
+    """Kubernetes cluster version of a cluster the test scenario is running on."""
+    kube_config_path: str
+    """Path to kube.config to connect to the cluster."""
+    test_type: str
+    """Type of test to execute by the test executor."""
+    test_dir: str
+    """Path to a directory where test code is available."""
+
+
+class TestExecutor(ABC):
+    """
+    Base abstract class to implement different test executors.
+
+    Test executors are responsible for running actual tests in a scenario using a specific
+    test platform like `pytest` or `go test`.
+    """
+
+    def validate(self, config: argparse.Namespace, module_name: str) -> None:
+        """Validate any configuration related to the test executor."""
+        raise NotImplementedError()
+
+    def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
+        """Optional step to prepare environment where your tests are executed (ie. installing dependencies)."""
+        raise NotImplementedError()
+
+    def execute_test(self, exec_info: TestExecInfo) -> None:
+        """Execute test using a specific test executor and information provided as exec_info."""
+        raise NotImplementedError()
+
+
 class TestInfoProvider(BuildStep):
     """
     Since the whole build pipeline can change Chart.yaml file multiple times, this
@@ -146,7 +192,7 @@ class TestInfoProvider(BuildStep):
                 )
 
 
-class BaseTestScenario(BuildStep, ABC):
+class SimpleTestScenario(BuildStep, ABC):
     """
     BaseTestRunner is a base class that can be used to implement a specific test scenario.
     It provides basic methods that are test-executor independent.
@@ -162,7 +208,7 @@ class BaseTestScenario(BuildStep, ABC):
     _APP_DEPLOYMENT_TIMEOUT_SEC = 1800
     _APP_DELETION_TIMEOUT_SEC = 600
 
-    def __init__(self, cluster_manager: ClusterManager):
+    def __init__(self, cluster_manager: ClusterManager, test_executor: TestExecutor):
         self._cluster_manager = cluster_manager
         self._configured_cluster_type: ClusterType = ClusterType("")
         self._configured_cluster_config_file = ""
@@ -170,6 +216,8 @@ class BaseTestScenario(BuildStep, ABC):
         self._cluster_info: Optional[ClusterInfo] = None
         self._default_app_cr_namespace = "default"
         self._skip_app_deploy = False
+        self._test_executor = test_executor
+        self._test_dir = ""
 
     @property
     def steps_provided(self) -> Set[StepType]:
@@ -179,10 +227,6 @@ class BaseTestScenario(BuildStep, ABC):
     @abstractmethod
     def test_provided(self) -> StepType:
         raise NotImplementedError()
-
-    @abstractmethod
-    def run_tests(self, config: argparse.Namespace, context: Context) -> None:
-        raise NotImplementedError
 
     @property
     def _config_cluster_type_attribute_name(self) -> str:
@@ -202,6 +246,24 @@ class BaseTestScenario(BuildStep, ABC):
             else self._cluster_info.cluster_type
         )
         return cluster_type
+
+    def run_tests(self, config: argparse.Namespace, context: Context) -> None:
+        app_config_file_path = get_config_value_by_cmd_line_option(
+            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_config_file
+        )
+        cluster_info = cast(ClusterInfo, self._cluster_info)
+        exec_info = TestExecInfo(
+            chart_path=config.chart_file,
+            chart_ver=context[context_key_chart_yaml]["version"],
+            app_config_file_path=app_config_file_path,
+            cluster_type=self._test_cluster_type,
+            cluster_version=cluster_info.version,
+            kube_config_path=os.path.abspath(cluster_info.kube_config_path),
+            test_type=self.test_provided,
+            test_dir=self._test_dir,
+        )
+        self._test_executor.prepare_test_environment(exec_info)
+        self._test_executor.execute_test(exec_info)
 
     def _ensure_app_platform_ready(self, kube_config_path: str) -> None:
         """
@@ -271,6 +333,7 @@ class BaseTestScenario(BuildStep, ABC):
             )
         self._configured_cluster_type = cluster_type
         self._configured_cluster_config_file = cluster_config_file if cluster_config_file is not None else ""
+        self._test_executor.validate(config, self.name)
 
     def run(self, config: argparse.Namespace, context: Context) -> None:
         # this API might need a change if we need to pass some more information than just type and config file
@@ -281,6 +344,8 @@ class BaseTestScenario(BuildStep, ABC):
         self._cluster_info = self._cluster_manager.get_cluster_for_test_type(
             self._configured_cluster_type, self._configured_cluster_config_file, config
         )
+        if not self._cluster_info:
+            raise ATSTestError("Didn't get cluster info from cluster manager")
 
         logger.info("Establishing connection to the new cluster.")
         try:
@@ -372,46 +437,19 @@ class BaseTestScenario(BuildStep, ABC):
         logger.info("Application deleted")
 
 
-@dataclass
-class TestExecInfo:
-    """
-    TestExecInfo provides all the information that is passed from a test scenario to test executor.
-    """
+class FunctionalTestScenario(SimpleTestScenario):
+    def __init__(self, cluster_manager: ClusterManager, test_executor: TestExecutor):
+        super().__init__(cluster_manager, test_executor)
 
-    chart_path: str
-    """Path to the chart file under test."""
-    chart_ver: str
-    """Chart version detected from the chart."""
-    app_config_file_path: Optional[str]
-    """Path to an optional Helm values file used to configure the chart under test."""
-    cluster_type: str
-    """A string representing a cluster type that the test scenario is running on."""
-    cluster_version: str
-    """Kubernetes cluster version of a cluster the test scenario is running on."""
-    kube_config_path: str
-    """Path to kube.config to connect to the cluster."""
-    test_type: str
-    """Type of test to execute by the test executor."""
-    test_dir: str
-    """Path to a directory where test code is available."""
+    @property
+    def test_provided(self) -> StepType:
+        return STEP_TEST_FUNCTIONAL
 
 
-class TestExecutor(ABC):
-    """
-    Base abstract class to implement different test executors.
+class SmokeTestScenario(SimpleTestScenario):
+    def __init__(self, cluster_manager: ClusterManager, test_executor: TestExecutor):
+        super().__init__(cluster_manager, test_executor)
 
-    Test executors are responsible for running actual tests in a scenario using a specific
-    test platform like `pytest` or `go test`.
-    """
-
-    def validate(self, config: argparse.Namespace, module_name: str) -> None:
-        """Validate any configuration related to the test executor."""
-        raise NotImplementedError()
-
-    def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
-        """Optional step to prepare environment where your tests are executed (ie. installing dependencies)."""
-        raise NotImplementedError()
-
-    def execute_test(self, exec_info: TestExecInfo) -> None:
-        """Execute test using a specific test executor and information provided as exec_info."""
-        raise NotImplementedError()
+    @property
+    def test_provided(self) -> StepType:
+        return STEP_TEST_SMOKE

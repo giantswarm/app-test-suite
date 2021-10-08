@@ -1,5 +1,3 @@
-# mypy: ignore-errors
-
 import os
 import unittest.mock
 from typing import cast
@@ -117,9 +115,9 @@ def assert_run_gotest(test_provided: StepType, kube_config_path: str, chart_file
     env_vars["ATS_TEST_DIR"] = ""
 
     # Set env vars needed for Go.
-    env_vars["GOPATH"] = os.getenv("GOPATH")
-    env_vars["HOME"] = os.getenv("HOME")
-    env_vars["PATH"] = os.getenv("PATH")
+    env_vars["GOPATH"] = os.getenv("GOPATH", "")
+    env_vars["HOME"] = os.getenv("HOME", "")
+    env_vars["PATH"] = os.getenv("PATH", "")
 
     cast(unittest.mock.Mock, app_test_suite.steps.gotest.gotest.run_and_handle_error).assert_any_call(
         [

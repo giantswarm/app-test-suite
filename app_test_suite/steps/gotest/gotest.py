@@ -1,5 +1,3 @@
-# mypy: ignore-errors
-
 import argparse
 import logging
 import os
@@ -84,9 +82,9 @@ class GotestExecutorMixin(TestExecutor):
             env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
 
         # Set env vars needed by Go.
-        env_vars["GOPATH"] = os.getenv("GOPATH")
-        env_vars["HOME"] = os.getenv("HOME")
-        env_vars["PATH"] = os.getenv("PATH")
+        env_vars["GOPATH"] = os.getenv("GOPATH", "")
+        env_vars["HOME"] = os.getenv("HOME", "")
+        env_vars["PATH"] = os.getenv("PATH", "")
 
         args = [
             self._GOTEST_BIN,

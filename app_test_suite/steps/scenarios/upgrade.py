@@ -21,19 +21,24 @@ from validators import url as validator_url
 from yaml import YAMLError
 from yaml.parser import ParserError
 
-from cluster_manager import ClusterManager
-from cluster_providers.cluster_provider import ClusterInfo
-from config import (
+from app_test_suite.cluster_manager import ClusterManager
+from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
+from app_test_suite.config import (
     key_cfg_stable_app_url,
     key_cfg_stable_app_file,
     key_cfg_stable_app_version,
     key_cfg_stable_app_config,
     key_cfg_upgrade_hook,
 )
-from errors import ATSTestError
-from steps.base import TestExecutor, CONTEXT_KEY_CHART_YAML, BaseTestScenariosFilteringPipeline, TestExecInfo
-from steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME
-from steps.test_types import STEP_TEST_UPGRADE
+from app_test_suite.errors import ATSTestError
+from app_test_suite.steps.base import (
+    TestExecutor,
+    CONTEXT_KEY_CHART_YAML,
+    BaseTestScenariosFilteringPipeline,
+    TestExecInfo,
+)
+from app_test_suite.steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME
+from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
 
 KEY_PRE_UPGRADE = "pre-upgrade"
 KEY_POST_UPGRADE = "post-upgrade"

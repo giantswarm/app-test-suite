@@ -7,6 +7,7 @@ from requests import Response
 from yaml.parser import ParserError
 
 import app_test_suite
+import app_test_suite.steps.scenarios.upgrade
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import ATSTestError
 from steps.base import TestExecutor
@@ -38,19 +39,19 @@ def test_find_latest_version(
     requests_get_res.status_code = resp_code
     requests_get_res.reason = resp_reason
     requests_get_res.text = test_index_yaml if resp_text == "" else resp_text
-    mocker.patch("app_test_suite.steps.upgrade_test_runner.requests.get", return_value=requests_get_res)
+    mocker.patch("app_test_suite.steps.scenarios.upgrade.requests.get", return_value=requests_get_res)
 
     catalog_url = "http://mock.catalog"
     app_name = "hello-world-app"
-    catched_error = None
+    caught_error = None
     ver = ""
     try:
         ver = runner._get_latest_app_version(catalog_url, app_name)
     except Exception as e:
-        catched_error = e
+        caught_error = e
 
     if error_type:
-        assert type(catched_error) == error_type
+        assert type(caught_error) == error_type
     else:
         assert ver == ver_found
     cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(catalog_url + "/index.yaml")

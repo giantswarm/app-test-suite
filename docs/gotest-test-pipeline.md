@@ -12,7 +12,7 @@ To make your tests automatically invocable from `ats`, you must adhere to the fo
 - tests must be tagged using Go build tags with one of the supported test types
 `smoke`, `functional` or `upgrade`.
 
-```
+```golang
 //go:build smoke
 // +build smoke
 ```

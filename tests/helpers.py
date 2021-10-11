@@ -91,7 +91,7 @@ def get_run_and_log_result_mock(mocker: MockerFixture) -> unittest.mock.Mock:
 
 def get_run_and_handle_error_result_mock(mocker: MockerFixture) -> unittest.mock.Mock:
     system_call_result_mock = mocker.Mock(name="SysCallResult")
-    type(system_call_result_mock).returncode = mocker.PropertyMock(return_value=0)
+    system_call_result_mock.return_value = 0
     return system_call_result_mock
 
 

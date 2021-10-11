@@ -17,6 +17,7 @@ from tests.helpers import (
     assert_cluster_connection_created,
     get_base_config,
     get_run_and_log_result_mock,
+    get_run_and_handle_error_result_mock,
     patch_base_test_runner,
     get_mock_cluster_manager,
     MOCK_APP_NAME,
@@ -39,10 +40,11 @@ from tests.helpers import (
 def test_upgrade_gotest_runner_run(mocker: MockerFixture) -> None:
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
+    run_and_handle_error_call_result_mock = get_run_and_handle_error_result_mock(mocker)
 
     configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
-    patch_gotest_test_runner(mocker, run_and_log_call_result_mock)
-    mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
+    patch_gotest_test_runner(mocker, run_and_handle_error_call_result_mock)
+    mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_handle_error_call_result_mock)
 
     config = get_base_config(mocker)
     configure_for_upgrade_test(config)
@@ -86,9 +88,10 @@ def test_upgrade_gotest_runner_run(mocker: MockerFixture) -> None:
 def test_gotest_smoke_runner_run(mocker: MockerFixture) -> None:
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
+    run_and_handle_error_call_result_mock = get_run_and_handle_error_result_mock(mocker)
 
     configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
-    patch_gotest_test_runner(mocker, run_and_log_call_result_mock)
+    patch_gotest_test_runner(mocker, run_and_handle_error_call_result_mock)
 
     config = get_base_config(mocker)
     context = {context_key_chart_yaml: {"name": MOCK_APP_NAME, "version": MOCK_APP_VERSION}}

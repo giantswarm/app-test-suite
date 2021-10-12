@@ -7,7 +7,7 @@ from step_exec_lib.types import StepType
 
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML, TestExecutor
 from app_test_suite.steps.pytest.pytest import PytestExecutor
-from app_test_suite.steps.scenarios.simple import SmokeTestScenario, TEST_APP_CATALOG_NAME
+from app_test_suite.steps.scenarios.simple import SmokeTestScenario, FunctionalTestScenario, TEST_APP_CATALOG_NAME
 from app_test_suite.steps.gotest.gotest import GotestExecutor
 from app_test_suite.steps.scenarios.simple import SimpleTestScenario
 from tests.helpers import (
@@ -36,6 +36,8 @@ from tests.scenarios.executors.pytest import patch_pytest_test_runner, assert_pr
     [
         (SmokeTestScenario, PytestExecutor(), patch_pytest_test_runner, assert_prepare_and_run_pytest),
         (SmokeTestScenario, GotestExecutor(), patch_gotest_test_runner, assert_run_gotest),
+        (FunctionalTestScenario, PytestExecutor(), patch_pytest_test_runner, assert_prepare_and_run_pytest),
+        (FunctionalTestScenario, GotestExecutor(), patch_gotest_test_runner, assert_run_gotest),
     ],
     ids=["smoke-pytest", "smoke-gotest"],
 )

@@ -1,9 +1,11 @@
-from typing import cast
+import unittest
+from typing import cast, Callable
 from unittest.mock import Mock
 
 import pytest
 from pytest_mock import MockerFixture
 from requests import Response
+from step_exec_lib.types import StepType
 from yaml.parser import ParserError
 
 import app_test_suite
@@ -92,20 +94,35 @@ def test_find_latest_version(
     cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(catalog_url + "/index.yaml")
 
 
-def test_upgrade_pytest_runner_run(mocker: MockerFixture) -> None:
+@pytest.mark.parametrize(
+    "test_executor,patcher,asserter_test,asserter_prepare",
+    [
+        (PytestExecutor(), patch_pytest_test_runner, assert_run_pytest, assert_prepare_pytest_test_environment),
+        # (GotestExecutor(), patch_gotest_test_runner, assert_run_gotest),
+    ],
+    ids=[
+        "pytest",
+        # "gotest",
+    ],
+)
+def test_upgrade_pytest_runner_run(
+    mocker: MockerFixture,
+    test_executor: TestExecutor,
+    patcher: Callable[[MockerFixture, unittest.mock.Mock], None],
+    asserter_test: Callable[[StepType, str, str, str], None],
+    asserter_prepare: Callable[[], None],
+) -> None:
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
 
     configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
-    patch_pytest_test_runner(mocker, run_and_log_call_result_mock)
+    patcher(mocker, run_and_log_call_result_mock)
     mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
 
     config = get_base_config(mocker)
     configure_for_upgrade_test(config)
 
     context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_APP_VERSION}}
-    # TODO: parametrize and use go as well
-    test_executor = PytestExecutor()
     runner = UpgradeTestScenario(mock_cluster_manager, test_executor)
     runner.run(config, context)
 
@@ -115,11 +132,9 @@ def test_upgrade_pytest_runner_run(mocker: MockerFixture) -> None:
     assert_deploy_and_wait_for_app_cr(
         MOCK_APP_NAME, MOCK_UPGRADE_APP_VERSION, MOCK_APP_DEPLOY_NS, STABLE_APP_CATALOG_NAME
     )
-    assert_prepare_pytest_test_environment()
+    asserter_prepare()
     mock_stable_app_catalog_cr.create.assert_any_call()
-    assert_run_pytest(
-        runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_UPGRADE_CHART_FILE_NAME, MOCK_UPGRADE_APP_VERSION
-    )
+    asserter_test(runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_UPGRADE_CHART_FILE_NAME, MOCK_UPGRADE_APP_VERSION)
     assert_upgrade_tester_exec_hook(
         KEY_PRE_UPGRADE,
         MOCK_APP_NAME,
@@ -137,6 +152,6 @@ def test_upgrade_pytest_runner_run(mocker: MockerFixture) -> None:
         MOCK_KUBE_CONFIG_PATH,
         MOCK_APP_DEPLOY_NS,
     )
-    assert_run_pytest(runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_CHART_FILE_NAME, MOCK_APP_VERSION)
+    asserter_test(runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_CHART_FILE_NAME, MOCK_APP_VERSION)
     assert_upgrade_tester_deletes_app(configured_app_mock)
     mock_stable_app_catalog_cr.delete.assert_called_once()

@@ -16,9 +16,9 @@ from app_test_suite.config import (
     key_cfg_upgrade_hook,
     key_cfg_stable_app_file,
 )
-from app_test_suite.steps.pytest.pytest import PytestScenariosFilteringPipeline
+from app_test_suite.steps.executors.pytest import PytestScenariosFilteringPipeline
 from app_test_suite.steps.test_types import ALL_STEPS
-from app_test_suite.steps.gotest.gotest import GotestTestFilteringPipeline
+from app_test_suite.steps.executors.gotest import GotestTestFilteringPipeline
 
 ver = "v0.0.0-dev"
 app_name = "app_test_suite"

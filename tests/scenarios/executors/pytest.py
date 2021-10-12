@@ -5,11 +5,11 @@ from pytest_mock import MockerFixture
 from step_exec_lib.types import StepType
 
 import app_test_suite
-import app_test_suite.steps.pytest.pytest
+import app_test_suite.steps.executors.pytest
 
 
 def assert_run_pytest(test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str) -> None:
-    cast(unittest.mock.Mock, app_test_suite.steps.pytest.pytest.run_and_log).assert_any_call(
+    cast(unittest.mock.Mock, app_test_suite.steps.executors.pytest.run_and_log).assert_any_call(
         [
             "pipenv",
             "run",
@@ -35,7 +35,7 @@ def assert_run_pytest(test_provided: StepType, kube_config_path: str, chart_file
 
 
 def assert_prepare_pytest_test_environment() -> None:
-    run_and_log_mock = cast(unittest.mock.Mock, app_test_suite.steps.pytest.pytest.run_and_log)
+    run_and_log_mock = cast(unittest.mock.Mock, app_test_suite.steps.executors.pytest.run_and_log)
     assert run_and_log_mock.call_args_list[0].args[0] == [
         "pipenv",
         "install",
@@ -55,4 +55,4 @@ def assert_prepare_and_run_pytest(
 
 
 def patch_pytest_test_runner(mocker: MockerFixture, run_and_log_res: unittest.mock.Mock) -> None:
-    mocker.patch("app_test_suite.steps.pytest.pytest.run_and_log", return_value=run_and_log_res)
+    mocker.patch("app_test_suite.steps.executors.pytest.run_and_log", return_value=run_and_log_res)

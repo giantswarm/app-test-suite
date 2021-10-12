@@ -6,7 +6,7 @@ from pytest_mock import MockerFixture
 from step_exec_lib.types import StepType
 
 import app_test_suite
-import app_test_suite.steps.gotest.gotest
+import app_test_suite.steps.executors.gotest
 from tests.helpers import MOCK_KUBE_VERSION
 
 
@@ -27,7 +27,7 @@ def assert_run_gotest(test_provided: StepType, kube_config_path: str, chart_file
 
     # Set env vars needed for Go.
 
-    cast(unittest.mock.Mock, app_test_suite.steps.gotest.gotest.run_and_handle_error).assert_any_call(
+    cast(unittest.mock.Mock, app_test_suite.steps.executors.gotest.run_and_handle_error).assert_any_call(
         [
             "go",
             "test",
@@ -41,4 +41,4 @@ def assert_run_gotest(test_provided: StepType, kube_config_path: str, chart_file
 
 
 def patch_gotest_test_runner(mocker: MockerFixture, run_and_handle_error_res: unittest.mock.Mock) -> None:
-    mocker.patch("app_test_suite.steps.gotest.gotest.run_and_handle_error", return_value=run_and_handle_error_res)
+    mocker.patch("app_test_suite.steps.executors.gotest.run_and_handle_error", return_value=run_and_handle_error_res)

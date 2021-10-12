@@ -14,14 +14,14 @@ from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML
 from app_test_suite.steps.base import TestExecutor
-from app_test_suite.steps.pytest.pytest import PytestExecutor
+from app_test_suite.steps.executors.pytest import PytestExecutor
 from app_test_suite.steps.scenarios.upgrade import (
     UpgradeTestScenario,
     STABLE_APP_CATALOG_NAME,
     KEY_PRE_UPGRADE,
     KEY_POST_UPGRADE,
 )
-from app_test_suite.steps.gotest.gotest import GotestExecutor
+from app_test_suite.steps.executors.gotest import GotestExecutor
 from tests.helpers import (
     get_mock_cluster_manager,
     get_run_and_log_result_mock,

@@ -1,5 +1,5 @@
 import unittest.mock
-from typing import Callable
+from typing import Callable, Type
 
 import pytest
 from pytest_mock import MockerFixture
@@ -8,7 +8,8 @@ from step_exec_lib.types import StepType
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML, TestExecutor
 from app_test_suite.steps.pytest.pytest import PytestExecutor
 from app_test_suite.steps.scenarios.simple import SmokeTestScenario, TEST_APP_CATALOG_NAME
-from steps.gotest.gotest import GotestExecutor
+from app_test_suite.steps.gotest.gotest import GotestExecutor
+from app_test_suite.steps.scenarios.simple import SimpleTestScenario
 from tests.helpers import (
     assert_deploy_and_wait_for_app_cr,
     assert_chart_file_uploaded,
@@ -31,15 +32,16 @@ from tests.scenarios.executors.pytest import patch_pytest_test_runner, assert_pr
 
 
 @pytest.mark.parametrize(
-    "test_executor,patcher,asserter",
+    "scenario_type,test_executor,patcher,asserter",
     [
-        (PytestExecutor(), patch_pytest_test_runner, assert_prepare_and_run_pytest),
-        (GotestExecutor(), patch_gotest_test_runner, assert_run_gotest),
+        (SmokeTestScenario, PytestExecutor(), patch_pytest_test_runner, assert_prepare_and_run_pytest),
+        (SmokeTestScenario, GotestExecutor(), patch_gotest_test_runner, assert_run_gotest),
     ],
-    ids=["pytest", "gotest"],
+    ids=["smoke-pytest", "smoke-gotest"],
 )
-def test_pytest_smoke_runner_run(
+def test_smoke_runner_run(
     mocker: MockerFixture,
+    scenario_type: Type[SimpleTestScenario],
     test_executor: TestExecutor,
     patcher: Callable[[MockerFixture, unittest.mock.Mock], None],
     asserter: Callable[[StepType, str], None],
@@ -52,7 +54,7 @@ def test_pytest_smoke_runner_run(
 
     config = get_base_config(mocker)
     context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_APP_VERSION}}
-    runner = SmokeTestScenario(mock_cluster_manager, test_executor)
+    runner = scenario_type(mock_cluster_manager, test_executor)
     runner.run(config, context)
 
     assert_cluster_connection_created(MOCK_KUBE_CONFIG_PATH)

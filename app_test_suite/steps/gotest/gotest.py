@@ -16,8 +16,8 @@ from app_test_suite.steps.base import (
     TestExecutor,
     BaseTestScenariosFilteringPipeline,
 )
-from steps.scenarios.simple import FunctionalTestScenario, SmokeTestScenario
-from steps.scenarios.upgrade import UpgradeTestScenario
+from app_test_suite.steps.scenarios.simple import FunctionalTestScenario, SmokeTestScenario
+from app_test_suite.steps.scenarios.upgrade import UpgradeTestScenario
 
 logger = logging.getLogger(__name__)
 

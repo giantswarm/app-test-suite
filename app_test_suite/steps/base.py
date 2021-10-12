@@ -15,7 +15,7 @@ from step_exec_lib.types import Context, StepType, STEP_ALL
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 
 from app_test_suite.errors import ATSTestError
-from cluster_manager import ClusterManager
+from app_test_suite.cluster_manager import ClusterManager
 
 CONTEXT_KEY_CHART_YAML: str = "chart_yaml"
 

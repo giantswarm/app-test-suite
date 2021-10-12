@@ -6,9 +6,14 @@ from step_exec_lib.types import StepType
 
 import app_test_suite
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML
-from steps.pytest.pytest import PytestExecutor
-from steps.scenarios.simple import SmokeTestScenario, TEST_APP_CATALOG_NAME
-from steps.scenarios.upgrade import UpgradeTestScenario, STABLE_APP_CATALOG_NAME, KEY_PRE_UPGRADE, KEY_POST_UPGRADE
+from app_test_suite.steps.pytest.pytest import PytestExecutor
+from app_test_suite.steps.scenarios.simple import SmokeTestScenario, TEST_APP_CATALOG_NAME
+from app_test_suite.steps.scenarios.upgrade import (
+    UpgradeTestScenario,
+    STABLE_APP_CATALOG_NAME,
+    KEY_PRE_UPGRADE,
+    KEY_POST_UPGRADE,
+)
 from tests.helpers import (
     assert_deploy_and_wait_for_app_cr,
     assert_chart_file_uploaded,

@@ -11,8 +11,8 @@ import app_test_suite
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers import ExternalClusterProvider
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
-from steps.scenarios.simple import SimpleTestScenario
-from steps.scenarios.upgrade import STABLE_APP_CATALOG_NAME
+from app_test_suite.steps.scenarios.simple import SimpleTestScenario
+from app_test_suite.steps.scenarios.upgrade import STABLE_APP_CATALOG_NAME
 
 MOCK_UPGRADE_CATALOG_URL = "http://chartmuseum-chartmuseum.giantswarm:8080/charts/"
 MOCK_KUBE_CONFIG_PATH = "/nonexisting-flsdhge235/kube.config"

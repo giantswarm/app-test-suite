@@ -21,12 +21,21 @@ from step_exec_lib.types import StepType, STEP_ALL, Context
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 from step_exec_lib.utils.processes import run_and_log
 
-from cluster_manager import ClusterManager
-from cluster_providers.cluster_provider import ClusterType, ClusterInfo
-from errors import ATSTestError
-from steps.base import TestExecutor, BaseTestScenariosFilteringPipeline, TestExecInfo, CONTEXT_KEY_CHART_YAML
-from steps.repositories import ChartMuseumAppRepository
-from steps.test_types import config_option_cluster_type_for_test_type, STEP_TEST_FUNCTIONAL, STEP_TEST_SMOKE
+from app_test_suite.cluster_manager import ClusterManager
+from app_test_suite.cluster_providers.cluster_provider import ClusterType, ClusterInfo
+from app_test_suite.errors import ATSTestError
+from app_test_suite.steps.base import (
+    TestExecutor,
+    BaseTestScenariosFilteringPipeline,
+    TestExecInfo,
+    CONTEXT_KEY_CHART_YAML,
+)
+from app_test_suite.steps.repositories import ChartMuseumAppRepository
+from app_test_suite.steps.test_types import (
+    config_option_cluster_type_for_test_type,
+    STEP_TEST_FUNCTIONAL,
+    STEP_TEST_SMOKE,
+)
 
 TEST_APP_CATALOG_NAME: str = "chartmuseum"
 CONTEXT_KEY_APP_CR: str = "app_cr"

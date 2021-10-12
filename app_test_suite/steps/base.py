@@ -131,6 +131,9 @@ class TestExecutor(ABC):
 
     _test_dir: str
 
+    def __init__(self) -> None:
+        self._test_dir = ""
+
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
         """Validate any configuration related to the test executor."""
         raise NotImplementedError()

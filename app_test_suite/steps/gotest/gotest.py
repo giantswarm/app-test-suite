@@ -89,10 +89,10 @@ class GotestExecutor(TestExecutor):
         logger.info(f"Running {self._GOTEST_BIN} tool in '{exec_info.test_dir}' directory.")
 
         # If there are no Go tests with build tags for this test type we handle the error.
-        ret_code = run_and_handle_error(
+        run_res = run_and_handle_error(
             args, "build constraints exclude all Go files", cwd=exec_info.test_dir, env=env_vars
         )  # nosec, no user input here
-        if ret_code != 0:
+        if run_res.returncode != 0:
             raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:

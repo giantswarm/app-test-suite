@@ -8,6 +8,7 @@ from step_exec_lib.types import StepType
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML, TestExecutor
 from app_test_suite.steps.pytest.pytest import PytestExecutor
 from app_test_suite.steps.scenarios.simple import SmokeTestScenario, TEST_APP_CATALOG_NAME
+from steps.gotest.gotest import GotestExecutor
 from tests.helpers import (
     assert_deploy_and_wait_for_app_cr,
     assert_chart_file_uploaded,
@@ -25,6 +26,7 @@ from tests.helpers import (
     MOCK_APP_DEPLOY_NS,
     assert_base_tester_deletes_app,
 )
+from tests.scenarios.executors.gotest import patch_gotest_test_runner, assert_run_gotest
 from tests.scenarios.executors.pytest import patch_pytest_test_runner, assert_prepare_and_run_pytest
 
 
@@ -32,12 +34,9 @@ from tests.scenarios.executors.pytest import patch_pytest_test_runner, assert_pr
     "test_executor,patcher,asserter",
     [
         (PytestExecutor(), patch_pytest_test_runner, assert_prepare_and_run_pytest),
-        # (GotestExecutor()),
+        (GotestExecutor(), patch_gotest_test_runner, assert_run_gotest),
     ],
-    ids=[
-        "pytest",
-        # "gotest"
-    ],
+    ids=["pytest", "gotest"],
 )
 def test_pytest_smoke_runner_run(
     mocker: MockerFixture,

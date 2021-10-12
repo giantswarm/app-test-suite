@@ -5,18 +5,19 @@ from typing import cast
 from pytest_mock import MockerFixture
 from step_exec_lib.types import StepType
 
+import app_test_suite
 import app_test_suite.steps.gotest.gotest
-from tests.helpers import MOCK_KUBE_VERSION
+from tests.helpers import MOCK_KUBE_VERSION, MOCK_KUBE_CONFIG_PATH, MOCK_APP_VERSION
 
 
-def assert_run_gotest(test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str) -> None:
+def assert_run_gotest(test_provided: StepType, chart_file: str) -> None:
     env_vars = {
         "ATS_APP_CONFIG_FILE_PATH": "",
         "ATS_CHART_PATH": chart_file,
-        "ATS_CHART_VERSION": app_version,
+        "ATS_CHART_VERSION": MOCK_APP_VERSION,
         "ATS_CLUSTER_TYPE": "mock",
         "ATS_CLUSTER_VERSION": MOCK_KUBE_VERSION,
-        "ATS_KUBE_CONFIG_PATH": kube_config_path,
+        "ATS_KUBE_CONFIG_PATH": MOCK_KUBE_CONFIG_PATH,
         "ATS_TEST_TYPE": test_provided,
         "ATS_TEST_DIR": "",
         "GOPATH": os.getenv("GOPATH", ""),
@@ -37,10 +38,6 @@ def assert_run_gotest(test_provided: StepType, kube_config_path: str, chart_file
         cwd="",
         env=env_vars,
     )
-
-
-def assert_prepare_and_run_pytest(test_provided: StepType, chart_file: str) -> None:
-    pass
 
 
 def patch_gotest_test_runner(mocker: MockerFixture, run_and_handle_error_res: unittest.mock.Mock) -> None:

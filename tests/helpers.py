@@ -89,12 +89,6 @@ def get_run_and_log_result_mock(mocker: MockerFixture) -> unittest.mock.Mock:
     return system_call_result_mock
 
 
-def get_run_and_handle_error_result_mock(mocker: MockerFixture) -> unittest.mock.Mock:
-    system_call_result_mock = mocker.Mock(name="SysCallResult")
-    type(system_call_result_mock).returncode = mocker.PropertyMock(return_value=0)
-    return system_call_result_mock
-
-
 def patch_base_test_runner(
     mocker: MockerFixture, run_and_log_res: unittest.mock.Mock, app_name: str, app_namespace: str
 ) -> ConfiguredApp:

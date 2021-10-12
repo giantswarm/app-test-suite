@@ -39,7 +39,12 @@ from tests.scenarios.executors.pytest import patch_pytest_test_runner, assert_pr
         (FunctionalTestScenario, PytestExecutor(), patch_pytest_test_runner, assert_prepare_and_run_pytest),
         (FunctionalTestScenario, GotestExecutor(), patch_gotest_test_runner, assert_run_gotest),
     ],
-    ids=["smoke-pytest", "smoke-gotest"],
+    ids=[
+        "smoke-pytest",
+        "smoke-gotest",
+        "functional-pytest",
+        "functional-gotest",
+    ],
 )
 def test_smoke_runner_run(
     mocker: MockerFixture,

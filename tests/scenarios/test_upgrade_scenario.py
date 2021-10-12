@@ -42,7 +42,7 @@ from tests.helpers import (
     assert_app_updated,
     assert_upgrade_tester_deletes_app,
 )
-from tests.scenarios.pytest.test_simple_scenarios import (
+from tests.scenarios.test_simple_scenarios import (
     patch_pytest_test_runner,
     assert_prepare_pytest_test_environment,
     assert_run_pytest,

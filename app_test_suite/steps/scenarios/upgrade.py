@@ -279,6 +279,5 @@ class UpgradeTestScenario(SimpleTestScenario):
             cluster_version=cluster_info.version,
             kube_config_path=os.path.abspath(cluster_info.kube_config_path),
             test_type=self.test_provided,
-            test_dir=self._test_dir,
         )
         return exec_info

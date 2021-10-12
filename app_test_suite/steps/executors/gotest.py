@@ -55,9 +55,6 @@ class GotestTestFilteringPipeline(BaseTestScenariosFilteringPipeline):
 class GotestExecutor(TestExecutor):
     _GOTEST_BIN = "go"
 
-    def __init__(self) -> None:
-        self._gotest_dir = ""
-
     def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
         return
 
@@ -69,7 +66,7 @@ class GotestExecutor(TestExecutor):
             "ATS_CLUSTER_VERSION": exec_info.cluster_version,
             "ATS_KUBE_CONFIG_PATH": exec_info.kube_config_path,
             "ATS_TEST_TYPE": exec_info.test_type,
-            "ATS_TEST_DIR": exec_info.test_dir,
+            "ATS_TEST_DIR": self._test_dir,
         }
 
         if exec_info.app_config_file_path is not None:
@@ -86,14 +83,14 @@ class GotestExecutor(TestExecutor):
             "-v",
             f"-tags={exec_info.test_type}",
         ]
-        logger.info(f"Running {self._GOTEST_BIN} tool in '{exec_info.test_dir}' directory.")
+        logger.info(f"Running {self._GOTEST_BIN} tool in '{self._test_dir}' directory.")
 
         # If there are no Go tests with build tags for this test type we handle the error.
         run_res = run_and_handle_error(
-            args, "build constraints exclude all Go files", cwd=exec_info.test_dir, env=env_vars
+            args, "build constraints exclude all Go files", cwd=self._test_dir, env=env_vars
         )  # nosec, no user input here
         if run_res.returncode != 0:
-            raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
+            raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{self._test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
         gotest_dir = get_config_value_by_cmd_line_option(
@@ -111,4 +108,4 @@ class GotestExecutor(TestExecutor):
                 module_name,
                 f"Gotest tests were requested, but no go source code file was found in directory '{gotest_dir}'.",
             )
-        self._gotest_dir = gotest_dir
+        self._test_dir = gotest_dir

@@ -119,8 +119,6 @@ class TestExecInfo:
     """Path to kube.config to connect to the cluster."""
     test_type: str
     """Type of test to execute by the test executor."""
-    test_dir: str
-    """Path to a directory where test code is available."""
 
 
 class TestExecutor(ABC):
@@ -130,6 +128,8 @@ class TestExecutor(ABC):
     Test executors are responsible for running actual tests in a scenario using a specific
     test platform like `pytest` or `go test`.
     """
+
+    _test_dir: str
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
         """Validate any configuration related to the test executor."""

@@ -70,7 +70,6 @@ class SimpleTestScenario(BuildStep, ABC):
         self._default_app_cr_namespace = "default"
         self._skip_app_deploy = False
         self._test_executor = test_executor
-        self._test_dir = ""
 
     @property
     def steps_provided(self) -> Set[StepType]:
@@ -113,7 +112,6 @@ class SimpleTestScenario(BuildStep, ABC):
             cluster_version=cluster_info.version,
             kube_config_path=os.path.abspath(cluster_info.kube_config_path),
             test_type=self.test_provided,
-            test_dir=self._test_dir,
         )
         self._test_executor.prepare_test_environment(exec_info)
         self._test_executor.execute_test(exec_info)

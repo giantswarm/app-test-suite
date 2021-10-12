@@ -57,22 +57,19 @@ class PytestExecutor(TestExecutor):
     _PIPENV_BIN = "pipenv"
     _PYTEST_BIN = "pytest"
 
-    def __init__(self) -> None:
-        self._test_dir = ""
-
     def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
         args = [self._PIPENV_BIN, "install", "--deploy"]
         logger.info(
-            f"Running {self._PIPENV_BIN} tool in '{exec_info.test_dir}' directory to install virtual env "
+            f"Running {self._PIPENV_BIN} tool in '{self._test_dir}' directory to install virtual env "
             f"for running tests."
         )
         pipenv_env = os.environ
         pipenv_env["PIPENV_IGNORE_VIRTUALENVS"] = "1"
 
-        run_res = run_and_log(args, cwd=exec_info.test_dir, env=pipenv_env)  # nosec, no user input here
+        run_res = run_and_log(args, cwd=self._test_dir, env=pipenv_env)  # nosec, no user input here
         if run_res.returncode != 0:
-            raise ATSTestError(f"Running '{args}' in directory '{exec_info.test_dir}' failed.")
-        run_and_log([self._PIPENV_BIN, "--venv"], cwd=exec_info.test_dir)  # nosec, no user input here
+            raise ATSTestError(f"Running '{args}' in directory '{self._test_dir}' failed.")
+        run_and_log([self._PIPENV_BIN, "--venv"], cwd=self._test_dir)  # nosec, no user input here
 
     def execute_test(self, exec_info: TestExecInfo) -> None:
         args = [
@@ -97,10 +94,10 @@ class PytestExecutor(TestExecutor):
         ]
         if exec_info.app_config_file_path:
             args += ["--values-file", exec_info.app_config_file_path]
-        logger.info(f"Running {self._PYTEST_BIN} tool in '{exec_info.test_dir}' directory.")
-        run_res = run_and_log(args, cwd=exec_info.test_dir)  # nosec, no user input here
+        logger.info(f"Running {self._PYTEST_BIN} tool in '{self._test_dir}' directory.")
+        run_res = run_and_log(args, cwd=self._test_dir)  # nosec, no user input here
         if run_res.returncode != 0:
-            raise ATSTestError(f"Pytest tests failed: running '{args}' in directory '{exec_info.test_dir}' failed.")
+            raise ATSTestError(f"Pytest tests failed: running '{args}' in directory '{self._test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
         pytest_dir = get_config_value_by_cmd_line_option(

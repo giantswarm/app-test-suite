@@ -6,7 +6,6 @@ from step_exec_lib.types import StepType
 
 import app_test_suite
 import app_test_suite.steps.pytest.pytest
-from tests.helpers import MOCK_KUBE_CONFIG_PATH, MOCK_APP_VERSION
 
 
 def assert_run_pytest(test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str) -> None:
@@ -48,9 +47,11 @@ def assert_prepare_pytest_test_environment() -> None:
     ]
 
 
-def assert_prepare_and_run_pytest(test_provided: StepType, chart_file: str) -> None:
+def assert_prepare_and_run_pytest(
+    test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str
+) -> None:
     assert_prepare_pytest_test_environment()
-    assert_run_pytest(test_provided, MOCK_KUBE_CONFIG_PATH, chart_file, MOCK_APP_VERSION)
+    assert_run_pytest(test_provided, kube_config_path, chart_file, app_version)
 
 
 def patch_pytest_test_runner(mocker: MockerFixture, run_and_log_res: unittest.mock.Mock) -> None:

@@ -21,6 +21,7 @@ from app_test_suite.steps.scenarios.upgrade import (
     KEY_PRE_UPGRADE,
     KEY_POST_UPGRADE,
 )
+from app_test_suite.steps.gotest.gotest import GotestExecutor
 from tests.helpers import (
     get_mock_cluster_manager,
     get_run_and_log_result_mock,
@@ -44,6 +45,7 @@ from tests.helpers import (
     assert_app_updated,
     assert_upgrade_tester_deletes_app,
 )
+from tests.scenarios.executors.gotest import assert_run_gotest, patch_gotest_test_runner
 from tests.scenarios.executors.pytest import (
     assert_run_pytest,
     assert_prepare_pytest_test_environment,
@@ -98,11 +100,11 @@ def test_find_latest_version(
     "test_executor,patcher,asserter_test,asserter_prepare",
     [
         (PytestExecutor(), patch_pytest_test_runner, assert_run_pytest, assert_prepare_pytest_test_environment),
-        # (GotestExecutor(), patch_gotest_test_runner, assert_run_gotest),
+        (GotestExecutor(), patch_gotest_test_runner, assert_run_gotest, lambda: None),
     ],
     ids=[
         "pytest",
-        # "gotest",
+        "gotest",
     ],
 )
 def test_upgrade_pytest_runner_run(

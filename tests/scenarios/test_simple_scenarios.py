@@ -46,12 +46,12 @@ from tests.scenarios.executors.pytest import patch_pytest_test_runner, assert_pr
         "functional-gotest",
     ],
 )
-def test_smoke_runner_run(
+def test_simple_runner_run(
     mocker: MockerFixture,
     scenario_type: Type[SimpleTestScenario],
     test_executor: TestExecutor,
     patcher: Callable[[MockerFixture, unittest.mock.Mock], None],
-    asserter: Callable[[StepType, str], None],
+    asserter: Callable[[StepType, str, str, str], None],
 ) -> None:
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
@@ -68,5 +68,5 @@ def test_smoke_runner_run(
     assert_app_platform_ready(MOCK_KUBE_CONFIG_PATH)
     assert_chart_file_uploaded(config, MOCK_CHART_FILE_NAME)
     assert_deploy_and_wait_for_app_cr(MOCK_APP_NAME, MOCK_APP_VERSION, MOCK_APP_DEPLOY_NS, TEST_APP_CATALOG_NAME)
-    asserter(runner.test_provided, config.chart_file)
+    asserter(runner.test_provided, MOCK_KUBE_CONFIG_PATH, config.chart_file, MOCK_APP_VERSION)
     assert_base_tester_deletes_app(configured_app_mock)

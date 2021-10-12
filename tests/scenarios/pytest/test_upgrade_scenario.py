@@ -10,8 +10,43 @@ import app_test_suite
 import app_test_suite.steps.scenarios.upgrade
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import ATSTestError
+from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML
 from app_test_suite.steps.base import TestExecutor
-from app_test_suite.steps.scenarios.upgrade import UpgradeTestScenario
+from app_test_suite.steps.pytest.pytest import PytestExecutor
+from app_test_suite.steps.scenarios.upgrade import (
+    UpgradeTestScenario,
+    STABLE_APP_CATALOG_NAME,
+    KEY_PRE_UPGRADE,
+    KEY_POST_UPGRADE,
+)
+from tests.helpers import (
+    get_mock_cluster_manager,
+    get_run_and_log_result_mock,
+    patch_base_test_runner,
+    MOCK_APP_NAME,
+    MOCK_APP_NS,
+    patch_upgrade_test_runner,
+    get_base_config,
+    configure_for_upgrade_test,
+    MOCK_APP_VERSION,
+    assert_cluster_connection_created,
+    MOCK_KUBE_CONFIG_PATH,
+    assert_app_platform_ready,
+    assert_chart_file_uploaded,
+    MOCK_CHART_FILE_NAME,
+    assert_deploy_and_wait_for_app_cr,
+    MOCK_UPGRADE_APP_VERSION,
+    MOCK_APP_DEPLOY_NS,
+    MOCK_UPGRADE_CHART_FILE_NAME,
+    assert_upgrade_tester_exec_hook,
+    assert_app_updated,
+    assert_upgrade_tester_deletes_app,
+)
+from tests.scenarios.pytest.test_simple_scenarios import (
+    patch_pytest_test_runner,
+    assert_prepare_pytest_test_environment,
+    assert_run_pytest,
+)
 
 
 @pytest.mark.parametrize(
@@ -55,3 +90,53 @@ def test_find_latest_version(
     else:
         assert ver == ver_found
     cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(catalog_url + "/index.yaml")
+
+
+def test_upgrade_pytest_runner_run(mocker: MockerFixture) -> None:
+    mock_cluster_manager = get_mock_cluster_manager(mocker)
+    run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
+
+    configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
+    patch_pytest_test_runner(mocker, run_and_log_call_result_mock)
+    mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
+
+    config = get_base_config(mocker)
+    configure_for_upgrade_test(config)
+
+    context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_APP_VERSION}}
+    # TODO: parametrize and use go as well
+    test_executor = PytestExecutor()
+    runner = UpgradeTestScenario(mock_cluster_manager, test_executor)
+    runner.run(config, context)
+
+    assert_cluster_connection_created(MOCK_KUBE_CONFIG_PATH)
+    assert_app_platform_ready(MOCK_KUBE_CONFIG_PATH)
+    assert_chart_file_uploaded(config, MOCK_CHART_FILE_NAME)
+    assert_deploy_and_wait_for_app_cr(
+        MOCK_APP_NAME, MOCK_UPGRADE_APP_VERSION, MOCK_APP_DEPLOY_NS, STABLE_APP_CATALOG_NAME
+    )
+    assert_prepare_pytest_test_environment()
+    mock_stable_app_catalog_cr.create.assert_any_call()
+    assert_run_pytest(
+        runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_UPGRADE_CHART_FILE_NAME, MOCK_UPGRADE_APP_VERSION
+    )
+    assert_upgrade_tester_exec_hook(
+        KEY_PRE_UPGRADE,
+        MOCK_APP_NAME,
+        MOCK_UPGRADE_APP_VERSION,
+        MOCK_APP_VERSION,
+        MOCK_KUBE_CONFIG_PATH,
+        MOCK_APP_DEPLOY_NS,
+    )
+    assert_app_updated(configured_app_mock)
+    assert_upgrade_tester_exec_hook(
+        KEY_POST_UPGRADE,
+        MOCK_APP_NAME,
+        MOCK_UPGRADE_APP_VERSION,
+        MOCK_APP_VERSION,
+        MOCK_KUBE_CONFIG_PATH,
+        MOCK_APP_DEPLOY_NS,
+    )
+    assert_run_pytest(runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_CHART_FILE_NAME, MOCK_APP_VERSION)
+    assert_upgrade_tester_deletes_app(configured_app_mock)
+    mock_stable_app_catalog_cr.delete.assert_called_once()

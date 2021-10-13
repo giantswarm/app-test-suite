@@ -13,6 +13,8 @@ if [ $# -eq 1 ] && [ "$1" == "versions" ]; then
   apptestctl version
   echo "-> kind:"
   kind version
+  echo "-> go:"
+  go version
   exit 0
 fi
 

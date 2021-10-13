@@ -3,7 +3,6 @@ import logging
 import os
 import re
 import shutil
-from abc import ABC
 from distutils.version import LooseVersion
 from typing import Tuple, cast, Match, Optional
 
@@ -32,14 +31,13 @@ from app_test_suite.config import (
     key_cfg_upgrade_hook,
 )
 from app_test_suite.errors import ATSTestError
-from app_test_suite.steps.base_test_runner import (
-    BaseTestScenario,
+from app_test_suite.steps.base import (
     TestExecutor,
+    CONTEXT_KEY_CHART_YAML,
     BaseTestScenariosFilteringPipeline,
-    TEST_APP_CATALOG_NAME,
-    context_key_chart_yaml,
     TestExecInfo,
 )
+from app_test_suite.steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME
 from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
 
 KEY_PRE_UPGRADE = "pre-upgrade"
@@ -49,15 +47,15 @@ STABLE_APP_CATALOG_NAME = "stable"
 logger = logging.getLogger(__name__)
 
 
-class BaseUpgradeTestScenario(BaseTestScenario, TestExecutor, ABC):
+class UpgradeTestScenario(SimpleTestScenario):
     """
     Base class to implement upgrade test scenario for any test executor.
 
     Do a mixin of this class and a test executor mixin derived from TestExecutor class to get a test scenario.
     """
 
-    def __init__(self, cluster_manager: ClusterManager):
-        super().__init__(cluster_manager)
+    def __init__(self, cluster_manager: ClusterManager, test_executor: TestExecutor):
+        super().__init__(cluster_manager, test_executor)
         self._skip_app_deploy = True
         self._stable_from_local_file = False
         self._semver_regex_match = re.compile(r"^.+((0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*).*)\.tgz$")
@@ -110,6 +108,7 @@ class BaseUpgradeTestScenario(BaseTestScenario, TestExecutor, ABC):
                     key_cfg_upgrade_hook,
                     f"Upgrade hook was configured, but '{cmd}' was not " f"found to be a valid executable.",
                 )
+        self._test_executor.validate(config, self.name)
 
     def _prepare_stable_app(self, config: argparse.Namespace, app_name: str) -> Tuple[str, str, str]:
         if self._stable_from_local_file:
@@ -134,13 +133,13 @@ class BaseUpgradeTestScenario(BaseTestScenario, TestExecutor, ABC):
         return stable_app_ver, STABLE_APP_CATALOG_NAME, catalog_url
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
-        app_name = context[context_key_chart_yaml]["name"]
-        app_version = context[context_key_chart_yaml]["version"]
+        app_name = context[CONTEXT_KEY_CHART_YAML]["name"]
+        app_version = context[CONTEXT_KEY_CHART_YAML]["version"]
 
         stable_app_ver, stable_app_catalog_name, stable_app_catalog_url = self._prepare_stable_app(config, app_name)
 
         deploy_namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_namespace
+            config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE
         )
         app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
 
@@ -150,15 +149,15 @@ class BaseUpgradeTestScenario(BaseTestScenario, TestExecutor, ABC):
         # run tests
         stable_chart_url = f"{stable_app_catalog_url}/{app_name}-{stable_app_ver}.tar.gz"
         exec_info = self._get_test_exec_info(stable_chart_url, stable_app_ver, app_cfg_file)
-        self.prepare_test_environment(exec_info)
-        self.execute_test(exec_info)
+        self._test_executor.prepare_test_environment(exec_info)
+        self._test_executor.execute_test(exec_info)
 
         # run the optional upgrade hook
         self._run_upgrade_hook(config, KEY_PRE_UPGRADE, app_name, stable_app_ver, app_version)
 
         # reconfigure App CR to point to the new version UT
         app_config_file_path = get_config_value_by_cmd_line_option(
-            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_config_file
+            config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE
         )
         self._upgrade_app_cr(app_cr, app_version, app_config_file_path)
 
@@ -169,7 +168,7 @@ class BaseUpgradeTestScenario(BaseTestScenario, TestExecutor, ABC):
         exec_info.chart_path = config.chart_file
         exec_info.chart_ver = app_version
         exec_info.app_config_file_path = app_config_file_path
-        self.execute_test(exec_info)
+        self._test_executor.execute_test(exec_info)
 
         # delete App CR
         logger.info(f"Deleting App CR '{app_cr.app.name}'.")
@@ -253,7 +252,7 @@ class BaseUpgradeTestScenario(BaseTestScenario, TestExecutor, ABC):
 
         logger.info(f"Executing upgrade hook: '{upgrade_hook_exe}' with stage '{stage_name}'.")
         deploy_namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestScenariosFilteringPipeline.key_config_option_deploy_namespace
+            config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE
         )
         args = upgrade_hook_exe.split(" ")
         args += [
@@ -271,4 +270,14 @@ class BaseUpgradeTestScenario(BaseTestScenario, TestExecutor, ABC):
             )
 
     def _get_test_exec_info(self, chart_path: str, chart_ver: str, chart_config_file: str) -> TestExecInfo:
-        raise NotImplementedError()
+        cluster_info = cast(ClusterInfo, self._cluster_info)
+        exec_info = TestExecInfo(
+            chart_path=chart_path,
+            chart_ver=chart_ver,
+            app_config_file_path=chart_config_file,
+            cluster_type=self._test_cluster_type,
+            cluster_version=cluster_info.version,
+            kube_config_path=os.path.abspath(cluster_info.kube_config_path),
+            test_type=self.test_provided,
+        )
+        return exec_info

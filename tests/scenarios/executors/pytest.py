@@ -6,6 +6,7 @@ from step_exec_lib.types import StepType
 
 import app_test_suite
 import app_test_suite.steps.executors.pytest
+from tests.helpers import MOCK_KUBE_VERSION
 
 
 def assert_run_pytest(test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str) -> None:
@@ -25,7 +26,7 @@ def assert_run_pytest(test_provided: StepType, kube_config_path: str, chart_file
             "--chart-version",
             app_version,
             "--chart-extra-info",
-            "external_cluster_version=1.19.1",
+            f"external_cluster_version={MOCK_KUBE_VERSION}",
             "--log-cli-level",
             "info",
             f"--junitxml=test_results_{test_provided}.xml",

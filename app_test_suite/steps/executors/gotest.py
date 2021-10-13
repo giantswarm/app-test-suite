@@ -67,15 +67,14 @@ class GotestExecutor(TestExecutor):
             "ATS_KUBE_CONFIG_PATH": exec_info.kube_config_path,
             "ATS_TEST_TYPE": exec_info.test_type,
             "ATS_TEST_DIR": self._test_dir,
+            # Set env vars needed by Go.
+            "GOPATH": os.getenv("GOPATH", ""),
+            "HOME": os.getenv("HOME", ""),
+            "PATH": os.getenv("PATH", ""),
         }
 
         if exec_info.app_config_file_path is not None:
             env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
-
-        # Set env vars needed by Go.
-        env_vars["GOPATH"] = os.getenv("GOPATH", "")
-        env_vars["HOME"] = os.getenv("HOME", "")
-        env_vars["PATH"] = os.getenv("PATH", "")
 
         args = [
             self._GOTEST_BIN,

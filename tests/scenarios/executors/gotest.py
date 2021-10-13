@@ -25,8 +25,6 @@ def assert_run_gotest(test_provided: StepType, kube_config_path: str, chart_file
         "PATH": os.getenv("PATH", ""),
     }
 
-    # Set env vars needed for Go.
-
     cast(unittest.mock.Mock, app_test_suite.steps.executors.gotest.run_and_handle_error).assert_any_call(
         [
             "go",

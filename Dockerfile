@@ -14,9 +14,7 @@ RUN apk add --no-cache ca-certificates curl \
        tar -C /binaries --strip-components 1 -xvzf - apptestctl-v${APPTESTCTL_VER}-linux-amd64/apptestctl \
     && curl -SL https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VER}.tgz | \
        tar -C /binaries --strip-components 1 -xvzf - docker/docker \
-    && curl -SL https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VER}/kind-linux-amd64 -o /binaries/kind \
-    && curl -SL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | \
-       tar -C binaries --strip-components 2 -xvzf - go/bin/go
+    && curl -SL https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VER}/kind-linux-amd64 -o /binaries/kind
 
 COPY container-entrypoint.sh /binaries
 
@@ -53,13 +51,17 @@ FROM base
 
 ENV USE_UID=0 \
     USE_GID=0 \
-    PATH="${ATS_DIR}/.venv/bin:$PATH" \
-    PYTHONPATH=$ATS_DIR
+    PATH="${ATS_DIR}/.venv/bin:/usr/local/go/bin:$PATH" \
+    PYTHONPATH=$ATS_DIR \
+    GOPATH=$ATS_DIR
 
 # install dependencies
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y git sudo && \
+    apt-get install --no-install-recommends -y curl git sudo && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN curl -SL https://dl.google.com/go/go1.17.1.linux-amd64.tar.gz | \
+    tar -C /usr/local -xvzf -
 
 COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv
 

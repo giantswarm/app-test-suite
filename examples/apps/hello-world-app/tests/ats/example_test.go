@@ -1,7 +1,7 @@
 //go:build smoke
 // +build smoke
 
-package ats
+package main
 
 import (
 	"context"

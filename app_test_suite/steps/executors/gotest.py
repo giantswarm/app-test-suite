@@ -68,6 +68,7 @@ class GotestExecutor(TestExecutor):
             "ATS_TEST_TYPE": exec_info.test_type,
             "ATS_TEST_DIR": self._test_dir,
             # Set env vars needed by Go.
+            "CGO_ENABLED": "0",
             "GOPATH": os.getenv("GOPATH", ""),
             "HOME": os.getenv("HOME", ""),
             "PATH": os.getenv("PATH", ""),

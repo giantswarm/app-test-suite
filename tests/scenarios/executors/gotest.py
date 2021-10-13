@@ -20,6 +20,7 @@ def assert_run_gotest(test_provided: StepType, kube_config_path: str, chart_file
         "ATS_KUBE_CONFIG_PATH": kube_config_path,
         "ATS_TEST_TYPE": test_provided,
         "ATS_TEST_DIR": "",
+        "CGO_ENABLED": "0",
         "GOPATH": os.getenv("GOPATH", ""),
         "HOME": os.getenv("HOME", ""),
         "PATH": os.getenv("PATH", ""),

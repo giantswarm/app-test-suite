@@ -5,7 +5,6 @@ ARG DOCKER_VER="20.10.3"
 # upgrade to kind 0.10.0 held, as it defaults to kubernetes 1.20; we're still targeting primarly 1.19
 ARG KIND_VER="0.9.0"
 ARG APPTESTCTL_VER="0.8.0"
-ARG GO_VERSION="1.17.2"
 
 RUN apk add --no-cache ca-certificates curl \
     && mkdir -p /binaries \
@@ -49,6 +48,8 @@ RUN PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy --clear
 
 FROM base
 
+ARG GO_VERSION="1.17.2"
+
 ENV USE_UID=0 \
     USE_GID=0 \
     PATH="${ATS_DIR}/.venv/bin:/usr/local/go/bin:$PATH" \
@@ -60,8 +61,8 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y curl git sudo && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN curl -SL https://dl.google.com/go/go1.17.1.linux-amd64.tar.gz | \
-    tar -C /usr/local -xvzf -
+RUN curl -SL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | \
+    tar -C /usr/local -xzf -
 
 COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv
 

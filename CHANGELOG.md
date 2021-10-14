@@ -6,7 +6,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 - Added
-  - new test type - upgrade test
+  - New test type - upgrade test
+  - New test executor - go test
 
 - Changed
   - Changed interface for the `AppRepository` class

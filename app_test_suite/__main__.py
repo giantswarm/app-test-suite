@@ -1,10 +1,13 @@
 """Main module. Loads configuration and executes main control loops."""
 import logging
 import os
+import sys
 from typing import List
 
 import configargparse
-import sys
+from step_exec_lib.errors import ConfigError
+from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
+from step_exec_lib.types import STEP_ALL
 
 from app_test_suite.config import (
     key_cfg_stable_app_url,
@@ -13,11 +16,9 @@ from app_test_suite.config import (
     key_cfg_upgrade_hook,
     key_cfg_stable_app_file,
 )
-from app_test_suite.steps.pytest.pytest import PytestScenariosFilteringPipeline
+from app_test_suite.steps.executors.pytest import PytestScenariosFilteringPipeline
 from app_test_suite.steps.test_types import ALL_STEPS
-from step_exec_lib.errors import ConfigError
-from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
-from step_exec_lib.types import STEP_ALL
+from app_test_suite.steps.executors.gotest import GotestTestFilteringPipeline
 
 ver = "v0.0.0-dev"
 app_name = "app_test_suite"
@@ -33,11 +34,17 @@ def get_version() -> str:
         return ver
 
 
-def get_pipeline() -> List[BuildStepsFilteringPipeline]:
-    return [
-        # FIXME: once we have more than 1 test engine, this has to be configurable
-        PytestScenariosFilteringPipeline(),
-    ]
+def get_pipeline(test_executor: str) -> List[BuildStepsFilteringPipeline]:
+    if test_executor == "pytest":
+        return [
+            PytestScenariosFilteringPipeline(),
+        ]
+    elif test_executor == "gotest":
+        return [
+            GotestTestFilteringPipeline(),
+        ]
+    else:
+        raise ConfigError("test-executor", f"Unknown executor '{test_executor}'.")
 
 
 def configure_global_options(config_parser: configargparse.ArgParser) -> None:
@@ -48,6 +55,12 @@ def configure_global_options(config_parser: configargparse.ArgParser) -> None:
         default=False,
         action="store_true",
         help="Enable debug messages.",
+    )
+    config_parser.add_argument(
+        "--test-executor",
+        required=False,
+        default="pytest",
+        help="Type of test executor. Either pytest or gotest.",
     )
     config_parser.add_argument("--version", action="version", version=f"{app_name} {get_version()}")
     steps_group = config_parser.add_mutually_exclusive_group()
@@ -173,7 +186,7 @@ def main() -> None:
     if global_only_config.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    steps = get_pipeline()
+    steps = get_pipeline(global_only_config.test_executor)
     config = get_config(steps)
     runner = Runner(config, steps)
     runner.run()

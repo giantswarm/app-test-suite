@@ -13,6 +13,9 @@ if [ $# -eq 1 ] && [ "$1" == "versions" ]; then
   apptestctl version
   echo "-> kind:"
   kind version
+  echo
+  echo "-> go:"
+  go version
   exit 0
 fi
 
@@ -49,7 +52,7 @@ if [ "${USE_UID:-0}" -ne "${VENVS_UID}" ] || [ "${USE_GID:-0}" -ne "${VENVS_GID}
 fi
 
 # run ats
-sudo --preserve-env=PYTHONPATH,PATH -g "#$USE_GID" -u "#$USE_UID" -- python -m app_test_suite "$@"
+sudo --preserve-env=PYTHONPATH,PATH,GOPATH -g "#$USE_GID" -u "#$USE_UID" -- python -m app_test_suite "$@"
 
 # revert original permissions on pipenv cache (if changed)
 if [ "${PIPENV_PERM_CHANGED}" -eq 1 ]; then

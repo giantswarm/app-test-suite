@@ -183,8 +183,6 @@ class UpgradeTestScenario(SimpleTestScenario):
             logger.debug(f"Deleting AppCatalog '{app_catalog_cr.name}'.")
             app_catalog_cr.delete()
 
-        # TODO: save upgrade metadata
-
     def _upgrade_app_cr(self, app_cr: ConfiguredApp, app_version: str, app_config_file_path: Optional[str]) -> None:
         app_cr.app.reload()
 
@@ -281,3 +279,6 @@ class UpgradeTestScenario(SimpleTestScenario):
             test_type=self.test_provided,
         )
         return exec_info
+
+    def _save_metadata(self) -> None:
+        pass

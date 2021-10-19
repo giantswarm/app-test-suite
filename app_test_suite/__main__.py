@@ -15,10 +15,11 @@ from app_test_suite.config import (
     key_cfg_stable_app_config,
     key_cfg_upgrade_hook,
     key_cfg_stable_app_file,
+    key_cfg_upgrade_save_metadata,
 )
+from app_test_suite.steps.executors.gotest import GotestTestFilteringPipeline
 from app_test_suite.steps.executors.pytest import PytestScenariosFilteringPipeline
 from app_test_suite.steps.test_types import ALL_STEPS
-from app_test_suite.steps.executors.gotest import GotestTestFilteringPipeline
 
 ver = "v0.0.0-dev"
 app_name = "app_test_suite"
@@ -81,6 +82,7 @@ def configure_global_options(config_parser: configargparse.ArgParser) -> None:
 
 
 def configure_test_specific_options(config_parser: configargparse.ArgParser) -> None:
+    # FIXME: this should be now part of the UpgradeTestScenario class
     config_parser_group = config_parser.add_argument_group("Upgrade testing options")
     app_source_group = config_parser_group.add_mutually_exclusive_group()
     app_source_group.add_argument(
@@ -114,6 +116,13 @@ def configure_test_specific_options(config_parser: configargparse.ArgParser) -> 
         required=False,
         help="A command (executable) that is run after the tests for the stable version of the app completed"
         " successfully, but before the app is upgraded and tested again.",
+    )
+    config_parser_group.add_argument(
+        key_cfg_upgrade_save_metadata,
+        default=False,
+        action="store_true",
+        required=False,
+        help="Save upgrade test result to a metadata file.",
     )
 
 

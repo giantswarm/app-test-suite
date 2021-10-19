@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import logging
 import os
 import re
@@ -39,6 +40,7 @@ from app_test_suite.steps.base import (
 )
 from app_test_suite.steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME
 from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
+from config import key_cfg_upgrade_save_metadata
 
 KEY_PRE_UPGRADE = "pre-upgrade"
 KEY_POST_UPGRADE = "post-upgrade"
@@ -183,6 +185,10 @@ class UpgradeTestScenario(SimpleTestScenario):
             logger.debug(f"Deleting AppCatalog '{app_catalog_cr.name}'.")
             app_catalog_cr.delete()
 
+        # save metadata, if requested
+        if get_config_value_by_cmd_line_option(config, key_cfg_upgrade_save_metadata):
+            self._save_metadata(exec_info, app_name, app_version, stable_app_ver)
+
     def _upgrade_app_cr(self, app_cr: ConfiguredApp, app_version: str, app_config_file_path: Optional[str]) -> None:
         app_cr.app.reload()
 
@@ -280,5 +286,21 @@ class UpgradeTestScenario(SimpleTestScenario):
         )
         return exec_info
 
-    def _save_metadata(self) -> None:
-        pass
+    def _save_metadata(self, exec_info: TestExecInfo, app_name: str, app_version: str, stable_app_version: str) -> None:
+        metadata = {
+            "appName": app_name,
+            "chartVersion": exec_info.chart_ver,
+            "appVersion": app_version,
+            "clusterType": exec_info.cluster_type,
+            "clusterVersion": exec_info.cluster_version,
+            "upgradeToChartVersion": "X",
+            "upgradeToAppVersion": stable_app_version,
+            "timestamp": datetime.datetime.utcnow().replace(microsecond=0).isoformat(),
+        }
+        meta_dir = f"{app_name}-{stable_app_version}.tgz-meta"
+        if not os.path.isdir(meta_dir):
+            logger.debug(f"Creating '{meta_dir}' directory to store metadata.")
+            os.mkdir(meta_dir)
+        file_path = os.path.join(meta_dir, f"tested-upgrade-{exec_info.chart_ver}.yaml")
+        with open(file_path, "w") as f:
+            yaml.dump(metadata, f, allow_unicode=True, default_flow_style=False)

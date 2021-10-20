@@ -123,7 +123,6 @@ def test_upgrade_pytest_runner_run(
     patcher(mocker, run_and_log_call_result_mock)
     mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
     requests_get_mock = patch_requests_get_chart(mocker)
-    mocker.patch("os.path.isdir", return_value=True)
 
     config = get_base_config(mocker)
     configure_for_upgrade_test(config)

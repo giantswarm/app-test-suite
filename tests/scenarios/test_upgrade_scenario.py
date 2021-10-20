@@ -3,6 +3,7 @@ from typing import cast, Callable
 from unittest.mock import Mock
 
 import pytest
+import yaml
 from pytest_mock import MockerFixture
 from requests import Response
 from step_exec_lib.types import StepType
@@ -53,6 +54,8 @@ from tests.scenarios.executors.pytest import (
     assert_prepare_pytest_test_environment,
     patch_pytest_test_runner,
 )
+
+UPGRADE_META_FILE_NAME = f"tested-upgrade-{MOCK_CHART_VERSION}.yaml"
 
 
 @pytest.mark.parametrize(
@@ -163,3 +166,11 @@ def test_upgrade_pytest_runner_run(
     requests_get_mock.assert_called_once_with(MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True)
     assert_upgrade_tester_deletes_app(configured_app_mock)
     mock_stable_app_catalog_cr.delete.assert_called_once()
+
+    with open(f"{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tgz-meta/{UPGRADE_META_FILE_NAME}") as f:
+        actual = yaml.safe_load(f.read())
+        actual.pop("timestamp", None)
+    with open(f"tests/assets/{UPGRADE_META_FILE_NAME}", "r") as f:
+        expected = yaml.safe_load(f.read())
+        expected.pop("timestamp", None)
+    assert actual == expected

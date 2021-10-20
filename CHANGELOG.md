@@ -11,6 +11,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Changed
   - Changed interface for the `AppRepository` class
+  - Update apptestctl to v0.12.0.
+  - Update step-exec-lib to v0.1.4
 
 ## [0.1.4] - 2021-09-17
 

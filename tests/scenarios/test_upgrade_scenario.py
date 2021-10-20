@@ -45,6 +45,7 @@ from tests.helpers import (
     assert_app_updated,
     assert_upgrade_tester_deletes_app,
     MOCK_APP_VERSION,
+    patch_requests_get_chart,
 )
 from tests.scenarios.executors.gotest import assert_run_gotest, patch_gotest_test_runner
 from tests.scenarios.executors.pytest import (
@@ -122,6 +123,7 @@ def test_upgrade_pytest_runner_run(
     patcher(mocker, run_and_log_call_result_mock)
     mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
     requests_get_mock = patch_requests_get_chart(mocker)
+    mocker.patch("os.path.isdir", return_value=True)
 
     config = get_base_config(mocker)
     configure_for_upgrade_test(config)
@@ -162,14 +164,3 @@ def test_upgrade_pytest_runner_run(
     requests_get_mock.assert_called_once_with(MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True)
     assert_upgrade_tester_deletes_app(configured_app_mock)
     mock_stable_app_catalog_cr.delete.assert_called_once()
-
-
-def patch_requests_get_chart(mocker: MockerFixture) -> unittest.mock.Mock:
-    requests_get_res = mocker.MagicMock(spec=Response, name="chart get result")
-    requests_get_res.ok = True
-    requests_get_res.status_code = 200
-    with open("examples/apps/hello-world-app/hello-world-app-0.2.4-1.tgz", "rb") as f:
-        chart_content = f.read()
-    requests_get_res.content = chart_content
-    mocker.patch("app_test_suite.steps.scenarios.upgrade.requests.get", return_value=requests_get_res)
-    return cast(unittest.mock.Mock, app_test_suite.steps.scenarios.upgrade.requests.get)

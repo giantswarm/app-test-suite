@@ -1,3 +1,4 @@
+import unittest
 import unittest.mock
 from types import ModuleType
 from typing import cast, Tuple, Any
@@ -6,6 +7,7 @@ import pykube
 from configargparse import Namespace
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_mock import MockerFixture
+from requests import Response
 
 import app_test_suite
 from app_test_suite.cluster_manager import ClusterManager
@@ -164,3 +166,14 @@ def assert_upgrade_tester_exec_hook(
     cast(unittest.mock.Mock, app_test_suite.steps.scenarios.upgrade.run_and_log).assert_any_call(
         [MOCK_UPGRADE_UPGRADE_HOOK, stage_name, app_name, from_version, to_version, kube_config_path, deploy_namespace],
     )
+
+
+def patch_requests_get_chart(mocker: MockerFixture) -> unittest.mock.Mock:
+    requests_get_res = mocker.MagicMock(spec=Response, name="chart get result")
+    requests_get_res.ok = True
+    requests_get_res.status_code = 200
+    with open("examples/apps/hello-world-app/hello-world-app-0.2.4-1.tgz", "rb") as f:
+        chart_content = f.read()
+    requests_get_res.content = chart_content
+    mocker.patch("app_test_suite.steps.scenarios.upgrade.requests.get", return_value=requests_get_res)
+    return cast(unittest.mock.Mock, app_test_suite.steps.scenarios.upgrade.requests.get)

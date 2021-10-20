@@ -4,7 +4,7 @@ ARG KUBECTL_VER="1.20.7"
 ARG DOCKER_VER="20.10.3"
 # upgrade to kind 0.10.0 held, as it defaults to kubernetes 1.20; we're still targeting primarly 1.19
 ARG KIND_VER="0.9.0"
-ARG APPTESTCTL_VER="0.8.0"
+ARG APPTESTCTL_VER="0.12.0"
 
 RUN apk add --no-cache ca-certificates curl \
     && mkdir -p /binaries \

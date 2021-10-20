@@ -1,0 +1,8 @@
+appName: mock_app
+appVersion: 0.1.2
+chartVersion: 0.2.5
+clusterType: mock
+clusterVersion: 1.19.1
+timestamp: '2021-10-20T14:14:21'
+upgradeToAppVersion: v0.0.1
+upgradeToChartVersion: 0.2.4-1

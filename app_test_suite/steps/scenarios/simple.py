@@ -278,6 +278,9 @@ class SimpleTestScenario(BuildStep, ABC):
         ):
             return
 
+        # if the key is not in the context, it means the app was never deployed
+        if CONTEXT_KEY_APP_CR not in context:
+            return
         app_obj = cast(AppCR, context[CONTEXT_KEY_APP_CR])
         values_cm = None
         if CONTEXT_KEY_APP_CM_CR in context:

@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 from distutils.version import LooseVersion
+from tempfile import TemporaryDirectory
 from typing import Tuple, cast, Match, Optional
 
 import requests
@@ -30,6 +31,7 @@ from app_test_suite.config import (
     key_cfg_stable_app_version,
     key_cfg_stable_app_config,
     key_cfg_upgrade_hook,
+    key_cfg_upgrade_save_metadata,
 )
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import (
@@ -40,7 +42,7 @@ from app_test_suite.steps.base import (
 )
 from app_test_suite.steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME
 from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
-from config import key_cfg_upgrade_save_metadata
+from steps.base import TestInfoProvider, CONTEXT_KEY_STABLE_CHART_YAML
 
 KEY_PRE_UPGRADE = "pre-upgrade"
 KEY_POST_UPGRADE = "post-upgrade"
@@ -112,7 +114,9 @@ class UpgradeTestScenario(SimpleTestScenario):
                 )
         self._test_executor.validate(config, self.name)
 
-    def _prepare_stable_app(self, config: argparse.Namespace, app_name: str) -> Tuple[str, str, str]:
+    def _prepare_stable_app(
+        self, config: argparse.Namespace, context: Context, app_name: str
+    ) -> Tuple[str, str, str, str]:
         if self._stable_from_local_file:
             # upload file to existing catalog
             stable_chart_file_path = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_file)
@@ -120,7 +124,10 @@ class UpgradeTestScenario(SimpleTestScenario):
             app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_by_name(TEST_APP_CATALOG_NAME)
             stable_ver_match = self._semver_regex_match.fullmatch(stable_chart_file_path)
             stable_app_version = cast(Match, stable_ver_match).group(1)
-            return stable_app_version, TEST_APP_CATALOG_NAME, app_catalog_cr.obj["spec"]["storage"]["URL"]
+            TestInfoProvider().extract_chart_info(stable_chart_file_path, CONTEXT_KEY_STABLE_CHART_YAML, context)
+            catalog_url = app_catalog_cr.obj["spec"]["storage"]["URL"]
+            chart_url = f"{catalog_url}/{app_name}-{stable_app_version}.tar.gz"
+            return stable_app_version, TEST_APP_CATALOG_NAME, catalog_url, chart_url
 
         catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
         logger.info(f"Adding new app catalog named '{STABLE_APP_CATALOG_NAME}' with URL '{catalog_url}'.")
@@ -128,17 +135,30 @@ class UpgradeTestScenario(SimpleTestScenario):
         logger.debug(f"Creating AppCatalog '{app_catalog_cr.name}' with the stable app version.")
         app_catalog_cr.create()
 
-        stable_app_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
-        if stable_app_ver == "latest":
-            stable_app_ver = self._get_latest_app_version(catalog_url, app_name)
+        stable_chart_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
+        if stable_chart_ver == "latest":
+            stable_chart_ver = self._get_latest_app_version(catalog_url, app_name)
 
-        return stable_app_ver, STABLE_APP_CATALOG_NAME, catalog_url
+        chart_url = f"{catalog_url}/{app_name}-{stable_chart_ver}.tar.gz"
+        with TemporaryDirectory("-ats-download") as d:
+            try:
+                r = requests.get(chart_url, allow_redirects=True)
+            except RequestException as e:
+                logger.error(f"Error when trying to fetch remote chart '{chart_url}': '{e}'.")
+                raise
+            chart_file_name = os.path.join(d, "chart.tar.gz")
+            with open(chart_file_name, "wb") as f:
+                f.write(r.content)
+            TestInfoProvider().extract_chart_info(chart_file_name, CONTEXT_KEY_STABLE_CHART_YAML, context)
+        return stable_chart_ver, STABLE_APP_CATALOG_NAME, catalog_url, chart_url
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         app_name = context[CONTEXT_KEY_CHART_YAML]["name"]
-        app_version = context[CONTEXT_KEY_CHART_YAML]["version"]
+        chart_version = context[CONTEXT_KEY_CHART_YAML]["version"]
 
-        stable_app_ver, stable_app_catalog_name, stable_app_catalog_url = self._prepare_stable_app(config, app_name)
+        stable_chart_ver, stable_app_catalog_name, stable_app_catalog_url, stable_chart_url = self._prepare_stable_app(
+            config, context, app_name
+        )
 
         deploy_namespace = get_config_value_by_cmd_line_option(
             config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE
@@ -146,29 +166,28 @@ class UpgradeTestScenario(SimpleTestScenario):
         app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
 
         # deploy the stable version
-        app_cr = self._deploy_chart(app_name, stable_app_ver, deploy_namespace, app_cfg_file, stable_app_catalog_name)
+        app_cr = self._deploy_chart(app_name, stable_chart_ver, deploy_namespace, app_cfg_file, stable_app_catalog_name)
 
         # run tests
-        stable_chart_url = f"{stable_app_catalog_url}/{app_name}-{stable_app_ver}.tar.gz"
-        exec_info = self._get_test_exec_info(stable_chart_url, stable_app_ver, app_cfg_file)
+        exec_info = self._get_test_exec_info(stable_chart_url, stable_chart_ver, app_cfg_file)
         self._test_executor.prepare_test_environment(exec_info)
         self._test_executor.execute_test(exec_info)
 
         # run the optional upgrade hook
-        self._run_upgrade_hook(config, KEY_PRE_UPGRADE, app_name, stable_app_ver, app_version)
+        self._run_upgrade_hook(config, KEY_PRE_UPGRADE, app_name, stable_chart_ver, chart_version)
 
         # reconfigure App CR to point to the new version UT
         app_config_file_path = get_config_value_by_cmd_line_option(
             config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE
         )
-        self._upgrade_app_cr(app_cr, app_version, app_config_file_path)
+        self._upgrade_app_cr(app_cr, chart_version, app_config_file_path)
 
         # run the optional upgrade hook
-        self._run_upgrade_hook(config, KEY_POST_UPGRADE, app_name, stable_app_ver, app_version)
+        self._run_upgrade_hook(config, KEY_POST_UPGRADE, app_name, stable_chart_ver, chart_version)
 
         # run tests again
         exec_info.chart_path = config.chart_file
-        exec_info.chart_ver = app_version
+        exec_info.chart_ver = chart_version
         exec_info.app_config_file_path = app_config_file_path
         self._test_executor.execute_test(exec_info)
 
@@ -187,7 +206,18 @@ class UpgradeTestScenario(SimpleTestScenario):
 
         # save metadata, if requested
         if get_config_value_by_cmd_line_option(config, key_cfg_upgrade_save_metadata):
-            self._save_metadata(exec_info, app_name, app_version, stable_app_ver)
+            app_version = context[CONTEXT_KEY_CHART_YAML]["appVersion"]
+            stable_app_version = context[CONTEXT_KEY_STABLE_CHART_YAML]["appVersion"]
+            stable_ch_version = context[CONTEXT_KEY_STABLE_CHART_YAML]["version"]
+            self._save_metadata(
+                app_name,
+                chart_version,
+                app_version,
+                stable_ch_version,
+                stable_app_version,
+                exec_info.cluster_type,
+                exec_info.cluster_version,
+            )
 
     def _upgrade_app_cr(self, app_cr: ConfiguredApp, app_version: str, app_config_file_path: Optional[str]) -> None:
         app_cr.app.reload()
@@ -286,21 +316,31 @@ class UpgradeTestScenario(SimpleTestScenario):
         )
         return exec_info
 
-    def _save_metadata(self, exec_info: TestExecInfo, app_name: str, app_version: str, stable_app_version: str) -> None:
+    def _save_metadata(
+        self,
+        app_name: str,
+        chart_version: str,
+        app_version: str,
+        stable_chart_version: str,
+        stable_app_version: str,
+        cluster_type: str,
+        cluster_version: str,
+    ) -> None:
         metadata = {
             "appName": app_name,
-            "chartVersion": exec_info.chart_ver,
+            "chartVersion": chart_version,
             "appVersion": app_version,
-            "clusterType": exec_info.cluster_type,
-            "clusterVersion": exec_info.cluster_version,
-            "upgradeToChartVersion": "X",
+            "clusterType": cluster_type,
+            "clusterVersion": cluster_version,
+            "upgradeToChartVersion": stable_chart_version,
             "upgradeToAppVersion": stable_app_version,
             "timestamp": datetime.datetime.utcnow().replace(microsecond=0).isoformat(),
         }
-        meta_dir = f"{app_name}-{stable_app_version}.tgz-meta"
+        meta_dir = f"{app_name}-{stable_chart_version}.tgz-meta"
         if not os.path.isdir(meta_dir):
             logger.debug(f"Creating '{meta_dir}' directory to store metadata.")
             os.mkdir(meta_dir)
-        file_path = os.path.join(meta_dir, f"tested-upgrade-{exec_info.chart_ver}.yaml")
+        file_path = os.path.join(meta_dir, f"tested-upgrade-{chart_version}.yaml")
         with open(file_path, "w") as f:
             yaml.dump(metadata, f, allow_unicode=True, default_flow_style=False)
+        logger.info(f"Metadata with upgrade test result saved to '{file_path}'.")

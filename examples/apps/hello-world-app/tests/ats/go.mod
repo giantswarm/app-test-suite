@@ -7,5 +7,5 @@ require (
 	github.com/giantswarm/backoff v0.2.0
 	github.com/go-openapi/spec v0.19.3 // indirect
 	k8s.io/apimachinery v0.22.2
-	k8s.io/client-go v0.22.2
+	k8s.io/client-go/v12 v12.0.0
 )

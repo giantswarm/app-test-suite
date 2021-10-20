@@ -43,7 +43,7 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
             "-c",
             "--chart-file",
             required=True,
-            help="Path to the Helm Chart tar.gz file to test.",
+            help="Path to the Helm Chart .tgz file to test.",
         )
         if self._config_parser_group is None:
             raise ValueError("'_config_parser_group' can't be None")

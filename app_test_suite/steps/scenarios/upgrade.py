@@ -39,10 +39,11 @@ from app_test_suite.steps.base import (
     CONTEXT_KEY_CHART_YAML,
     BaseTestScenariosFilteringPipeline,
     TestExecInfo,
+    TestInfoProvider,
+    CONTEXT_KEY_STABLE_CHART_YAML,
 )
 from app_test_suite.steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME
 from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
-from steps.base import TestInfoProvider, CONTEXT_KEY_STABLE_CHART_YAML
 
 KEY_PRE_UPGRADE = "pre-upgrade"
 KEY_POST_UPGRADE = "post-upgrade"
@@ -126,7 +127,7 @@ class UpgradeTestScenario(SimpleTestScenario):
             stable_app_version = cast(Match, stable_ver_match).group(1)
             TestInfoProvider().extract_chart_info(stable_chart_file_path, CONTEXT_KEY_STABLE_CHART_YAML, context)
             catalog_url = app_catalog_cr.obj["spec"]["storage"]["URL"]
-            chart_url = f"{catalog_url}/{app_name}-{stable_app_version}.tar.gz"
+            chart_url = f"{catalog_url}/{app_name}-{stable_app_version}.tgz"
             return stable_app_version, TEST_APP_CATALOG_NAME, catalog_url, chart_url
 
         catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
@@ -139,14 +140,18 @@ class UpgradeTestScenario(SimpleTestScenario):
         if stable_chart_ver == "latest":
             stable_chart_ver = self._get_latest_app_version(catalog_url, app_name)
 
-        chart_url = f"{catalog_url}/{app_name}-{stable_chart_ver}.tar.gz"
+        chart_url = f"{catalog_url}/{app_name}-{stable_chart_ver}.tgz"
         with TemporaryDirectory("-ats-download") as d:
             try:
                 r = requests.get(chart_url, allow_redirects=True)
+                if not r.ok:
+                    raise ATSTestError(
+                        f"Error 'HTTP-{r.status_code}' when fetching remote chart '{chart_url}': {r.reason}"
+                    )
             except RequestException as e:
                 logger.error(f"Error when trying to fetch remote chart '{chart_url}': '{e}'.")
                 raise
-            chart_file_name = os.path.join(d, "chart.tar.gz")
+            chart_file_name = os.path.join(d, "chart.tgz")
             with open(chart_file_name, "wb") as f:
                 f.write(r.content)
             TestInfoProvider().extract_chart_info(chart_file_name, CONTEXT_KEY_STABLE_CHART_YAML, context)
@@ -206,15 +211,12 @@ class UpgradeTestScenario(SimpleTestScenario):
 
         # save metadata, if requested
         if get_config_value_by_cmd_line_option(config, key_cfg_upgrade_save_metadata):
-            app_version = context[CONTEXT_KEY_CHART_YAML]["appVersion"]
-            stable_app_version = context[CONTEXT_KEY_STABLE_CHART_YAML]["appVersion"]
-            stable_ch_version = context[CONTEXT_KEY_STABLE_CHART_YAML]["version"]
             self._save_metadata(
                 app_name,
                 chart_version,
-                app_version,
-                stable_ch_version,
-                stable_app_version,
+                context[CONTEXT_KEY_CHART_YAML]["appVersion"],
+                context[CONTEXT_KEY_STABLE_CHART_YAML]["version"],
+                context[CONTEXT_KEY_STABLE_CHART_YAML]["appVersion"],
                 exec_info.cluster_type,
                 exec_info.cluster_version,
             )

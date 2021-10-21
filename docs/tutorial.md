@@ -2,6 +2,8 @@
 
 ## Preparing tools
 
+**Please note**: this tutorial was written with python 3.8, but should work exactly the same with 3.9 and newer.
+
 To be able to complete this tutorial, you need a few tools:
 
 - `app-test-suite` itself; if you haven't done so already, we recommend getting the latest version of the `dats.sh`

@@ -10,13 +10,9 @@ pytest-cov = "*"
 pytest-mock = "*"
 
 [packages]
-#pyyaml = ">=5.4"
-#configargparse = "*"
-#gitpython = "*"
-#semver = "*"
 validators = ">=0.18.2"
 pytest-helm-charts = ">=0.5.2"
 step-exec-lib = ">=0.1.4"
 
 [requires]
-python_version = "3.8"
+python_version = "3.9"

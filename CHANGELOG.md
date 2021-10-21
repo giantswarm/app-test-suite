@@ -14,6 +14,10 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - Changed interface for the `AppRepository` class
   - Update apptestctl to v0.12.0.
   - Update step-exec-lib to v0.1.4
+  - Update python to 3.9
+    - Please note: this includes update of the python packed inside the docker image. If you use
+      `dats.sh` to run your tests, your projects must require and run on python 3.9 as well.
+      Check and update your `Pipfile`!
 
 ## [0.1.4] - 2021-09-17
 

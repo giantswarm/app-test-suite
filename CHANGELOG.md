@@ -8,6 +8,7 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added
   - New test type - upgrade test
   - New test executor - go test
+  - Upgrade tests can now save YAML metadata file for the Giant Swarm App Platform (off by default)
 
 - Changed
   - Changed interface for the `AppRepository` class

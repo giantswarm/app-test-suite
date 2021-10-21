@@ -19,6 +19,11 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
       `dats.sh` to run your tests, your projects must require and run on python 3.9 as well.
       Check and update your `Pipfile`!
 
+- Fixed
+  - [pytest executor] If no tests match the scenario running, `ats` was returning non-successful
+    exit code itself. This is now fixed and such case (no tests matching a scenario) is considered
+    a success and 0 is returned as exit code.
+
 ## [0.1.4] - 2021-09-17
 
 - Changed

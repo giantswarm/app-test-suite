@@ -1,6 +1,6 @@
 # App test suite contribution guidelines
 
-`app-test-suite` is built using Python >= 3.8 and pipenv.
+`app-test-suite` is built using Python >= 3.9 and pipenv.
 
 ## Development setup
 

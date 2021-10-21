@@ -96,7 +96,8 @@ class PytestExecutor(TestExecutor):
             args += ["--values-file", exec_info.app_config_file_path]
         logger.info(f"Running {self._PYTEST_BIN} tool in '{self._test_dir}' directory.")
         run_res = run_and_log(args, cwd=self._test_dir)  # nosec, no user input here
-        if run_res.returncode != 0:
+        # exit code 5 from pytest means that no tests matched the selector - it's not an error for us
+        if run_res.returncode not in [0, 5]:
             raise ATSTestError(f"Pytest tests failed: running '{args}' in directory '{self._test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:

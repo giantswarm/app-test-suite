@@ -133,6 +133,7 @@ def configure_for_upgrade_test(config: Namespace) -> None:
     config.upgrade_tests_app_version = MOCK_UPGRADE_APP_VERSION
     config.upgrade_tests_app_config_file = MOCK_UPGRADE_APP_CONFIG_FILE
     config.upgrade_tests_upgrade_hook = MOCK_UPGRADE_UPGRADE_HOOK
+    config.upgrade_tests_save_metadata = True
     # normally, `pre_run` method does this in this case to stop the default logic from
     # deploying the current chart before the stable chart can be deployed
     # since we're not calling pre_run() here, we need override in config

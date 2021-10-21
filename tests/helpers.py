@@ -1,9 +1,12 @@
+import os
+import shutil
 import unittest
 import unittest.mock
 from types import ModuleType
 from typing import cast, Tuple, Any
 
 import pykube
+import yaml
 from configargparse import Namespace
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_mock import MockerFixture
@@ -29,6 +32,7 @@ MOCK_UPGRADE_UPGRADE_HOOK = "mock.sh"
 MOCK_UPGRADE_APP_CONFIG_FILE = ""
 MOCK_UPGRADE_APP_VERSION = "0.2.4-1"
 MOCK_UPGRADE_CHART_FILE_URL = f"{MOCK_UPGRADE_CATALOG_URL}/{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tgz"
+UPGRADE_META_FILE_NAME = f"tested-upgrade-{MOCK_CHART_VERSION}.yaml"
 
 
 def assert_runner_deletes_app(runner: ModuleType, configured_app_mock: ConfiguredApp) -> None:
@@ -177,3 +181,15 @@ def patch_requests_get_chart(mocker: MockerFixture) -> unittest.mock.Mock:
     requests_get_res.content = chart_content
     mocker.patch("app_test_suite.steps.scenarios.upgrade.requests.get", return_value=requests_get_res)
     return cast(unittest.mock.Mock, app_test_suite.steps.scenarios.upgrade.requests.get)
+
+
+def assert_upgrade_metadata_created() -> None:
+    meta_dir = f"{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tgz-meta"
+    with open(os.path.join(meta_dir, UPGRADE_META_FILE_NAME)) as f:
+        actual = yaml.safe_load(f.read())
+        actual.pop("timestamp", None)
+    with open(os.path.join("tests", "assets", UPGRADE_META_FILE_NAME), "r") as f:
+        expected = yaml.safe_load(f.read())
+        expected.pop("timestamp", None)
+    assert actual == expected
+    shutil.rmtree(meta_dir)

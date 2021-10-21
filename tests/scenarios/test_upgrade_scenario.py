@@ -3,7 +3,6 @@ from typing import cast, Callable
 from unittest.mock import Mock
 
 import pytest
-import yaml
 from pytest_mock import MockerFixture
 from requests import Response
 from step_exec_lib.types import StepType
@@ -47,6 +46,7 @@ from tests.helpers import (
     assert_upgrade_tester_deletes_app,
     MOCK_APP_VERSION,
     patch_requests_get_chart,
+    assert_upgrade_metadata_created,
 )
 from tests.scenarios.executors.gotest import assert_run_gotest, patch_gotest_test_runner
 from tests.scenarios.executors.pytest import (
@@ -54,8 +54,6 @@ from tests.scenarios.executors.pytest import (
     assert_prepare_pytest_test_environment,
     patch_pytest_test_runner,
 )
-
-UPGRADE_META_FILE_NAME = f"tested-upgrade-{MOCK_CHART_VERSION}.yaml"
 
 
 @pytest.mark.parametrize(
@@ -125,7 +123,7 @@ def test_upgrade_pytest_runner_run(
     configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
     patcher(mocker, run_and_log_call_result_mock)
     mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
-    requests_get_mock = patch_requests_get_chart(mocker)
+    mock_requests_get_chart = patch_requests_get_chart(mocker)
 
     config = get_base_config(mocker)
     configure_for_upgrade_test(config)
@@ -163,14 +161,7 @@ def test_upgrade_pytest_runner_run(
         MOCK_APP_DEPLOY_NS,
     )
     asserter_test(runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_CHART_FILE_NAME, MOCK_CHART_VERSION)
-    requests_get_mock.assert_called_once_with(MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True)
+    mock_requests_get_chart.assert_called_once_with(MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True)
     assert_upgrade_tester_deletes_app(configured_app_mock)
     mock_stable_app_catalog_cr.delete.assert_called_once()
-
-    with open(f"{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tgz-meta/{UPGRADE_META_FILE_NAME}") as f:
-        actual = yaml.safe_load(f.read())
-        actual.pop("timestamp", None)
-    with open(f"tests/assets/{UPGRADE_META_FILE_NAME}", "r") as f:
-        expected = yaml.safe_load(f.read())
-        expected.pop("timestamp", None)
-    assert actual == expected
+    assert_upgrade_metadata_created()

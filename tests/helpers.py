@@ -1,11 +1,16 @@
+import os
+import shutil
+import unittest
 import unittest.mock
 from types import ModuleType
 from typing import cast, Tuple, Any
 
 import pykube
+import yaml
 from configargparse import Namespace
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_mock import MockerFixture
+from requests import Response
 
 import app_test_suite
 from app_test_suite.cluster_manager import ClusterManager
@@ -20,12 +25,14 @@ MOCK_KUBE_VERSION = "1.19.1"
 MOCK_APP_NAME = "mock_app"
 MOCK_APP_NS = "mock_ns"
 MOCK_APP_DEPLOY_NS = "mock_deploy_ns"
-MOCK_APP_VERSION = "0.2.5"
-MOCK_CHART_FILE_NAME = f"{MOCK_APP_NAME}-{MOCK_APP_VERSION}.tar.gz"
+MOCK_APP_VERSION = "0.1.2"
+MOCK_CHART_VERSION = "0.2.5"
+MOCK_CHART_FILE_NAME = f"{MOCK_APP_NAME}-{MOCK_CHART_VERSION}.tgz"
 MOCK_UPGRADE_UPGRADE_HOOK = "mock.sh"
 MOCK_UPGRADE_APP_CONFIG_FILE = ""
 MOCK_UPGRADE_APP_VERSION = "0.2.4-1"
-MOCK_UPGRADE_CHART_FILE_NAME = f"{MOCK_UPGRADE_CATALOG_URL}/{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tar.gz"
+MOCK_UPGRADE_CHART_FILE_URL = f"{MOCK_UPGRADE_CATALOG_URL}/{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tgz"
+UPGRADE_META_FILE_NAME = f"tested-upgrade-{MOCK_CHART_VERSION}.yaml"
 
 
 def assert_runner_deletes_app(runner: ModuleType, configured_app_mock: ConfiguredApp) -> None:
@@ -126,6 +133,7 @@ def configure_for_upgrade_test(config: Namespace) -> None:
     config.upgrade_tests_app_version = MOCK_UPGRADE_APP_VERSION
     config.upgrade_tests_app_config_file = MOCK_UPGRADE_APP_CONFIG_FILE
     config.upgrade_tests_upgrade_hook = MOCK_UPGRADE_UPGRADE_HOOK
+    config.upgrade_tests_save_metadata = True
     # normally, `pre_run` method does this in this case to stop the default logic from
     # deploying the current chart before the stable chart can be deployed
     # since we're not calling pre_run() here, we need override in config
@@ -163,3 +171,26 @@ def assert_upgrade_tester_exec_hook(
     cast(unittest.mock.Mock, app_test_suite.steps.scenarios.upgrade.run_and_log).assert_any_call(
         [MOCK_UPGRADE_UPGRADE_HOOK, stage_name, app_name, from_version, to_version, kube_config_path, deploy_namespace],
     )
+
+
+def patch_requests_get_chart(mocker: MockerFixture) -> unittest.mock.Mock:
+    requests_get_res = mocker.MagicMock(spec=Response, name="chart get result")
+    requests_get_res.ok = True
+    requests_get_res.status_code = 200
+    with open("examples/apps/hello-world-app/hello-world-app-0.2.4-1.tgz", "rb") as f:
+        chart_content = f.read()
+    requests_get_res.content = chart_content
+    mocker.patch("app_test_suite.steps.scenarios.upgrade.requests.get", return_value=requests_get_res)
+    return cast(unittest.mock.Mock, app_test_suite.steps.scenarios.upgrade.requests.get)
+
+
+def assert_upgrade_metadata_created() -> None:
+    meta_dir = f"{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tgz-meta"
+    with open(os.path.join(meta_dir, UPGRADE_META_FILE_NAME)) as f:
+        actual = yaml.safe_load(f.read())
+        actual.pop("timestamp", None)
+    with open(os.path.join("tests", "assets", UPGRADE_META_FILE_NAME), "r") as f:
+        expected = yaml.safe_load(f.read())
+        expected.pop("timestamp", None)
+    assert actual == expected
+    shutil.rmtree(meta_dir)

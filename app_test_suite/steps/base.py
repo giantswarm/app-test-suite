@@ -18,6 +18,7 @@ from app_test_suite.errors import ATSTestError
 from app_test_suite.cluster_manager import ClusterManager
 
 CONTEXT_KEY_CHART_YAML: str = "chart_yaml"
+CONTEXT_KEY_STABLE_CHART_YAML: str = "stable_chart_yaml"
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
             "-c",
             "--chart-file",
             required=True,
-            help="Path to the Helm Chart tar.gz file to test.",
+            help="Path to the Helm Chart .tgz file to test.",
         )
         if self._config_parser_group is None:
             raise ValueError("'_config_parser_group' can't be None")
@@ -159,8 +160,13 @@ class TestInfoProvider(BuildStep):
         return {STEP_ALL}
 
     def run(self, config: argparse.Namespace, context: Context) -> None:
+        self.extract_chart_info(config.chart_file, CONTEXT_KEY_CHART_YAML, context)
+
+    def extract_chart_info(self, chart_file: str, context_key: str, context: Context) -> None:
+        if not os.path.isfile(chart_file):
+            raise ValidationError(self.name, f"Chart file '{chart_file}' not found")
         with TemporaryDirectory(prefix="ats-") as tmp_dir:
-            shutil.unpack_archive(config.chart_file, tmp_dir)
+            shutil.unpack_archive(chart_file, tmp_dir)
             _, sub_dirs, _ = next(os.walk(tmp_dir))
             for sub_dir in sub_dirs:
                 chart_yaml_path = os.path.join(tmp_dir, sub_dir, "Chart.yaml")
@@ -168,7 +174,7 @@ class TestInfoProvider(BuildStep):
                     with open(chart_yaml_path, "r") as file:
                         chart_yaml = yaml.safe_load(file)
                         logger.debug(f"Loading 'Chart.yaml' from subdirectory '{sub_dir}' in the chart archive.")
-                        context[CONTEXT_KEY_CHART_YAML] = chart_yaml
+                        context[context_key] = chart_yaml
                     break
             else:
                 raise ValidationError(

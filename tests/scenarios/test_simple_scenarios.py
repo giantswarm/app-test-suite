@@ -21,7 +21,7 @@ from tests.helpers import (
     get_mock_cluster_manager,
     MOCK_APP_NAME,
     MOCK_APP_NS,
-    MOCK_APP_VERSION,
+    MOCK_CHART_VERSION,
     MOCK_KUBE_CONFIG_PATH,
     MOCK_CHART_FILE_NAME,
     MOCK_APP_DEPLOY_NS,
@@ -60,13 +60,13 @@ def test_simple_runner_run(
     patcher(mocker, run_and_log_call_result_mock)
 
     config = get_base_config(mocker)
-    context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_APP_VERSION}}
+    context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_CHART_VERSION}}
     runner = scenario_type(mock_cluster_manager, test_executor)
     runner.run(config, context)
 
     assert_cluster_connection_created(MOCK_KUBE_CONFIG_PATH)
     assert_app_platform_ready(MOCK_KUBE_CONFIG_PATH)
     assert_chart_file_uploaded(config, MOCK_CHART_FILE_NAME)
-    assert_deploy_and_wait_for_app_cr(MOCK_APP_NAME, MOCK_APP_VERSION, MOCK_APP_DEPLOY_NS, TEST_APP_CATALOG_NAME)
-    asserter(runner.test_provided, MOCK_KUBE_CONFIG_PATH, config.chart_file, MOCK_APP_VERSION)
+    assert_deploy_and_wait_for_app_cr(MOCK_APP_NAME, MOCK_CHART_VERSION, MOCK_APP_DEPLOY_NS, TEST_APP_CATALOG_NAME)
+    asserter(runner.test_provided, MOCK_KUBE_CONFIG_PATH, config.chart_file, MOCK_CHART_VERSION)
     assert_base_tester_deletes_app(configured_app_mock)

@@ -18,6 +18,10 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     - Please note: this includes update of the python packed inside the docker image. If you use
       `dats.sh` to run your tests, your projects must require and run on python 3.9 as well.
       Check and update your `Pipfile`!
+  - Updated binaries used in the `dats.sh` docker image
+    - kind to 0.11.1
+    - docker to 20.10.9
+    - kubectl to 1.21.2
 
 - Fixed
   - [pytest executor] If no tests match the scenario running, `ats` was returning non-successful

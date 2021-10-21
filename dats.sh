@@ -1,6 +1,6 @@
 #!/bin/sh
 
-DATS_TAG=${DATS_TAG:-"0.2.0"}
+DATS_TAG=${DATS_TAG:-"latest"}
 
 # Please Note
 # This script tries to speed up python tests execution by using pipenv cache and reusing virtualenvs.

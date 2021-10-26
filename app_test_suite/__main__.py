@@ -180,6 +180,7 @@ def get_config(steps: List[BuildStep]) -> configargparse.Namespace:
         logger.error(f"Error when checking config option '{e.config_option}': {e.msg}")
         sys.exit(1)
 
+    logger.info(f"{app_name} {get_version()}")
     logger.info("Starting test with the following options")
     logger.info(f"\n{config_parser.format_values()}")
     return config

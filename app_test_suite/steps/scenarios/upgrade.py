@@ -42,7 +42,7 @@ from app_test_suite.steps.base import (
     TestInfoProvider,
     CONTEXT_KEY_STABLE_CHART_YAML,
 )
-from app_test_suite.steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME
+from app_test_suite.steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME, TEST_APP_CATALOG_NAMESPACE
 from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
 
 KEY_PRE_UPGRADE = "pre-upgrade"
@@ -117,7 +117,7 @@ class UpgradeTestScenario(SimpleTestScenario):
 
     def _prepare_stable_app(
         self, config: argparse.Namespace, context: Context, app_name: str, deploy_namespace: str
-    ) -> Tuple[str, str, str, str]:
+    ) -> Tuple[str, str, str, str, str]:
         if self._stable_from_local_file:
             # upload file to existing catalog
             stable_chart_file_path = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_file)
@@ -128,7 +128,7 @@ class UpgradeTestScenario(SimpleTestScenario):
             TestInfoProvider().extract_chart_info(stable_chart_file_path, CONTEXT_KEY_STABLE_CHART_YAML, context)
             catalog_url = app_catalog_cr.obj["spec"]["storage"]["URL"]
             chart_url = f"{catalog_url}/{app_name}-{stable_app_version}.tgz"
-            return stable_app_version, TEST_APP_CATALOG_NAME, catalog_url, chart_url
+            return stable_app_version, TEST_APP_CATALOG_NAME, TEST_APP_CATALOG_NAMESPACE, catalog_url, chart_url
 
         catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
         logger.info(f"Adding new app catalog named '{STABLE_APP_CATALOG_NAME}' with URL '{catalog_url}'.")
@@ -155,7 +155,7 @@ class UpgradeTestScenario(SimpleTestScenario):
             with open(chart_file_name, "wb") as f:
                 f.write(r.content)
             TestInfoProvider().extract_chart_info(chart_file_name, CONTEXT_KEY_STABLE_CHART_YAML, context)
-        return stable_chart_ver, STABLE_APP_CATALOG_NAME, catalog_url, chart_url
+        return stable_chart_ver, STABLE_APP_CATALOG_NAME, deploy_namespace, catalog_url, chart_url
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         app_name = context[CONTEXT_KEY_CHART_YAML]["name"]
@@ -166,12 +166,23 @@ class UpgradeTestScenario(SimpleTestScenario):
         )
         app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
 
-        stable_chart_ver, stable_app_catalog_name, stable_app_catalog_url, stable_chart_url = self._prepare_stable_app(
-            config, context, app_name, deploy_namespace
-        )
+        (
+            stable_chart_ver,
+            stable_app_catalog_name,
+            stable_app_catalog_namespace,
+            stable_app_catalog_url,
+            stable_chart_url,
+        ) = self._prepare_stable_app(config, context, app_name, deploy_namespace)
 
         # deploy the stable version
-        app_cr = self._deploy_chart(app_name, stable_chart_ver, deploy_namespace, app_cfg_file, stable_app_catalog_name)
+        app_cr = self._deploy_chart(
+            app_name,
+            stable_chart_ver,
+            deploy_namespace,
+            app_cfg_file,
+            stable_app_catalog_name,
+            stable_app_catalog_namespace,
+        )
 
         # run tests
         exec_info = self._get_test_exec_info(stable_chart_url, stable_chart_ver, app_cfg_file)

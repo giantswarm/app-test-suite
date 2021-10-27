@@ -38,6 +38,7 @@ from app_test_suite.steps.test_types import (
 )
 
 TEST_APP_CATALOG_NAME: str = "chartmuseum"
+TEST_APP_CATALOG_NAMESPACE: str = "default"
 CONTEXT_KEY_APP_CR: str = "app_cr"
 CONTEXT_KEY_APP_CM_CR: str = "app_cm_cr"
 CHART_YAML = "Chart.yaml"
@@ -237,13 +238,24 @@ class SimpleTestScenario(BuildStep, ABC):
         )
 
         app_obj = self._deploy_chart(
-            app_name, app_version, deploy_namespace, app_config_file_path, TEST_APP_CATALOG_NAME
+            app_name,
+            app_version,
+            deploy_namespace,
+            app_config_file_path,
+            TEST_APP_CATALOG_NAME,
+            TEST_APP_CATALOG_NAMESPACE,
         )
         context[CONTEXT_KEY_APP_CR] = app_obj.app
         context[CONTEXT_KEY_APP_CM_CR] = app_obj.app_cm
 
     def _deploy_chart(
-        self, app_name: str, app_version: str, deploy_namespace: str, app_config_file_path: str, app_catalog_name: str
+        self,
+        app_name: str,
+        app_version: str,
+        deploy_namespace: str,
+        app_config_file_path: str,
+        app_catalog_name: str,
+        app_catalog_namespace: str,
     ) -> ConfiguredApp:
         config_values = None
         if app_config_file_path:
@@ -256,6 +268,7 @@ class SimpleTestScenario(BuildStep, ABC):
             app_name,
             app_version,
             app_catalog_name,
+            app_catalog_namespace,
             self._default_app_cr_namespace,
             deploy_namespace,
             config_values,

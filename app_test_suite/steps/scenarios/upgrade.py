@@ -10,8 +10,8 @@ from typing import Tuple, cast, Match, Optional
 
 import requests
 import yaml
-from pytest_helm_charts.giantswarm_app_platform.app_catalog import get_app_catalog_obj
-from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCatalogCR
+from pytest_helm_charts.giantswarm_app_platform.catalog import get_catalog_obj
+from pytest_helm_charts.giantswarm_app_platform.custom_resources import CatalogCR
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_helm_charts.giantswarm_app_platform.utils import delete_app, wait_for_app_to_be_deleted
 from requests import RequestException
@@ -116,13 +116,13 @@ class UpgradeTestScenario(SimpleTestScenario):
         self._test_executor.validate(config, self.name)
 
     def _prepare_stable_app(
-        self, config: argparse.Namespace, context: Context, app_name: str
+        self, config: argparse.Namespace, context: Context, app_name: str, deploy_namespace: str
     ) -> Tuple[str, str, str, str]:
         if self._stable_from_local_file:
             # upload file to existing catalog
             stable_chart_file_path = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_file)
             self._upload_chart_to_app_catalog(config, stable_chart_file_path)
-            app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_by_name(TEST_APP_CATALOG_NAME)
+            app_catalog_cr = CatalogCR.objects(self._kube_client).get_by_name(TEST_APP_CATALOG_NAME)
             stable_ver_match = self._semver_regex_match.fullmatch(stable_chart_file_path)
             stable_app_version = cast(Match, stable_ver_match).group(1)
             TestInfoProvider().extract_chart_info(stable_chart_file_path, CONTEXT_KEY_STABLE_CHART_YAML, context)
@@ -132,9 +132,9 @@ class UpgradeTestScenario(SimpleTestScenario):
 
         catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
         logger.info(f"Adding new app catalog named '{STABLE_APP_CATALOG_NAME}' with URL '{catalog_url}'.")
-        app_catalog_cr = get_app_catalog_obj(STABLE_APP_CATALOG_NAME, catalog_url, self._kube_client)
-        logger.debug(f"Creating AppCatalog '{app_catalog_cr.name}' with the stable app version.")
-        app_catalog_cr.create()
+        catalog_cr = get_catalog_obj(STABLE_APP_CATALOG_NAME, deploy_namespace, catalog_url, self._kube_client)
+        logger.debug(f"Creating Catalog '{catalog_cr.name}' with the stable app version.")
+        catalog_cr.create()
 
         stable_chart_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
         if stable_chart_ver == "latest":
@@ -161,14 +161,14 @@ class UpgradeTestScenario(SimpleTestScenario):
         app_name = context[CONTEXT_KEY_CHART_YAML]["name"]
         chart_version = context[CONTEXT_KEY_CHART_YAML]["version"]
 
-        stable_chart_ver, stable_app_catalog_name, stable_app_catalog_url, stable_chart_url = self._prepare_stable_app(
-            config, context, app_name
-        )
-
         deploy_namespace = get_config_value_by_cmd_line_option(
             config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE
         )
         app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
+
+        stable_chart_ver, stable_app_catalog_name, stable_app_catalog_url, stable_chart_url = self._prepare_stable_app(
+            config, context, app_name, deploy_namespace
+        )
 
         # deploy the stable version
         app_cr = self._deploy_chart(app_name, stable_chart_ver, deploy_namespace, app_cfg_file, stable_app_catalog_name)
@@ -204,10 +204,14 @@ class UpgradeTestScenario(SimpleTestScenario):
         )
 
         # delete Catalog CR, if it was created
-        app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_or_none(name=STABLE_APP_CATALOG_NAME)
-        if app_catalog_cr:
-            logger.debug(f"Deleting AppCatalog '{app_catalog_cr.name}'.")
-            app_catalog_cr.delete()
+        catalog_cr = (
+            CatalogCR.objects(self._kube_client)
+            .filter(namespace=deploy_namespace)
+            .get_or_none(name=STABLE_APP_CATALOG_NAME)
+        )
+        if catalog_cr:
+            logger.debug(f"Deleting Catalog '{catalog_cr.name}'.")
+            catalog_cr.delete()
 
         # save metadata, if requested
         if get_config_value_by_cmd_line_option(config, key_cfg_upgrade_save_metadata):

@@ -10,6 +10,7 @@ from typing import Tuple, cast, Match, Optional
 
 import requests
 import yaml
+from pykube import ConfigMap
 from pytest_helm_charts.giantswarm_app_platform.catalog import get_catalog_obj
 from pytest_helm_charts.giantswarm_app_platform.custom_resources import CatalogCR
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
@@ -236,21 +237,70 @@ class UpgradeTestScenario(SimpleTestScenario):
                 exec_info.cluster_version,
             )
 
-    def _upgrade_app_cr(self, app_cr: ConfiguredApp, app_version: str, app_config_file_path: Optional[str]) -> None:
-        app_cr.app.reload()
+    def _upgrade_app_cr(
+        self, configured_app: ConfiguredApp, app_version: str, app_config_file_path: Optional[str]
+    ) -> None:
+        """
+        Upgrade deployed stable version to the Under-Test version:
 
-        app_cr.app.obj["spec"]["catalog"] = TEST_APP_CATALOG_NAME
-        app_cr.app.obj["spec"]["version"] = app_version
+        Args:
+             configured_app: App CR of the deployed stable version
+             app_version: version to upgrade to
+             app_config_file_path: configuration file for the deployment of the version to upgrade to
+        """
+
+        # update chart reference
+        configured_app.app.reload()
+        configured_app.app.obj["spec"]["catalog"] = TEST_APP_CATALOG_NAME
+        configured_app.app.obj["spec"]["catalogNamespace"] = TEST_APP_CATALOG_NAMESPACE
+        configured_app.app.obj["spec"]["version"] = app_version
+
+        # if there's a new config file, let's load it
         if app_config_file_path:
             with open(app_config_file_path) as f:
                 config_values_raw = f.read()
-                config_values = yaml.safe_load(config_values_raw)
-            app_cr.app_cm.reload()
-            if app_cr.app_cm.obj["data"]["values"] != config_values:
-                app_cr.app_cm.obj["data"]["values"] = config_values
-                app_cr.app_cm.update()
+                new_config_values = yaml.dump(yaml.safe_load(config_values_raw))
+
+        # if the stable app used no config file, but the under-test version uses one
+        # we have to created the CM and update App CR to reference it
+        if not configured_app.app_cm and app_config_file_path:
+            logger.debug("Detected that the stable app didn't use a ConfigMap, but the new one does. Creating CM.")
+            # TODO: extract this to pytest-helm-charts to create Apps' CMs
+            app_name = configured_app.app.obj["spec"]["name"]
+            app_namespace = configured_app.app.obj["spec"]["namespace"]
+            app_cm_name = f"{app_name}-testing-user-config"
+            app_cm = {
+                "apiVersion": "v1",
+                "kind": "ConfigMap",
+                "metadata": {"name": app_cm_name, "namespace": app_namespace},
+                "data": {"values": new_config_values},
+            }
+            app_cm_obj = ConfigMap(self._kube_client, app_cm)
+            app_cm_obj.create()
+            configured_app.app.obj["spec"]["config"] = {"configMap": {"name": app_cm_name, "namespace": app_namespace}}
+
+        # if the stable app used a config file, but the under-test version doesn't use one
+        # we have to delete the CM, remove the reference in App CR and update our app data structure
+        if configured_app.app_cm and not app_config_file_path:
+            logger.debug("Detected that the stable app used a ConfigMap, but the new one doesn't. Deleting CM.")
+            del configured_app.app.obj["spec"]["config"]
+            configured_app.app_cm.reload()
+            configured_app.app_cm.delete()
+            configured_app.app_cm = None
+
+        # if both the stable and under-test app versions used a config file, we just have to update the values
+        if configured_app.app_cm is not None and app_config_file_path:
+            configured_app.app_cm.reload()
+            if configured_app.app_cm.obj["data"]["values"] != new_config_values:
+                logger.debug("Detected that both old and new app versions use a ConfigMap. Updating CM.")
+                configured_app.app_cm.obj["data"]["values"] = new_config_values
+                configured_app.app_cm.update()
+            else:
+                logger.debug("Detected that both old and new app versions use the same ConfigMap. No CM update needed.")
+
+        # finally, update the App CR
         logger.info("Updating App CR to point to the newer version.")
-        app_cr.app.update()
+        configured_app.app.update()
 
     def _get_latest_app_version(self, stable_app_catalog_url: str, app_name: str) -> str:
         logger.info("Trying to detect latest app version available in the catalog.")

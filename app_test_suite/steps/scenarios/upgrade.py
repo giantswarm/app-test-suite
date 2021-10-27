@@ -26,12 +26,12 @@ from yaml.parser import ParserError
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
 from app_test_suite.config import (
-    key_cfg_stable_app_url,
-    key_cfg_stable_app_file,
-    key_cfg_stable_app_version,
-    key_cfg_stable_app_config,
-    key_cfg_upgrade_hook,
-    key_cfg_upgrade_save_metadata,
+    KEY_CFG_STABLE_APP_URL,
+    KEY_CFG_STABLE_APP_FILE,
+    KEY_CFG_STABLE_APP_VERSION,
+    KEY_CFG_STABLE_APP_CONFIG,
+    KEY_CFG_UPGRADE_HOOK,
+    KEY_CFG_UPGRADE_SAVE_METADATA,
 )
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import (
@@ -72,45 +72,45 @@ class UpgradeTestScenario(SimpleTestScenario):
     def pre_run(self, config: argparse.Namespace) -> None:
         super().pre_run(config)
 
-        catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
-        stable_chart_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_file)
+        catalog_url = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_URL)
+        stable_chart_file = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_FILE)
         if catalog_url:
             url_validation_res = validator_url(catalog_url)
             # FIXME: doesn't correctly validate 'http://chartmuseum-chartmuseum:8080/charts/' - needs at least 1 dot in
             #  the domain name
             if url_validation_res is not True:
-                raise ConfigError(key_cfg_stable_app_url, f"Wrong catalog URL: '{url_validation_res.args[1]['value']}'")
+                raise ConfigError(KEY_CFG_STABLE_APP_URL, f"Wrong catalog URL: '{url_validation_res.args[1]['value']}'")
 
-            app_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
+            app_ver = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_VERSION)
             if not app_ver:
-                raise ConfigError(key_cfg_stable_app_version, "Version of app to upgrade from can't be empty")
+                raise ConfigError(KEY_CFG_STABLE_APP_VERSION, "Version of app to upgrade from can't be empty")
         elif stable_chart_file:
             if not os.path.isfile(stable_chart_file):
                 raise ConfigError(
-                    key_cfg_stable_app_file,
+                    KEY_CFG_STABLE_APP_FILE,
                     f"Upgrade test from a stable chart in file '{stable_chart_file}' was requested, but "
                     "the file doesn't exist.",
                 )
             self._stable_from_local_file = True
         else:
             raise ConfigError(
-                f"{key_cfg_stable_app_url},{key_cfg_stable_app_file}",
+                f"{KEY_CFG_STABLE_APP_URL},{KEY_CFG_STABLE_APP_FILE}",
                 "Exactly one of these options must be configured.",
             )
 
-        app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
+        app_cfg_file = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_CONFIG)
         if app_cfg_file and not os.path.isfile(app_cfg_file):
             raise ConfigError(
-                key_cfg_stable_app_config,
+                KEY_CFG_STABLE_APP_CONFIG,
                 f"Config file for the app to upgrade from was given, but not found. File name: '{app_cfg_file}'.",
             )
 
-        upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)
+        upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, KEY_CFG_UPGRADE_HOOK)
         if upgrade_hook_exe:
             cmd = upgrade_hook_exe.split(" ")[0]
             if not shutil.which(cmd):
                 raise ConfigError(
-                    key_cfg_upgrade_hook,
+                    KEY_CFG_UPGRADE_HOOK,
                     f"Upgrade hook was configured, but '{cmd}' was not " f"found to be a valid executable.",
                 )
         self._test_executor.validate(config, self.name)
@@ -120,7 +120,7 @@ class UpgradeTestScenario(SimpleTestScenario):
     ) -> Tuple[str, str, str, str, str]:
         if self._stable_from_local_file:
             # upload file to existing catalog
-            stable_chart_file_path = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_file)
+            stable_chart_file_path = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_FILE)
             self._upload_chart_to_app_catalog(config, stable_chart_file_path)
             app_catalog_cr = CatalogCR.objects(self._kube_client).get_by_name(TEST_APP_CATALOG_NAME)
             stable_ver_match = self._semver_regex_match.fullmatch(stable_chart_file_path)
@@ -130,13 +130,13 @@ class UpgradeTestScenario(SimpleTestScenario):
             chart_url = f"{catalog_url}/{app_name}-{stable_app_version}.tgz"
             return stable_app_version, TEST_APP_CATALOG_NAME, TEST_APP_CATALOG_NAMESPACE, catalog_url, chart_url
 
-        catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
+        catalog_url = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_URL)
         logger.info(f"Adding new app catalog named '{STABLE_APP_CATALOG_NAME}' with URL '{catalog_url}'.")
         catalog_cr = get_catalog_obj(STABLE_APP_CATALOG_NAME, deploy_namespace, catalog_url, self._kube_client)
         logger.debug(f"Creating Catalog '{catalog_cr.name}' with the stable app version.")
         catalog_cr.create()
 
-        stable_chart_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
+        stable_chart_ver = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_VERSION)
         if stable_chart_ver == "latest":
             stable_chart_ver = self._get_latest_app_version(catalog_url, app_name)
 
@@ -164,7 +164,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         deploy_namespace = get_config_value_by_cmd_line_option(
             config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE
         )
-        app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
+        app_cfg_file = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_CONFIG)
 
         (
             stable_chart_ver,
@@ -225,7 +225,7 @@ class UpgradeTestScenario(SimpleTestScenario):
             catalog_cr.delete()
 
         # save metadata, if requested
-        if get_config_value_by_cmd_line_option(config, key_cfg_upgrade_save_metadata):
+        if get_config_value_by_cmd_line_option(config, KEY_CFG_UPGRADE_SAVE_METADATA):
             self._save_metadata(
                 app_name,
                 chart_version,
@@ -296,7 +296,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         from_version: str,
         to_version: str,
     ) -> None:
-        upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)
+        upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, KEY_CFG_UPGRADE_HOOK)
         if not upgrade_hook_exe:
             logger.info(f"No upgrade test {stage_name} hook configured. Moving on.")
             return

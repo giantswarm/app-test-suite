@@ -6,10 +6,15 @@ from pytest_mock import MockerFixture
 from step_exec_lib.types import StepType
 
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML, TestExecutor
-from app_test_suite.steps.executors.pytest import PytestExecutor
-from app_test_suite.steps.scenarios.simple import SmokeTestScenario, FunctionalTestScenario, TEST_APP_CATALOG_NAME
 from app_test_suite.steps.executors.gotest import GotestExecutor
+from app_test_suite.steps.executors.pytest import PytestExecutor
 from app_test_suite.steps.scenarios.simple import SimpleTestScenario
+from app_test_suite.steps.scenarios.simple import (
+    SmokeTestScenario,
+    FunctionalTestScenario,
+    TEST_APP_CATALOG_NAME,
+    TEST_APP_CATALOG_NAMESPACE,
+)
 from tests.helpers import (
     assert_deploy_and_wait_for_app_cr,
     assert_chart_file_uploaded,
@@ -67,6 +72,8 @@ def test_simple_runner_run(
     assert_cluster_connection_created(MOCK_KUBE_CONFIG_PATH)
     assert_app_platform_ready(MOCK_KUBE_CONFIG_PATH)
     assert_chart_file_uploaded(config, MOCK_CHART_FILE_NAME)
-    assert_deploy_and_wait_for_app_cr(MOCK_APP_NAME, MOCK_CHART_VERSION, MOCK_APP_DEPLOY_NS, TEST_APP_CATALOG_NAME)
+    assert_deploy_and_wait_for_app_cr(
+        MOCK_APP_NAME, MOCK_CHART_VERSION, MOCK_APP_DEPLOY_NS, TEST_APP_CATALOG_NAME, TEST_APP_CATALOG_NAMESPACE
+    )
     asserter(runner.test_provided, MOCK_KUBE_CONFIG_PATH, config.chart_file, MOCK_CHART_VERSION)
     assert_base_tester_deletes_app(configured_app_mock)

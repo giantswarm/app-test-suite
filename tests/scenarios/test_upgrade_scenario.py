@@ -138,7 +138,7 @@ def test_upgrade_pytest_runner_run(
     assert_app_platform_ready(MOCK_KUBE_CONFIG_PATH)
     assert_chart_file_uploaded(config, MOCK_CHART_FILE_NAME)
     assert_deploy_and_wait_for_app_cr(
-        MOCK_APP_NAME, MOCK_UPGRADE_APP_VERSION, MOCK_APP_DEPLOY_NS, STABLE_APP_CATALOG_NAME
+        MOCK_APP_NAME, MOCK_UPGRADE_APP_VERSION, MOCK_APP_DEPLOY_NS, STABLE_APP_CATALOG_NAME, MOCK_APP_DEPLOY_NS
     )
     asserter_prepare()
     mock_stable_app_catalog_cr.create.assert_any_call()

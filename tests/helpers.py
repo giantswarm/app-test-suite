@@ -54,9 +54,11 @@ def assert_upgrade_tester_deletes_app(configured_app_mock: ConfiguredApp) -> Non
     assert_runner_deletes_app(app_test_suite.steps.scenarios.upgrade, configured_app_mock)
 
 
-def assert_deploy_and_wait_for_app_cr(app_name: str, app_version: str, app_deploy_ns: str, catalog_name: str) -> None:
+def assert_deploy_and_wait_for_app_cr(
+    app_name: str, app_version: str, app_deploy_ns: str, catalog_name: str, catalog_namespace: str
+) -> None:
     cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.create_app).assert_called_once_with(
-        unittest.mock.ANY, app_name, app_version, catalog_name, "default", app_deploy_ns, None
+        unittest.mock.ANY, app_name, app_version, catalog_name, catalog_namespace, "default", app_deploy_ns, None
     )
     # noinspection PyProtectedMember
     cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.wait_for_apps_to_run).assert_called_once_with(
@@ -143,18 +145,20 @@ def configure_for_upgrade_test(config: Namespace) -> None:
 def patch_upgrade_test_runner(
     mocker: MockerFixture, run_and_log_call_result_mock: unittest.mock.Mock
 ) -> Tuple[unittest.mock.Mock, unittest.mock.Mock]:
-    mock_stable_app_catalog_cr = mocker.MagicMock(name="stable AppCatalogCR Mock")
-    mocker.patch("app_test_suite.steps.scenarios.upgrade.get_app_catalog_obj", return_value=mock_stable_app_catalog_cr)
+    mock_stable_app_catalog_cr = mocker.MagicMock(name="stable CatalogCR Mock")
+    mocker.patch("app_test_suite.steps.scenarios.upgrade.get_catalog_obj", return_value=mock_stable_app_catalog_cr)
     mocker.patch("app_test_suite.steps.scenarios.upgrade.run_and_log", return_value=run_and_log_call_result_mock)
-    mock_app_catalog_cr = mocker.MagicMock(name="AppCatalogCR mock")
-    app_catalog_cr_objects_res = mocker.MagicMock(name="AppCatalogCR.objects()")
 
     def get_or_none(*_: Any, **kwargs: str) -> None:
         res = mock_stable_app_catalog_cr if kwargs["name"] == STABLE_APP_CATALOG_NAME else mock_app_catalog_cr
         return res
 
-    app_catalog_cr_objects_res.get_or_none.side_effect = get_or_none
-    mocker.patch("app_test_suite.steps.scenarios.upgrade.AppCatalogCR.objects", return_value=app_catalog_cr_objects_res)
+    mock_app_catalog_cr = mocker.MagicMock(name="CatalogCR mock")
+    app_catalog_cr_objects_res = mocker.MagicMock(name="CatalogCR.objects() result")
+    filter_result = mocker.MagicMock(name="CatalogCR.objects().filter() result")
+    filter_result.get_or_none.side_effect = get_or_none
+    app_catalog_cr_objects_res.filter.return_value = filter_result
+    mocker.patch("app_test_suite.steps.scenarios.upgrade.CatalogCR.objects", return_value=app_catalog_cr_objects_res)
     mocker.patch("app_test_suite.steps.scenarios.upgrade.delete_app")
     mocker.patch("app_test_suite.steps.scenarios.upgrade.wait_for_app_to_be_deleted")
     return mock_app_catalog_cr, mock_stable_app_catalog_cr

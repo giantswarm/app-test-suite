@@ -10,8 +10,9 @@ from typing import Tuple, cast, Match, Optional
 
 import requests
 import yaml
-from pytest_helm_charts.giantswarm_app_platform.app_catalog import get_app_catalog_obj
-from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCatalogCR
+from pykube import ConfigMap
+from pytest_helm_charts.giantswarm_app_platform.catalog import get_catalog_obj
+from pytest_helm_charts.giantswarm_app_platform.custom_resources import CatalogCR
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_helm_charts.giantswarm_app_platform.utils import delete_app, wait_for_app_to_be_deleted
 from requests import RequestException
@@ -26,12 +27,12 @@ from yaml.parser import ParserError
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
 from app_test_suite.config import (
-    key_cfg_stable_app_url,
-    key_cfg_stable_app_file,
-    key_cfg_stable_app_version,
-    key_cfg_stable_app_config,
-    key_cfg_upgrade_hook,
-    key_cfg_upgrade_save_metadata,
+    KEY_CFG_STABLE_APP_URL,
+    KEY_CFG_STABLE_APP_FILE,
+    KEY_CFG_STABLE_APP_VERSION,
+    KEY_CFG_STABLE_APP_CONFIG,
+    KEY_CFG_UPGRADE_HOOK,
+    KEY_CFG_UPGRADE_SAVE_METADATA,
 )
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import (
@@ -42,7 +43,7 @@ from app_test_suite.steps.base import (
     TestInfoProvider,
     CONTEXT_KEY_STABLE_CHART_YAML,
 )
-from app_test_suite.steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME
+from app_test_suite.steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME, TEST_APP_CATALOG_NAMESPACE
 from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
 
 KEY_PRE_UPGRADE = "pre-upgrade"
@@ -72,71 +73,71 @@ class UpgradeTestScenario(SimpleTestScenario):
     def pre_run(self, config: argparse.Namespace) -> None:
         super().pre_run(config)
 
-        catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
-        stable_chart_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_file)
+        catalog_url = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_URL)
+        stable_chart_file = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_FILE)
         if catalog_url:
             url_validation_res = validator_url(catalog_url)
             # FIXME: doesn't correctly validate 'http://chartmuseum-chartmuseum:8080/charts/' - needs at least 1 dot in
             #  the domain name
             if url_validation_res is not True:
-                raise ConfigError(key_cfg_stable_app_url, f"Wrong catalog URL: '{url_validation_res.args[1]['value']}'")
+                raise ConfigError(KEY_CFG_STABLE_APP_URL, f"Wrong catalog URL: '{url_validation_res.args[1]['value']}'")
 
-            app_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
+            app_ver = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_VERSION)
             if not app_ver:
-                raise ConfigError(key_cfg_stable_app_version, "Version of app to upgrade from can't be empty")
+                raise ConfigError(KEY_CFG_STABLE_APP_VERSION, "Version of app to upgrade from can't be empty")
         elif stable_chart_file:
             if not os.path.isfile(stable_chart_file):
                 raise ConfigError(
-                    key_cfg_stable_app_file,
+                    KEY_CFG_STABLE_APP_FILE,
                     f"Upgrade test from a stable chart in file '{stable_chart_file}' was requested, but "
                     "the file doesn't exist.",
                 )
             self._stable_from_local_file = True
         else:
             raise ConfigError(
-                f"{key_cfg_stable_app_url},{key_cfg_stable_app_file}",
+                f"{KEY_CFG_STABLE_APP_URL},{KEY_CFG_STABLE_APP_FILE}",
                 "Exactly one of these options must be configured.",
             )
 
-        app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
+        app_cfg_file = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_CONFIG)
         if app_cfg_file and not os.path.isfile(app_cfg_file):
             raise ConfigError(
-                key_cfg_stable_app_config,
+                KEY_CFG_STABLE_APP_CONFIG,
                 f"Config file for the app to upgrade from was given, but not found. File name: '{app_cfg_file}'.",
             )
 
-        upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)
+        upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, KEY_CFG_UPGRADE_HOOK)
         if upgrade_hook_exe:
             cmd = upgrade_hook_exe.split(" ")[0]
             if not shutil.which(cmd):
                 raise ConfigError(
-                    key_cfg_upgrade_hook,
+                    KEY_CFG_UPGRADE_HOOK,
                     f"Upgrade hook was configured, but '{cmd}' was not " f"found to be a valid executable.",
                 )
         self._test_executor.validate(config, self.name)
 
     def _prepare_stable_app(
-        self, config: argparse.Namespace, context: Context, app_name: str
-    ) -> Tuple[str, str, str, str]:
+        self, config: argparse.Namespace, context: Context, app_name: str, deploy_namespace: str
+    ) -> Tuple[str, str, str, str, str]:
         if self._stable_from_local_file:
             # upload file to existing catalog
-            stable_chart_file_path = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_file)
+            stable_chart_file_path = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_FILE)
             self._upload_chart_to_app_catalog(config, stable_chart_file_path)
-            app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_by_name(TEST_APP_CATALOG_NAME)
+            app_catalog_cr = CatalogCR.objects(self._kube_client).get_by_name(TEST_APP_CATALOG_NAME)
             stable_ver_match = self._semver_regex_match.fullmatch(stable_chart_file_path)
             stable_app_version = cast(Match, stable_ver_match).group(1)
             TestInfoProvider().extract_chart_info(stable_chart_file_path, CONTEXT_KEY_STABLE_CHART_YAML, context)
             catalog_url = app_catalog_cr.obj["spec"]["storage"]["URL"]
             chart_url = f"{catalog_url}/{app_name}-{stable_app_version}.tgz"
-            return stable_app_version, TEST_APP_CATALOG_NAME, catalog_url, chart_url
+            return stable_app_version, TEST_APP_CATALOG_NAME, TEST_APP_CATALOG_NAMESPACE, catalog_url, chart_url
 
-        catalog_url = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_url)
+        catalog_url = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_URL)
         logger.info(f"Adding new app catalog named '{STABLE_APP_CATALOG_NAME}' with URL '{catalog_url}'.")
-        app_catalog_cr = get_app_catalog_obj(STABLE_APP_CATALOG_NAME, catalog_url, self._kube_client)
-        logger.debug(f"Creating AppCatalog '{app_catalog_cr.name}' with the stable app version.")
-        app_catalog_cr.create()
+        catalog_cr = get_catalog_obj(STABLE_APP_CATALOG_NAME, deploy_namespace, catalog_url, self._kube_client)
+        logger.debug(f"Creating Catalog '{catalog_cr.name}' with the stable app version.")
+        catalog_cr.create()
 
-        stable_chart_ver = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_version)
+        stable_chart_ver = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_VERSION)
         if stable_chart_ver == "latest":
             stable_chart_ver = self._get_latest_app_version(catalog_url, app_name)
 
@@ -155,23 +156,34 @@ class UpgradeTestScenario(SimpleTestScenario):
             with open(chart_file_name, "wb") as f:
                 f.write(r.content)
             TestInfoProvider().extract_chart_info(chart_file_name, CONTEXT_KEY_STABLE_CHART_YAML, context)
-        return stable_chart_ver, STABLE_APP_CATALOG_NAME, catalog_url, chart_url
+        return stable_chart_ver, STABLE_APP_CATALOG_NAME, deploy_namespace, catalog_url, chart_url
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         app_name = context[CONTEXT_KEY_CHART_YAML]["name"]
         chart_version = context[CONTEXT_KEY_CHART_YAML]["version"]
 
-        stable_chart_ver, stable_app_catalog_name, stable_app_catalog_url, stable_chart_url = self._prepare_stable_app(
-            config, context, app_name
-        )
-
         deploy_namespace = get_config_value_by_cmd_line_option(
             config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE
         )
-        app_cfg_file = get_config_value_by_cmd_line_option(config, key_cfg_stable_app_config)
+        app_cfg_file = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_CONFIG)
+
+        (
+            stable_chart_ver,
+            stable_app_catalog_name,
+            stable_app_catalog_namespace,
+            stable_app_catalog_url,
+            stable_chart_url,
+        ) = self._prepare_stable_app(config, context, app_name, deploy_namespace)
 
         # deploy the stable version
-        app_cr = self._deploy_chart(app_name, stable_chart_ver, deploy_namespace, app_cfg_file, stable_app_catalog_name)
+        stable_app = self._deploy_chart(
+            app_name,
+            stable_chart_ver,
+            deploy_namespace,
+            app_cfg_file,
+            stable_app_catalog_name,
+            stable_app_catalog_namespace,
+        )
 
         # run tests
         exec_info = self._get_test_exec_info(stable_chart_url, stable_chart_ver, app_cfg_file)
@@ -185,7 +197,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         app_config_file_path = get_config_value_by_cmd_line_option(
             config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE
         )
-        self._upgrade_app_cr(app_cr, chart_version, app_config_file_path)
+        self._upgrade_app_cr(stable_app, chart_version, app_config_file_path)
 
         # run the optional upgrade hook
         self._run_upgrade_hook(config, KEY_POST_UPGRADE, app_name, stable_chart_ver, chart_version)
@@ -197,20 +209,24 @@ class UpgradeTestScenario(SimpleTestScenario):
         self._test_executor.execute_test(exec_info)
 
         # delete App CR
-        logger.info(f"Deleting App CR '{app_cr.app.name}'.")
-        delete_app(app_cr)
+        logger.info(f"Deleting App CR '{stable_app.app.name}'.")
+        delete_app(stable_app)
         wait_for_app_to_be_deleted(
-            self._kube_client, app_cr.app.name, app_cr.app.namespace, self._APP_DELETION_TIMEOUT_SEC
+            self._kube_client, stable_app.app.name, stable_app.app.namespace, self._APP_DELETION_TIMEOUT_SEC
         )
 
         # delete Catalog CR, if it was created
-        app_catalog_cr = AppCatalogCR.objects(self._kube_client).get_or_none(name=STABLE_APP_CATALOG_NAME)
-        if app_catalog_cr:
-            logger.debug(f"Deleting AppCatalog '{app_catalog_cr.name}'.")
-            app_catalog_cr.delete()
+        catalog_cr = (
+            CatalogCR.objects(self._kube_client)
+            .filter(namespace=deploy_namespace)
+            .get_or_none(name=STABLE_APP_CATALOG_NAME)
+        )
+        if catalog_cr:
+            logger.debug(f"Deleting Catalog '{catalog_cr.name}'.")
+            catalog_cr.delete()
 
         # save metadata, if requested
-        if get_config_value_by_cmd_line_option(config, key_cfg_upgrade_save_metadata):
+        if get_config_value_by_cmd_line_option(config, KEY_CFG_UPGRADE_SAVE_METADATA):
             self._save_metadata(
                 app_name,
                 chart_version,
@@ -221,21 +237,74 @@ class UpgradeTestScenario(SimpleTestScenario):
                 exec_info.cluster_version,
             )
 
-    def _upgrade_app_cr(self, app_cr: ConfiguredApp, app_version: str, app_config_file_path: Optional[str]) -> None:
-        app_cr.app.reload()
+    def _upgrade_app_cr(
+        self, configured_app: ConfiguredApp, app_version: str, app_config_file_path: Optional[str]
+    ) -> ConfiguredApp:
+        """
+        Upgrade deployed stable version to the Under-Test version:
 
-        app_cr.app.obj["spec"]["catalog"] = TEST_APP_CATALOG_NAME
-        app_cr.app.obj["spec"]["version"] = app_version
+        Args:
+             configured_app: App CR of the deployed stable version
+             app_version: version to upgrade to
+             app_config_file_path: configuration file for the deployment of the version to upgrade to
+        """
+
+        # prepare new values for app and app_cm
+        app = configured_app.app
+        app_cm: Optional[ConfigMap] = None
+        # update chart reference
+        app.reload()
+        app.obj["spec"]["catalog"] = TEST_APP_CATALOG_NAME
+        app.obj["spec"]["catalogNamespace"] = TEST_APP_CATALOG_NAMESPACE
+        app.obj["spec"]["version"] = app_version
+
+        # if there's a new config file, let's load it
         if app_config_file_path:
             with open(app_config_file_path) as f:
                 config_values_raw = f.read()
-                config_values = yaml.safe_load(config_values_raw)
-            app_cr.app_cm.reload()
-            if app_cr.app_cm.obj["data"]["values"] != config_values:
-                app_cr.app_cm.obj["data"]["values"] = config_values
-                app_cr.app_cm.update()
+                new_config_values = yaml.dump(yaml.safe_load(config_values_raw))
+
+        # if the stable app used no config file, but the under-test version uses one
+        # we have to created the CM and update App CR to reference it
+        if not configured_app.app_cm and app_config_file_path:
+            logger.debug("Detected that the stable app didn't use a ConfigMap, but the new one does. Creating CM.")
+            # TODO: extract this to pytest-helm-charts to create Apps' CMs
+            app_name = app.obj["spec"]["name"]
+            app_namespace = app.obj["spec"]["namespace"]
+            app_cm_name = f"{app_name}-testing-user-config"
+            app_cm_data = {
+                "apiVersion": "v1",
+                "kind": "ConfigMap",
+                "metadata": {"name": app_cm_name, "namespace": app_namespace},
+                "data": {"values": new_config_values},
+            }
+            app_cm = ConfigMap(self._kube_client, app_cm_data)
+            app_cm.create()
+            app.obj["spec"]["config"] = {"configMap": {"name": app_cm_name, "namespace": app_namespace}}
+
+        # if the stable app used a config file, but the under-test version doesn't use one
+        # we have to delete the CM, remove the reference in App CR and update our app data structure
+        if configured_app.app_cm and not app_config_file_path:
+            logger.debug("Detected that the stable app used a ConfigMap, but the new one doesn't. Deleting CM.")
+            del configured_app.app.obj["spec"]["config"]
+            configured_app.app_cm.reload()
+            configured_app.app_cm.delete()
+
+        # if both the stable and under-test app versions used a config file, we just have to update the values
+        if configured_app.app_cm is not None and app_config_file_path:
+            app_cm = configured_app.app_cm
+            app_cm.reload()
+            if app_cm.obj["data"]["values"] != new_config_values:
+                logger.debug("Detected that both old and new app versions use a ConfigMap. Updating CM.")
+                app_cm.obj["data"]["values"] = new_config_values
+                app_cm.update()
+            else:
+                logger.debug("Detected that both old and new app versions use the same ConfigMap. No CM update needed.")
+
+        # finally, update the App CR
         logger.info("Updating App CR to point to the newer version.")
-        app_cr.app.update()
+        app.update()
+        return ConfiguredApp(app, app_cm)
 
     def _get_latest_app_version(self, stable_app_catalog_url: str, app_name: str) -> str:
         logger.info("Trying to detect latest app version available in the catalog.")
@@ -281,7 +350,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         from_version: str,
         to_version: str,
     ) -> None:
-        upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, key_cfg_upgrade_hook)
+        upgrade_hook_exe: str = get_config_value_by_cmd_line_option(config, KEY_CFG_UPGRADE_HOOK)
         if not upgrade_hook_exe:
             logger.info(f"No upgrade test {stage_name} hook configured. Moving on.")
             return

@@ -11,8 +11,8 @@ pytest-mock = "*"
 
 [packages]
 validators = ">=0.18.2"
-pytest-helm-charts = ">=0.5.2"
-step-exec-lib = ">=0.1.4"
+pytest-helm-charts = ">=0.6.0"
+step-exec-lib = ">=0.1.5"
 
 [requires]
 python_version = "3.9"

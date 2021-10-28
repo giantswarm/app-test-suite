@@ -28,6 +28,8 @@ class ClusterInfo:
     managing_provider: "ClusterProvider"
     # cluster might have an optional config file used to create that cluster
     config_file: str
+    # a flag indicating if the App Platform was already initialized
+    app_platform_ready: bool = False
 
 
 class ClusterProvider(ABC):

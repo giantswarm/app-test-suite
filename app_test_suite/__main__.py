@@ -10,12 +10,12 @@ from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
 from step_exec_lib.types import STEP_ALL
 
 from app_test_suite.config import (
-    key_cfg_stable_app_url,
-    key_cfg_stable_app_version,
-    key_cfg_stable_app_config,
-    key_cfg_upgrade_hook,
-    key_cfg_stable_app_file,
-    key_cfg_upgrade_save_metadata,
+    KEY_CFG_STABLE_APP_URL,
+    KEY_CFG_STABLE_APP_VERSION,
+    KEY_CFG_STABLE_APP_CONFIG,
+    KEY_CFG_UPGRADE_HOOK,
+    KEY_CFG_STABLE_APP_FILE,
+    KEY_CFG_UPGRADE_SAVE_METADATA,
 )
 from app_test_suite.steps.executors.gotest import GotestTestFilteringPipeline
 from app_test_suite.steps.executors.pytest import PytestScenariosFilteringPipeline
@@ -86,39 +86,39 @@ def configure_test_specific_options(config_parser: configargparse.ArgParser) -> 
     config_parser_group = config_parser.add_argument_group("Upgrade testing options")
     app_source_group = config_parser_group.add_mutually_exclusive_group()
     app_source_group.add_argument(
-        key_cfg_stable_app_url,
+        KEY_CFG_STABLE_APP_URL,
         required=False,
         help="URL of the catalog where the stable version of the app (the version to test upgrade from) is available. "
-        f"Mutually exclusive with '{key_cfg_stable_app_file}'.",
+        f"Mutually exclusive with '{KEY_CFG_STABLE_APP_FILE}'.",
     )
     app_source_group.add_argument(
-        key_cfg_stable_app_file,
+        KEY_CFG_STABLE_APP_FILE,
         required=False,
         help="Local file name with the stable version of the app (the version to test upgrade from). "
-        f"Mutually exclusive with '{key_cfg_stable_app_url}'.",
+        f"Mutually exclusive with '{KEY_CFG_STABLE_APP_URL}'.",
     )
     config_parser_group.add_argument(
-        key_cfg_stable_app_config,
+        KEY_CFG_STABLE_APP_CONFIG,
         required=False,
         help="Path for a configuration file (values file) for your app when it's deployed for testing.",
     )
     config_parser_group.add_argument(
-        key_cfg_stable_app_version,
+        KEY_CFG_STABLE_APP_VERSION,
         required=False,
         default="latest",
         help=f"Version of the app to test the upgrade from. If not given, the default value of 'latest' is used, which "
         "means latest version available will be detected and used. The version configured must be present "
-        f"in the catalog configured with '{key_cfg_stable_app_url}'. "
-        f"Used only if '{key_cfg_stable_app_url} is used.'",
+        f"in the catalog configured with '{KEY_CFG_STABLE_APP_URL}'. "
+        f"Used only if '{KEY_CFG_STABLE_APP_URL} is used.'",
     )
     config_parser_group.add_argument(
-        key_cfg_upgrade_hook,
+        KEY_CFG_UPGRADE_HOOK,
         required=False,
         help="A command (executable) that is run after the tests for the stable version of the app completed"
         " successfully, but before the app is upgraded and tested again.",
     )
     config_parser_group.add_argument(
-        key_cfg_upgrade_save_metadata,
+        KEY_CFG_UPGRADE_SAVE_METADATA,
         default=False,
         action="store_true",
         required=False,
@@ -180,6 +180,7 @@ def get_config(steps: List[BuildStep]) -> configargparse.Namespace:
         logger.error(f"Error when checking config option '{e.config_option}': {e.msg}")
         sys.exit(1)
 
+    logger.info(f"{app_name} {get_version()}")
     logger.info("Starting test with the following options")
     logger.info(f"\n{config_parser.format_values()}")
     return config

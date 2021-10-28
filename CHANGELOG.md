@@ -7,6 +7,7 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Changed
   - App Platform is now initialized only once per cluster
+  - test scenarios use now Catalog CR instead of deprecated AppCatalog CR
 
 - Fixed
   - correctly handle upgrade test scenarios where only 1 out of (stable, under-test) app versions was

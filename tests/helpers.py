@@ -20,9 +20,11 @@ from app_test_suite.steps.scenarios.simple import SimpleTestScenario
 from app_test_suite.steps.scenarios.upgrade import STABLE_APP_CATALOG_NAME
 
 MOCK_UPGRADE_CATALOG_URL = "http://chartmuseum-chartmuseum.giantswarm:8080/charts/"
+MOCK_STABLE_APP_CATALOG_NAMESPACE = "default"
 MOCK_KUBE_CONFIG_PATH = "/nonexisting-flsdhge235/kube.config"
 MOCK_KUBE_VERSION = "1.19.1"
 MOCK_APP_NAME = "mock_app"
+MOCK_APP_NAMESPACE = "default"
 MOCK_APP_NS = "mock_ns"
 MOCK_APP_DEPLOY_NS = "mock_deploy_ns"
 MOCK_APP_VERSION = "0.1.2"

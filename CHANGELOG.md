@@ -5,6 +5,14 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Changed
+  - App Platform is now initialized only once per cluster
+
+- Fixed
+  - correctly handle upgrade test scenarios where only 1 out of (stable, under-test) app versions was
+    using a config file
+  - upgrade `step-exec-lib` to 0.1.5 to fix go test handling
+
 ## [0.2.0] - 2021-10-21
 
 - Added

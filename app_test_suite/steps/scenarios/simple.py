@@ -207,7 +207,12 @@ class SimpleTestScenario(BuildStep, ABC):
             raise ATSTestError("Can't establish connection to the new test cluster")
 
         # prepare app platform and upload artifacts
-        self._ensure_app_platform_ready(self._cluster_info.kube_config_path)
+        if not self._cluster_info.app_platform_ready:
+            logger.debug("App Platform not initialized, running `apptestctl`")
+            self._ensure_app_platform_ready(self._cluster_info.kube_config_path)
+            self._cluster_info.app_platform_ready = True
+        else:
+            logger.debug("App Platform already initialized, not running `apptestctl`")
         self._upload_chart_to_app_catalog(config, config.chart_file)
 
         try:

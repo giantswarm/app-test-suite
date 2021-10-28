@@ -176,7 +176,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         ) = self._prepare_stable_app(config, context, app_name, deploy_namespace)
 
         # deploy the stable version
-        app_cr = self._deploy_chart(
+        stable_app = self._deploy_chart(
             app_name,
             stable_chart_ver,
             deploy_namespace,
@@ -197,7 +197,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         app_config_file_path = get_config_value_by_cmd_line_option(
             config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE
         )
-        self._upgrade_app_cr(app_cr, chart_version, app_config_file_path)
+        self._upgrade_app_cr(stable_app, chart_version, app_config_file_path)
 
         # run the optional upgrade hook
         self._run_upgrade_hook(config, KEY_POST_UPGRADE, app_name, stable_chart_ver, chart_version)
@@ -209,10 +209,10 @@ class UpgradeTestScenario(SimpleTestScenario):
         self._test_executor.execute_test(exec_info)
 
         # delete App CR
-        logger.info(f"Deleting App CR '{app_cr.app.name}'.")
-        delete_app(app_cr)
+        logger.info(f"Deleting App CR '{stable_app.app.name}'.")
+        delete_app(stable_app)
         wait_for_app_to_be_deleted(
-            self._kube_client, app_cr.app.name, app_cr.app.namespace, self._APP_DELETION_TIMEOUT_SEC
+            self._kube_client, stable_app.app.name, stable_app.app.namespace, self._APP_DELETION_TIMEOUT_SEC
         )
 
         # delete Catalog CR, if it was created
@@ -239,7 +239,7 @@ class UpgradeTestScenario(SimpleTestScenario):
 
     def _upgrade_app_cr(
         self, configured_app: ConfiguredApp, app_version: str, app_config_file_path: Optional[str]
-    ) -> None:
+    ) -> ConfiguredApp:
         """
         Upgrade deployed stable version to the Under-Test version:
 
@@ -249,11 +249,14 @@ class UpgradeTestScenario(SimpleTestScenario):
              app_config_file_path: configuration file for the deployment of the version to upgrade to
         """
 
+        # prepare new values for app and app_cm
+        app = configured_app.app
+        app_cm: Optional[ConfigMap] = None
         # update chart reference
-        configured_app.app.reload()
-        configured_app.app.obj["spec"]["catalog"] = TEST_APP_CATALOG_NAME
-        configured_app.app.obj["spec"]["catalogNamespace"] = TEST_APP_CATALOG_NAMESPACE
-        configured_app.app.obj["spec"]["version"] = app_version
+        app.reload()
+        app.obj["spec"]["catalog"] = TEST_APP_CATALOG_NAME
+        app.obj["spec"]["catalogNamespace"] = TEST_APP_CATALOG_NAMESPACE
+        app.obj["spec"]["version"] = app_version
 
         # if there's a new config file, let's load it
         if app_config_file_path:
@@ -266,18 +269,18 @@ class UpgradeTestScenario(SimpleTestScenario):
         if not configured_app.app_cm and app_config_file_path:
             logger.debug("Detected that the stable app didn't use a ConfigMap, but the new one does. Creating CM.")
             # TODO: extract this to pytest-helm-charts to create Apps' CMs
-            app_name = configured_app.app.obj["spec"]["name"]
-            app_namespace = configured_app.app.obj["spec"]["namespace"]
+            app_name = app.obj["spec"]["name"]
+            app_namespace = app.obj["spec"]["namespace"]
             app_cm_name = f"{app_name}-testing-user-config"
-            app_cm = {
+            app_cm_data = {
                 "apiVersion": "v1",
                 "kind": "ConfigMap",
                 "metadata": {"name": app_cm_name, "namespace": app_namespace},
                 "data": {"values": new_config_values},
             }
-            app_cm_obj = ConfigMap(self._kube_client, app_cm)
-            app_cm_obj.create()
-            configured_app.app.obj["spec"]["config"] = {"configMap": {"name": app_cm_name, "namespace": app_namespace}}
+            app_cm = ConfigMap(self._kube_client, app_cm_data)
+            app_cm.create()
+            app.obj["spec"]["config"] = {"configMap": {"name": app_cm_name, "namespace": app_namespace}}
 
         # if the stable app used a config file, but the under-test version doesn't use one
         # we have to delete the CM, remove the reference in App CR and update our app data structure
@@ -286,21 +289,22 @@ class UpgradeTestScenario(SimpleTestScenario):
             del configured_app.app.obj["spec"]["config"]
             configured_app.app_cm.reload()
             configured_app.app_cm.delete()
-            configured_app.app_cm = None
 
         # if both the stable and under-test app versions used a config file, we just have to update the values
         if configured_app.app_cm is not None and app_config_file_path:
-            configured_app.app_cm.reload()
-            if configured_app.app_cm.obj["data"]["values"] != new_config_values:
+            app_cm = configured_app.app_cm
+            app_cm.reload()
+            if app_cm.obj["data"]["values"] != new_config_values:
                 logger.debug("Detected that both old and new app versions use a ConfigMap. Updating CM.")
-                configured_app.app_cm.obj["data"]["values"] = new_config_values
-                configured_app.app_cm.update()
+                app_cm.obj["data"]["values"] = new_config_values
+                app_cm.update()
             else:
                 logger.debug("Detected that both old and new app versions use the same ConfigMap. No CM update needed.")
 
         # finally, update the App CR
         logger.info("Updating App CR to point to the newer version.")
-        configured_app.app.update()
+        app.update()
+        return ConfiguredApp(app, app_cm)
 
     def _get_latest_app_version(self, stable_app_catalog_url: str, app_name: str) -> str:
         logger.info("Trying to detect latest app version available in the catalog.")

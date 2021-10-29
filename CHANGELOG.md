@@ -5,7 +5,7 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.2.0] - 2021-10-28
+## [0.2.1] - 2021-10-28
 
 - Changed
   - App Platform is now initialized only once per cluster

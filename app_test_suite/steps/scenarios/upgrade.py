@@ -311,12 +311,13 @@ class UpgradeTestScenario(SimpleTestScenario):
         catalog_index_url = stable_app_catalog_url + "/index.yaml"
         logger.debug(f"Trying to download catalog index '{catalog_index_url}'.")
         try:
-            index_response = requests.get(catalog_index_url)
+            index_response = requests.get(catalog_index_url, headers={"User-agent": "Mozilla/5.0"})
             if not index_response.ok:
                 raise ATSTestError(
                     f"Couldn't get the 'index.yaml' fetched from '{catalog_index_url}'. "
                     f"Reason: [{index_response.status_code}] {index_response.reason}."
                 )
+            index_response.encoding = index_response.apparent_encoding
             index = yaml.safe_load(index_response.text)
             index_response.close()
         except RequestException as e:

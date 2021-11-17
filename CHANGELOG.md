@@ -5,6 +5,12 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.2] - 2021-11-17
+
+- Fixed
+  - try to better handle `index.yaml` Helm repo files, where incorrect subset of UTF-8 is used
+  - use better library for parsing and sorting semvers of apps in the catalog
+
 ## [0.2.1] - 2021-10-28
 
 - Changed

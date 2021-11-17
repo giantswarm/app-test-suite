@@ -13,6 +13,7 @@ pytest-mock = "*"
 validators = ">=0.18.2"
 pytest-helm-charts = ">=0.6.0"
 step-exec-lib = ">=0.1.5"
+semver = "*"
 
 [requires]
 python_version = "3.9"

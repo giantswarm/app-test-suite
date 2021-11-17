@@ -65,6 +65,7 @@ class PytestExecutor(TestExecutor):
         )
         pipenv_env = os.environ
         pipenv_env["PIPENV_IGNORE_VIRTUALENVS"] = "1"
+        pipenv_env.pop("VIRTUAL_ENV", "")
 
         run_res = run_and_log(args, cwd=self._test_dir, env=pipenv_env)  # nosec, no user input here
         if run_res.returncode != 0:

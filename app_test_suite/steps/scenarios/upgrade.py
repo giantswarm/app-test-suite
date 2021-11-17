@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import shutil
-from distutils.version import LooseVersion
 from tempfile import TemporaryDirectory
 from typing import Tuple, cast, Match, Optional
 
@@ -16,6 +15,7 @@ from pytest_helm_charts.giantswarm_app_platform.custom_resources import CatalogC
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_helm_charts.giantswarm_app_platform.utils import delete_app, wait_for_app_to_be_deleted
 from requests import RequestException
+from semver import VersionInfo
 from step_exec_lib.errors import ConfigError
 from step_exec_lib.types import StepType, Context
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
@@ -174,6 +174,12 @@ class UpgradeTestScenario(SimpleTestScenario):
             stable_app_catalog_url,
             stable_chart_url,
         ) = self._prepare_stable_app(config, context, app_name, deploy_namespace)
+        if VersionInfo.parse(stable_chart_ver) >= VersionInfo.parse(chart_version):
+            logger.warning(
+                "You have requested upgrade test where the stable chart version seems to be "
+                "newer then (or the same as) the version under test. Stable version is "
+                f"'{stable_chart_ver}', under test '{chart_version}'."
+            )
 
         # deploy the stable version
         stable_app = self._deploy_chart(
@@ -311,12 +317,13 @@ class UpgradeTestScenario(SimpleTestScenario):
         catalog_index_url = stable_app_catalog_url + "/index.yaml"
         logger.debug(f"Trying to download catalog index '{catalog_index_url}'.")
         try:
-            index_response = requests.get(catalog_index_url)
+            index_response = requests.get(catalog_index_url, headers={"User-agent": "Mozilla/5.0"})
             if not index_response.ok:
                 raise ATSTestError(
                     f"Couldn't get the 'index.yaml' fetched from '{catalog_index_url}'. "
                     f"Reason: [{index_response.status_code}] {index_response.reason}."
                 )
+            index_response.encoding = index_response.apparent_encoding
             index = yaml.safe_load(index_response.text)
             index_response.close()
         except RequestException as e:
@@ -339,7 +346,11 @@ class UpgradeTestScenario(SimpleTestScenario):
                 f"App '{app_name}' was not found in the 'index.yaml' fetched from '{catalog_index_url}'."
             )
         versions = [e["version"] for e in index["entries"][app_name]]
-        versions.sort(key=LooseVersion, reverse=True)
+        versions.sort(key=VersionInfo.parse, reverse=True)
+        logger.info(
+            f"Detected '{versions[0]}' as the latest available version of app '{app_name}'"
+            f" in catalog '{catalog_index_url}'."
+        )
         return versions[0]
 
     def _run_upgrade_hook(

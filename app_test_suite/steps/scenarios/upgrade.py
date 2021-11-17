@@ -174,6 +174,12 @@ class UpgradeTestScenario(SimpleTestScenario):
             stable_app_catalog_url,
             stable_chart_url,
         ) = self._prepare_stable_app(config, context, app_name, deploy_namespace)
+        if VersionInfo.parse(stable_chart_ver) >= VersionInfo.parse(chart_version):
+            logger.warning(
+                "You have requested upgrade test where the stable chart version seems to be "
+                "newer then (or the same as) the version under test. Stable version is "
+                f"'{stable_chart_ver}', under test '{chart_version}'."
+            )
 
         # deploy the stable version
         stable_app = self._deploy_chart(
@@ -341,6 +347,10 @@ class UpgradeTestScenario(SimpleTestScenario):
             )
         versions = [e["version"] for e in index["entries"][app_name]]
         versions.sort(key=VersionInfo.parse, reverse=True)
+        logger.info(
+            f"Detected '{versions[0]}' as the latest available version of app '{app_name}'"
+            f" in catalog '{catalog_index_url}'."
+        )
         return versions[0]
 
     def _run_upgrade_hook(

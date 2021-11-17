@@ -3,6 +3,7 @@ from typing import cast
 import pykube
 import pytest
 from pytest_helm_charts.fixtures import Cluster
+from pytest_helm_charts.utils import wait_for_deployments_to_run
 
 
 @pytest.mark.smoke
@@ -14,6 +15,7 @@ def test_we_have_environment(kube_cluster: Cluster) -> None:
 @pytest.mark.functional
 @pytest.mark.upgrade
 def test_hello_working(kube_cluster: Cluster) -> None:
+    wait_for_deployments_to_run(kube_cluster.kube_client, ["hello-world-app"], "default", 60)
     srv = cast(
         pykube.Service, pykube.Service.objects(kube_cluster.kube_client).get_or_none(name="hello-world-app-service")
     )
@@ -21,4 +23,4 @@ def test_hello_working(kube_cluster: Cluster) -> None:
         raise ValueError("'hello-world-app-service service not found in the 'default' namespace")
     page_res = srv.proxy_http_get("/")
     assert page_res.ok
-    assert page_res.text == "<h1>Hello World!</h1>"
+    assert page_res.text.find("Hello World") > -1

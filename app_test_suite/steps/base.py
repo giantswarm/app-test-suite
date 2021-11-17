@@ -120,6 +120,8 @@ class TestExecInfo:
     """Path to kube.config to connect to the cluster."""
     test_type: str
     """Type of test to execute by the test executor."""
+    debug: bool
+    """Should the test engine be run with debug enabled."""
 
 
 class TestExecutor(ABC):

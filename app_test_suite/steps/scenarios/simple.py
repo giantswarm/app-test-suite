@@ -113,6 +113,7 @@ class SimpleTestScenario(BuildStep, ABC):
             cluster_version=cluster_info.version,
             kube_config_path=os.path.abspath(cluster_info.kube_config_path),
             test_type=self.test_provided,
+            debug=config.debug,
         )
         self._test_executor.prepare_test_environment(exec_info)
         self._test_executor.execute_test(exec_info)

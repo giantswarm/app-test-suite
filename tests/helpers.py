@@ -91,6 +91,7 @@ def get_base_config(mocker: MockerFixture) -> Namespace:
     config.app_tests_deploy_namespace = MOCK_APP_DEPLOY_NS
     config.app_tests_app_config_file = ""
     config.chart_file = MOCK_CHART_FILE_NAME
+    config.debug = False
     return config
 
 

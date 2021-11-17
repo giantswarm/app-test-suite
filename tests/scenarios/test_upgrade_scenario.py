@@ -8,6 +8,7 @@ from pytest_helm_charts.giantswarm_app_platform.utils import create_app
 from pytest_helm_charts.utils import YamlDict
 from pytest_mock import MockerFixture
 from requests import Response
+from semver import VersionInfo
 from step_exec_lib.types import StepType
 from yaml.parser import ParserError
 
@@ -19,13 +20,13 @@ from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML
 from app_test_suite.steps.base import TestExecutor
 from app_test_suite.steps.executors.gotest import GotestExecutor
 from app_test_suite.steps.executors.pytest import PytestExecutor
+from app_test_suite.steps.scenarios.simple import TEST_APP_CATALOG_NAME, TEST_APP_CATALOG_NAMESPACE
 from app_test_suite.steps.scenarios.upgrade import (
     UpgradeTestScenario,
     STABLE_APP_CATALOG_NAME,
     KEY_PRE_UPGRADE,
     KEY_POST_UPGRADE,
 )
-from app_test_suite.steps.scenarios.simple import TEST_APP_CATALOG_NAME, TEST_APP_CATALOG_NAMESPACE
 from tests.helpers import (
     get_mock_cluster_manager,
     get_run_and_log_result_mock,
@@ -60,6 +61,45 @@ from tests.scenarios.executors.pytest import (
     assert_prepare_pytest_test_environment,
     patch_pytest_test_runner,
 )
+
+
+def test_version_sort() -> None:
+    versions = [
+        "0.7.0",
+        "0.6.1",
+        "0.6.0",
+        "0.5.1",
+        "0.5.0",
+        "0.4.1",
+        "0.4.0",
+        "0.4.0-70e98f9c806e784ea1c54c57558bfc25736f89c8",
+        "0.3.0",
+        "0.3.0-ff7a16aeda6d977730d6e5f4e73962bf5d6503bd",
+        "0.3.0-alpha.1",
+        "0.3.0-rc1",
+        "0.3.0-alpha.2",
+        "0.1.0-6727f1050acf0617566d76d590b665c5b98ffc1d",
+        "0.3.0-beta",
+    ]
+    expected = [
+        "0.7.0",
+        "0.6.1",
+        "0.6.0",
+        "0.5.1",
+        "0.5.0",
+        "0.4.1",
+        "0.4.0",
+        "0.4.0-70e98f9c806e784ea1c54c57558bfc25736f89c8",
+        "0.3.0",
+        "0.3.0-rc1",
+        "0.3.0-ff7a16aeda6d977730d6e5f4e73962bf5d6503bd",
+        "0.3.0-beta",
+        "0.3.0-alpha.2",
+        "0.3.0-alpha.1",
+        "0.1.0-6727f1050acf0617566d76d590b665c5b98ffc1d",
+    ]
+    versions.sort(key=VersionInfo.parse, reverse=True)
+    assert expected == versions
 
 
 @pytest.mark.parametrize(
@@ -102,7 +142,9 @@ def test_find_latest_version(
         assert type(caught_error) == error_type
     else:
         assert ver == ver_found
-    cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(catalog_url + "/index.yaml")
+    cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(
+        catalog_url + "/index.yaml", headers={"User-agent": "Mozilla/5.0"}
+    )
 
 
 @pytest.mark.parametrize(

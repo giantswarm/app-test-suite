@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import shutil
-from distutils.version import LooseVersion
 from tempfile import TemporaryDirectory
 from typing import Tuple, cast, Match, Optional
 
@@ -16,6 +15,7 @@ from pytest_helm_charts.giantswarm_app_platform.custom_resources import CatalogC
 from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
 from pytest_helm_charts.giantswarm_app_platform.utils import delete_app, wait_for_app_to_be_deleted
 from requests import RequestException
+from semver import VersionInfo
 from step_exec_lib.errors import ConfigError
 from step_exec_lib.types import StepType, Context
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
@@ -340,7 +340,7 @@ class UpgradeTestScenario(SimpleTestScenario):
                 f"App '{app_name}' was not found in the 'index.yaml' fetched from '{catalog_index_url}'."
             )
         versions = [e["version"] for e in index["entries"][app_name]]
-        versions.sort(key=LooseVersion, reverse=True)
+        versions.sort(key=VersionInfo.parse, reverse=True)
         return versions[0]
 
     def _run_upgrade_hook(

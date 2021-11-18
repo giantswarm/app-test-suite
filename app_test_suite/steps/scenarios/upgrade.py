@@ -192,7 +192,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         )
 
         # run tests
-        exec_info = self._get_test_exec_info(stable_chart_url, stable_chart_ver, app_cfg_file)
+        exec_info = self._get_test_exec_info(stable_chart_url, stable_chart_ver, app_cfg_file, config)
         self._test_executor.prepare_test_environment(exec_info)
         self._test_executor.execute_test(exec_info)
 
@@ -385,7 +385,9 @@ class UpgradeTestScenario(SimpleTestScenario):
                 f"Upgrade hook for stage '{stage_name}' returned non-zero exit code: '{run_res.returncode}'."
             )
 
-    def _get_test_exec_info(self, chart_path: str, chart_ver: str, chart_config_file: str) -> TestExecInfo:
+    def _get_test_exec_info(
+        self, chart_path: str, chart_ver: str, chart_config_file: str, config: argparse.Namespace
+    ) -> TestExecInfo:
         cluster_info = cast(ClusterInfo, self._cluster_info)
         exec_info = TestExecInfo(
             chart_path=chart_path,
@@ -395,6 +397,7 @@ class UpgradeTestScenario(SimpleTestScenario):
             cluster_version=cluster_info.version,
             kube_config_path=os.path.abspath(cluster_info.kube_config_path),
             test_type=self.test_provided,
+            debug=config.debug,
         )
         return exec_info
 

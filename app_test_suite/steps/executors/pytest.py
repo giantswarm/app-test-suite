@@ -59,6 +59,8 @@ class PytestExecutor(TestExecutor):
 
     def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
         args = [self._PIPENV_BIN, "install", "--deploy"]
+        if exec_info.debug:
+            args.append("--verbose")
         logger.info(
             f"Running {self._PIPENV_BIN} tool in '{self._test_dir}' directory to install virtual env "
             f"for running tests."
@@ -90,7 +92,7 @@ class PytestExecutor(TestExecutor):
             "--chart-extra-info",
             f"external_cluster_version={exec_info.cluster_version}",
             "--log-cli-level",
-            "info",
+            "debug" if exec_info.debug else "info",
             f"--junitxml=test_results_{exec_info.test_type}.xml",
         ]
         if exec_info.app_config_file_path:

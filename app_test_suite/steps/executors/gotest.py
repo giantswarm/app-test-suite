@@ -74,6 +74,9 @@ class GotestExecutor(TestExecutor):
             "PATH": os.getenv("PATH", ""),
         }
 
+        if exec_info.test_extra_info:
+            env_vars.update({"ATS_" + k.upper(): v for k, v in exec_info.test_extra_info.items()})
+
         if exec_info.app_config_file_path is not None:
             env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
 

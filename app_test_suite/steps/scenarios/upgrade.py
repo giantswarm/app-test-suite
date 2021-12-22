@@ -5,7 +5,7 @@ import os
 import re
 import shutil
 from tempfile import TemporaryDirectory
-from typing import Tuple, cast, Match, Optional
+from typing import Tuple, cast, Match, Optional, Dict
 
 import requests
 import yaml
@@ -46,8 +46,9 @@ from app_test_suite.steps.base import (
 from app_test_suite.steps.scenarios.simple import SimpleTestScenario, TEST_APP_CATALOG_NAME, TEST_APP_CATALOG_NAMESPACE
 from app_test_suite.steps.test_types import STEP_TEST_UPGRADE
 
-KEY_PRE_UPGRADE = "pre-upgrade"
-KEY_POST_UPGRADE = "post-upgrade"
+KEY_PRE_UPGRADE = "pre_upgrade"
+KEY_POST_UPGRADE = "post_upgrade"
+KEY_UPGRADE_TEST_STAGE_EXTRA_INFO = "upgrade_test_stage"
 STABLE_APP_CATALOG_NAME = "stable"
 
 logger = logging.getLogger(__name__)
@@ -192,7 +193,13 @@ class UpgradeTestScenario(SimpleTestScenario):
         )
 
         # run tests
-        exec_info = self._get_test_exec_info(stable_chart_url, stable_chart_ver, app_cfg_file, config)
+        exec_info = self._get_test_exec_info(
+            stable_chart_url,
+            stable_chart_ver,
+            app_cfg_file,
+            config,
+            test_extra_info={KEY_UPGRADE_TEST_STAGE_EXTRA_INFO: KEY_PRE_UPGRADE},
+        )
         self._test_executor.prepare_test_environment(exec_info)
         self._test_executor.execute_test(exec_info)
 
@@ -212,6 +219,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         exec_info.chart_path = config.chart_file
         exec_info.chart_ver = chart_version
         exec_info.app_config_file_path = app_config_file_path
+        cast(Dict[str, str], exec_info.test_extra_info)[KEY_UPGRADE_TEST_STAGE_EXTRA_INFO] = KEY_POST_UPGRADE
         self._test_executor.execute_test(exec_info)
 
         # delete App CR
@@ -386,7 +394,12 @@ class UpgradeTestScenario(SimpleTestScenario):
             )
 
     def _get_test_exec_info(
-        self, chart_path: str, chart_ver: str, chart_config_file: str, config: argparse.Namespace
+        self,
+        chart_path: str,
+        chart_ver: str,
+        chart_config_file: str,
+        config: argparse.Namespace,
+        test_extra_info: Optional[Dict[str, str]] = None,
     ) -> TestExecInfo:
         cluster_info = cast(ClusterInfo, self._cluster_info)
         exec_info = TestExecInfo(
@@ -398,6 +411,7 @@ class UpgradeTestScenario(SimpleTestScenario):
             kube_config_path=os.path.abspath(cluster_info.kube_config_path),
             test_type=self.test_provided,
             debug=config.debug,
+            test_extra_info=test_extra_info,
         )
         return exec_info
 

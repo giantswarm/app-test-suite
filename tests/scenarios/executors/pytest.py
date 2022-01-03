@@ -9,30 +9,33 @@ import app_test_suite.steps.executors.pytest
 from tests.helpers import MOCK_KUBE_VERSION
 
 
-def assert_run_pytest(test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str) -> None:
-    cast(unittest.mock.Mock, app_test_suite.steps.executors.pytest.run_and_log).assert_any_call(
-        [
-            "pipenv",
-            "run",
-            "pytest",
-            "-m",
-            test_provided,
-            "--cluster-type",
-            "mock",
-            "--kube-config",
-            kube_config_path,
-            "--chart-path",
-            chart_file,
-            "--chart-version",
-            app_version,
-            "--chart-extra-info",
-            f"external_cluster_version={MOCK_KUBE_VERSION}",
-            "--log-cli-level",
-            "info",
-            f"--junitxml=test_results_{test_provided}.xml",
-        ],
-        cwd="",
-    )
+def assert_run_pytest(
+    test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str, test_extra_info: str = ""
+) -> None:
+    expected_args = [
+        "pipenv",
+        "run",
+        "pytest",
+        "-m",
+        test_provided,
+        "--cluster-type",
+        "mock",
+        "--kube-config",
+        kube_config_path,
+        "--chart-path",
+        chart_file,
+        "--chart-version",
+        app_version,
+        "--chart-extra-info",
+        f"external_cluster_version={MOCK_KUBE_VERSION}",
+        "--log-cli-level",
+        "info",
+        f"--junitxml=test_results_{test_provided}.xml",
+    ]
+    if test_extra_info:
+        expected_args.append("--test-extra-info")
+        expected_args.append(test_extra_info)
+    cast(unittest.mock.Mock, app_test_suite.steps.executors.pytest.run_and_log).assert_any_call(expected_args, cwd="")
 
 
 def assert_prepare_pytest_test_environment() -> None:

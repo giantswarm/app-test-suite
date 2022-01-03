@@ -5,7 +5,7 @@ import shutil
 from abc import ABC
 from dataclasses import dataclass
 from tempfile import TemporaryDirectory
-from typing import Set, Optional, List
+from typing import Set, Optional, List, Dict
 
 import configargparse
 import yaml
@@ -122,6 +122,8 @@ class TestExecInfo:
     """Type of test to execute by the test executor."""
     debug: bool
     """Should the test engine be run with debug enabled."""
+    test_extra_info: Optional[Dict[str, str]] = None
+    """Optional dict of key-value pairs that will be passed to the test executor"""
 
 
 class TestExecutor(ABC):

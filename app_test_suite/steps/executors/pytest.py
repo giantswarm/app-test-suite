@@ -97,6 +97,8 @@ class PytestExecutor(TestExecutor):
         ]
         if exec_info.app_config_file_path:
             args += ["--values-file", exec_info.app_config_file_path]
+        if exec_info.test_extra_info:
+            args += ["--test-extra-info", ",".join([f"ats_{k}={v}" for k, v in exec_info.test_extra_info.items()])]
         logger.info(f"Running {self._PYTEST_BIN} tool in '{self._test_dir}' directory.")
         run_res = run_and_log(args, cwd=self._test_dir)  # nosec, no user input here
         # exit code 5 from pytest means that no tests matched the selector - it's not an error for us

@@ -162,7 +162,7 @@ def test_upgrade_pytest_runner_run(
     mocker: MockerFixture,
     test_executor: TestExecutor,
     patcher: Callable[[MockerFixture, unittest.mock.Mock], None],
-    asserter_test: Callable[[StepType, str, str, str], None],
+    asserter_test: Callable[[StepType, str, str, str, str], None],
     asserter_prepare: Callable[[], None],
 ) -> None:
     mock_cluster_manager = get_mock_cluster_manager(mocker)
@@ -190,7 +190,13 @@ def test_upgrade_pytest_runner_run(
     )
     asserter_prepare()
     mock_stable_app_catalog_cr.create.assert_any_call()
-    asserter_test(runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_UPGRADE_CHART_FILE_URL, MOCK_UPGRADE_APP_VERSION)
+    asserter_test(
+        runner.test_provided,
+        MOCK_KUBE_CONFIG_PATH,
+        MOCK_UPGRADE_CHART_FILE_URL,
+        MOCK_UPGRADE_APP_VERSION,
+        "ats_upgrade_test_stage=pre_upgrade",
+    )
     assert_upgrade_tester_exec_hook(
         KEY_PRE_UPGRADE,
         MOCK_APP_NAME,
@@ -208,7 +214,13 @@ def test_upgrade_pytest_runner_run(
         MOCK_KUBE_CONFIG_PATH,
         MOCK_APP_DEPLOY_NS,
     )
-    asserter_test(runner.test_provided, MOCK_KUBE_CONFIG_PATH, MOCK_CHART_FILE_NAME, MOCK_CHART_VERSION)
+    asserter_test(
+        runner.test_provided,
+        MOCK_KUBE_CONFIG_PATH,
+        MOCK_CHART_FILE_NAME,
+        MOCK_CHART_VERSION,
+        "ats_upgrade_test_stage=post_upgrade",
+    )
     mock_requests_get_chart.assert_called_once_with(MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True)
     assert_upgrade_tester_deletes_app(configured_app_mock)
     mock_stable_app_catalog_cr.delete.assert_called_once()

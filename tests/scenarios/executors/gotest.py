@@ -10,7 +10,9 @@ import app_test_suite.steps.executors.gotest
 from tests.helpers import MOCK_KUBE_VERSION
 
 
-def assert_run_gotest(test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str) -> None:
+def assert_run_gotest(
+    test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str, test_extra_info: str = ""
+) -> None:
     env_vars = {
         "ATS_APP_CONFIG_FILE_PATH": "",
         "ATS_CHART_PATH": chart_file,
@@ -25,6 +27,8 @@ def assert_run_gotest(test_provided: StepType, kube_config_path: str, chart_file
         "HOME": os.getenv("HOME", ""),
         "PATH": os.getenv("PATH", ""),
     }
+    if test_extra_info:
+        env_vars.update({k.upper(): v for k, v in [p.split("=") for p in test_extra_info.split(",")]})
 
     cast(unittest.mock.Mock, app_test_suite.steps.executors.gotest.run_and_handle_error).assert_any_call(
         [

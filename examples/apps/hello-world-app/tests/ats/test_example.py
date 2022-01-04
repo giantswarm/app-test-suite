@@ -2,8 +2,8 @@ from typing import cast
 
 import pykube
 import pytest
+from pytest_helm_charts.api.deployment import wait_for_deployments_to_run
 from pytest_helm_charts.fixtures import Cluster
-from pytest_helm_charts.utils import wait_for_deployments_to_run
 
 
 @pytest.mark.smoke

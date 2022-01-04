@@ -7,11 +7,11 @@ from typing import Optional, Set, cast
 import configargparse
 import yaml
 from pykube import HTTPClient, KubeConfig, ConfigMap
-from pytest_helm_charts.giantswarm_app_platform.custom_resources import AppCR
-from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
-from pytest_helm_charts.giantswarm_app_platform.utils import (
+from pytest_helm_charts.giantswarm_app_platform.app import (
+    ConfiguredApp,
     create_app,
     wait_for_apps_to_run,
+    AppCR,
     delete_app,
     wait_for_app_to_be_deleted,
 )

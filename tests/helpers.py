@@ -8,7 +8,7 @@ from typing import cast, Tuple, Any
 import pykube
 import yaml
 from configargparse import Namespace
-from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
+from pytest_helm_charts.giantswarm_app_platform.app import ConfiguredApp
 from pytest_mock import MockerFixture
 from requests import Response
 
@@ -149,7 +149,7 @@ def patch_upgrade_test_runner(
     mocker: MockerFixture, run_and_log_call_result_mock: unittest.mock.Mock
 ) -> Tuple[unittest.mock.Mock, unittest.mock.Mock]:
     mock_stable_app_catalog_cr = mocker.MagicMock(name="stable CatalogCR Mock")
-    mocker.patch("app_test_suite.steps.scenarios.upgrade.get_catalog_obj", return_value=mock_stable_app_catalog_cr)
+    mocker.patch("app_test_suite.steps.scenarios.upgrade.make_catalog_obj", return_value=mock_stable_app_catalog_cr)
     mocker.patch("app_test_suite.steps.scenarios.upgrade.run_and_log", return_value=run_and_log_call_result_mock)
 
     def get_or_none(*_: Any, **kwargs: str) -> None:

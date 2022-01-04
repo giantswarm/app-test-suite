@@ -15,8 +15,8 @@ def assert_run_gotest(
 ) -> None:
     env_vars = {
         "ATS_APP_CONFIG_FILE_PATH": "",
-        "ATS_CHART_PATH": chart_file,
         "ATS_CHART_VERSION": app_version,
+        "ATS_CHART_PATH": chart_file,
         "ATS_CLUSTER_TYPE": "mock",
         "ATS_CLUSTER_VERSION": MOCK_KUBE_VERSION,
         "ATS_KUBE_CONFIG_PATH": kube_config_path,

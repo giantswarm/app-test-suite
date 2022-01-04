@@ -10,10 +10,8 @@ from typing import Tuple, cast, Match, Optional, Dict
 import requests
 import yaml
 from pykube import ConfigMap
-from pytest_helm_charts.giantswarm_app_platform.catalog import get_catalog_obj
-from pytest_helm_charts.giantswarm_app_platform.custom_resources import CatalogCR
-from pytest_helm_charts.giantswarm_app_platform.entities import ConfiguredApp
-from pytest_helm_charts.giantswarm_app_platform.utils import delete_app, wait_for_app_to_be_deleted
+from pytest_helm_charts.giantswarm_app_platform.app import delete_app, wait_for_app_to_be_deleted, ConfiguredApp
+from pytest_helm_charts.giantswarm_app_platform.catalog import CatalogCR, make_catalog_obj
 from requests import RequestException
 from semver import VersionInfo
 from step_exec_lib.errors import ConfigError
@@ -134,7 +132,7 @@ class UpgradeTestScenario(SimpleTestScenario):
 
         catalog_url = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_URL)
         logger.info(f"Adding new app catalog named '{STABLE_APP_CATALOG_NAME}' with URL '{catalog_url}'.")
-        catalog_cr = get_catalog_obj(STABLE_APP_CATALOG_NAME, deploy_namespace, catalog_url, self._kube_client)
+        catalog_cr = make_catalog_obj(self._kube_client, STABLE_APP_CATALOG_NAME, deploy_namespace, catalog_url)
         logger.debug(f"Creating Catalog '{catalog_cr.name}' with the stable app version.")
         catalog_cr.create()
 

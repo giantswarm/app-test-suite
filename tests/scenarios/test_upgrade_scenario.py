@@ -4,7 +4,7 @@ from typing import cast, Callable
 from unittest.mock import Mock
 
 import pytest
-from pytest_helm_charts.giantswarm_app_platform.utils import create_app
+from pytest_helm_charts.giantswarm_app_platform.app import create_app
 from pytest_helm_charts.utils import YamlDict
 from pytest_mock import MockerFixture
 from requests import Response
@@ -228,8 +228,8 @@ def test_upgrade_pytest_runner_run(
 
 
 def test_upgrade_app_cr_no_configs(mocker: MockerFixture) -> None:
-    mocker.patch("pytest_helm_charts.giantswarm_app_platform.utils.AppCR.create")
-    mocker.patch("pytest_helm_charts.giantswarm_app_platform.utils.ConfigMap.create")
+    mocker.patch("pytest_helm_charts.giantswarm_app_platform.app.AppCR.create")
+    mocker.patch("pytest_helm_charts.giantswarm_app_platform.app.ConfigMap.create")
     configured_app = create_app(
         mocker.MagicMock(),
         MOCK_APP_NAME,
@@ -279,8 +279,8 @@ class ExpectedAction(Enum):
 def test_upgrade_app_cr_stable_has_config(
     stable_config: YamlDict, under_test_config_file: str, expected_action: ExpectedAction, mocker: MockerFixture
 ) -> None:
-    mocker.patch("pytest_helm_charts.giantswarm_app_platform.utils.AppCR.create")
-    mocker.patch("pytest_helm_charts.giantswarm_app_platform.utils.ConfigMap.create")
+    mocker.patch("pytest_helm_charts.giantswarm_app_platform.app.AppCR.create")
+    mocker.patch("pytest_helm_charts.giantswarm_app_platform.app.ConfigMap.create")
     configured_app = create_app(
         mocker.MagicMock(),
         MOCK_APP_NAME,

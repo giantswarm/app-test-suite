@@ -5,6 +5,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.3-beta.1] - 2022-01-04
+
 - Added
   - Test executors can now get extra info about the test run. Currently, used to provide info about
     upgrade test execution stage.

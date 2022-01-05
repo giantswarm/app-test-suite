@@ -5,6 +5,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Changed
+  - Update apptestctl to v0.14.0.
+
 ## [0.2.3-beta.1] - 2022-01-04
 
 - Added

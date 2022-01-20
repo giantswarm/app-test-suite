@@ -3,11 +3,14 @@ import logging
 import os
 import uuid
 from typing import Any
+from tempfile import mkdtemp
 
 import configargparse
+import yaml
 from step_exec_lib.utils import config as config_ats
 from step_exec_lib.utils import files
 from step_exec_lib.utils.processes import run_and_log
+from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 
 from app_test_suite.cluster_providers import cluster_provider
 from app_test_suite.errors import ATSTestError
@@ -18,7 +21,7 @@ ClusterTypeKind = cluster_provider.ClusterType("kind")
 
 
 class KindClusterProvider(cluster_provider.ClusterProvider):
-    key_config_option_kind_config_path = "--kind-cluster-config-path"
+    key_config_option_kind_cluster_image_override = "--kind-cluster-image-override"
     _kind_bin = "kind"
     _kind_min_version = "0.9.0"
     _kind_max_version = "1.0.0"
@@ -28,7 +31,15 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
         return ClusterTypeKind
 
     def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
-        pass
+        config_parser.add_argument(
+            self.key_config_option_kind_cluster_image_override,
+            required=False,
+            help=(
+                "A container image reference to use for kind nodes "
+                "(Example: kindest/node:v1.21.2"
+                "@sha256:9d07ff05e4afefbba983fac311807b3c17a5f36e7061f6cb7e2ba756255b2be4)"
+            ),
+        )
 
     def pre_run(self, config: argparse.Namespace) -> None:
         # verify if binary present
@@ -55,6 +66,12 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
         config_file = ""
         if "config_file" in kwargs and kwargs["config_file"]:
             config_file = kwargs["config_file"]
+            kind_cluster_image_override = get_config_value_by_cmd_line_option(
+                config, self.key_config_option_kind_cluster_image_override
+            )
+            if kind_cluster_image_override:
+                config_file = self.augment_kind_config_file(config_file, kind_cluster_image_override)
+            logger.info(f"Using KinD config {config_file} with ID kind node image '{kind_cluster_image_override}'")
             kind_args.extend(["--config", config_file])
         run_res = run_and_log(kind_args, capture_output=True)  # nosec
         logger.debug(run_res.stderr)
@@ -83,3 +100,16 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
             raise ATSTestError(f"Error when deleting KinD cluster. Exit code is: {run_res.returncode}")
         os.remove(kube_config_path)
         logger.info("KinD cluster deleted successfully")
+
+    def augment_kind_config_file(self, kind_config_path: str, image_override: str) -> str:
+        with open(kind_config_path, "r") as file:
+            config_yaml = yaml.safe_load(file)
+            config_yaml["nodes"] = [dict(node, **{"image": image_override}) for node in config_yaml["nodes"]]
+
+        tmp_dir = mkdtemp(prefix="ats-")
+        augmented_kind_config_path = os.path.join(tmp_dir, "kind_config.yaml")
+
+        with open(augmented_kind_config_path, "w") as file:
+            yaml.dump(config_yaml, file, allow_unicode=True, default_flow_style=False)
+
+        return augmented_kind_config_path

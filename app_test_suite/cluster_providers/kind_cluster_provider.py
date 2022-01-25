@@ -71,7 +71,7 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
             )
             if kind_cluster_image_override:
                 config_file = self.augment_kind_config_file(config_file, kind_cluster_image_override)
-            logger.info(f"Using KinD config {config_file} with ID kind node image '{kind_cluster_image_override}'")
+                logger.info(f"Using KinD config {config_file} with ID kind node image '{kind_cluster_image_override}'")
             kind_args.extend(["--config", config_file])
         run_res = run_and_log(kind_args, capture_output=True)  # nosec
         logger.debug(run_res.stderr)

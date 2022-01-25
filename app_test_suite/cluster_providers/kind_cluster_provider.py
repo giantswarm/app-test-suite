@@ -104,7 +104,8 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
     def augment_kind_config_file(self, kind_config_path: str, image_override: str) -> str:
         with open(kind_config_path, "r") as file:
             config_yaml = yaml.safe_load(file)
-            config_yaml["nodes"] = [dict(node, **{"image": image_override}) for node in config_yaml["nodes"]]
+            for node in config_yaml["nodes"]:
+                node.update({"image": image_override})
 
         tmp_dir = mkdtemp(prefix="ats-")
         augmented_kind_config_path = os.path.join(tmp_dir, "kind_config.yaml")

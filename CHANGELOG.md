@@ -5,6 +5,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.3] - 2022-01-04
+
 - Added
   - Add `--kind-cluster-image-override` flag make it possible to augment an existing kind config
     file to override the used kind node container image.

@@ -1,10 +1,9 @@
 FROM alpine:3.15.4 AS binaries
 
-ARG KUBECTL_VER="1.21.2"
-ARG DOCKER_VER="20.10.9"
-# upgrade to kind 0.10.0 held, as it defaults to kubernetes 1.20; we're still targeting primarly 1.19
-ARG KIND_VER="0.11.1"
-ARG APPTESTCTL_VER="0.14.0"
+ARG KUBECTL_VER="1.23.6"
+ARG DOCKER_VER="20.10.15"
+ARG KIND_VER="0.12.0"
+ARG APPTESTCTL_VER="0.14.1"
 
 RUN apk add --no-cache ca-certificates curl \
     && mkdir -p /binaries \
@@ -27,7 +26,7 @@ ENV LANG=C.UTF-8 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONFAULTHANDLER=1 \
     ATS_DIR="/ats" \
-    PIPENV_VER="2020.11.15"
+    PIPENV_VER="2022.5.2"
 
 RUN pip install --no-cache-dir pipenv==${PIPENV_VER}
 
@@ -48,7 +47,7 @@ RUN PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy --clear
 
 FROM base
 
-ARG GO_VERSION="1.17.2"
+ARG GO_VERSION="1.18.2"
 
 ENV USE_UID=0 \
     USE_GID=0 \

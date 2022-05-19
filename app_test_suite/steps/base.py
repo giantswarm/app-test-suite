@@ -30,6 +30,7 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
 
     KEY_CONFIG_GROUP_NAME = "Base app testing options"
     KEY_CONFIG_OPTION_SKIP_DEPLOY_APP = "--app-tests-skip-app-deploy"
+    KEY_CONFIG_OPTION_SKIP_DELETE_APP = "--app-tests-skip-app-delete"
     KEY_CONFIG_OPTION_DEPLOY_NAMESPACE = "--app-tests-deploy-namespace"
     KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE = "--app-tests-app-config-file"
 
@@ -52,6 +53,12 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
             required=False,
             action="store_true",
             help="Skip automated app deployment for the test run to the test cluster (using an App CR).",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_SKIP_DELETE_APP,
+            required=False,
+            action="store_true",
+            help="Skip automated App CR and ConfigMap deletion for the test run to the test cluster.",
         )
         self._config_parser_group.add_argument(
             self.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,

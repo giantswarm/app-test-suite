@@ -230,7 +230,7 @@ class SimpleTestScenario(BuildStep, ABC):
         finally:
             if not get_config_value_by_cmd_line_option(
                 config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_SKIP_DEPLOY_APP
-            ) and not get_config_value_by_cmd_line_option(
+            ) or not get_config_value_by_cmd_line_option(
                 config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_SKIP_DELETE_APP
             ):
                 self._delete_app(config, context)

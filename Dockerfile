@@ -1,4 +1,4 @@
-FROM alpine:3.15.4 AS binaries
+FROM alpine:3.16.0 AS binaries
 
 ARG KUBECTL_VER="1.23.6"
 ARG DOCKER_VER="20.10.15"

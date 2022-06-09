@@ -23,10 +23,13 @@ To build the Chart, please consider the companion [app-build-suite](https://gith
   - [Tutorial](#tutorial)
   - [Quick start](#quick-start)
   - [How does it work](#how-does-it-work)
+    - [Bootstrapping](#bootstrapping)
+    - [Test execution](#test-execution)
   - [Full usage help](#full-usage-help)
 - [Tuning app-test-suite execution and running parts of the build process](#tuning-app-test-suite-execution-and-running-parts-of-the-build-process)
   - [Configuring app-test-suite](#configuring-app-test-suite)
 - [Execution steps details and configuration](#execution-steps-details-and-configuration)
+  - [Test executors](#test-executors)
   - [Test pipelines](#test-pipelines)
 - [How to contribute](#how-to-contribute)
 
@@ -95,8 +98,27 @@ kind get kubeconfig > ./kube.config
 
 ### How does it work
 
-To better depict what `ats` does and how it executes a test scenario, let's have a look at what happens
-when you execute:
+Each run consist of two stages: bootstrapping and test execution.
+
+#### Bootstrapping
+
+`app-test-suite` automates preparation of a cluster used for testing in the following way:
+
+- if you configured your run with `*-tests-cluster-type kind`, a cluster is created with `kind` tool
+- `ats` connects to the target test cluster and runs `apptestctl` - additional tool that deploys components of App Platform
+  (`app-operator`, `chart-operator` and needed CRDs)
+- `ats` deploys `chart-museum`: a simple helm chart registry that will be used to store your chart under test
+- creates `Catalog` CR for the chart repository provided by `chart-museum`
+- creates `App` CR for your chart: as a result, your application defined in the chart is already deployed to the test
+  cluster (you can disable creating this app with `app-tests-skip-app-deploy` option)
+
+After that, `ats` hands control over to your tests.
+
+#### Test execution
+
+After bootstrapping, `ats` starts executing test scenarios. Currently, we have 3 scenarios executed in this order:
+`smoke`, `functional` and `upgrade`. To better depict what `ats` does and how it executes a test scenario, let's have a
+look at what happens when you execute:
 
 ```bash
 dats.sh -c examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz \

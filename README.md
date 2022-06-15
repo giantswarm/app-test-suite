@@ -105,7 +105,7 @@ Each run consist of two stages: bootstrapping and test execution.
 `app-test-suite` automates preparation of a cluster used for testing in the following way:
 
 - if you configured your run with `*-tests-cluster-type kind`, a cluster is created with `kind` tool
-- `ats` connects to the target test cluster and runs `apptestctl` - additional tool that deploys components of App Platform
+- `ats` connects to the target test cluster and runs [`apptestctl`](https://github.com/giantswarm/apptestctl) - an additional tool that deploys components of App Platform
   (`app-operator`, `chart-operator` and needed CRDs)
 - `ats` deploys `chart-museum`: a simple helm chart registry that will be used to store your chart under test
 - creates `Catalog` CR for the chart repository provided by `chart-museum`

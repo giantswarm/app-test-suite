@@ -106,6 +106,8 @@ class GotestExecutor(TestExecutor):
         for line in run_res.stderr.splitlines():
             logger.info(line)
 
+        logger.info("#" * 40)
+
         if run_res.returncode != 0:
             raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{self._test_dir}' failed.")
 

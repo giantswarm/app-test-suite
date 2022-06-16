@@ -98,6 +98,8 @@ def get_base_config(mocker: MockerFixture) -> Namespace:
 def get_run_and_log_result_mock(mocker: MockerFixture) -> unittest.mock.Mock:
     system_call_result_mock = mocker.Mock(name="SysCallResult")
     type(system_call_result_mock).returncode = mocker.PropertyMock(return_value=0)
+    type(system_call_result_mock).stdout = mocker.PropertyMock(return_value="")
+    type(system_call_result_mock).stderr = mocker.PropertyMock(return_value="")
     return system_call_result_mock
 
 

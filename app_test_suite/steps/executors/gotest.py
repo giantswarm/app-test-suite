@@ -92,6 +92,22 @@ class GotestExecutor(TestExecutor):
         run_res = run_and_handle_error(
             args, "build constraints exclude all Go files", cwd=self._test_dir, env=env_vars
         )  # nosec, no user input here
+
+        logger.info("#" * 40)
+        logger.info(f"Command '{args}' executed, exit code: {run_res.returncode}")
+
+        logger.info("#" * 40)
+        logger.info("Command STDOUT was:")
+        for line in run_res.stdout.splitlines():
+            logger.info(line)
+
+        logger.info("#" * 40)
+        logger.info("Command STDERR was:")
+        for line in run_res.stderr.splitlines():
+            logger.info(line)
+
+        logger.info("#" * 40)
+
         if run_res.returncode != 0:
             raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{self._test_dir}' failed.")
 

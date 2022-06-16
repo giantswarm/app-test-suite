@@ -5,6 +5,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Added
+  - Display logs for go test commands to make it easier to debug failing tests
+
 ## [0.2.3] - 2022-01-04
 
 - Added

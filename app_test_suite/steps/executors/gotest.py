@@ -98,12 +98,12 @@ class GotestExecutor(TestExecutor):
 
         logger.info("#" * 40)
         logger.info("Command STDOUT was:")
-        for line in run_res.stdout:
+        for line in run_res.stdout.splitlines():
             logger.info(line)
 
         logger.info("#" * 40)
         logger.info("Command STDERR was:")
-        for line in run_res.stderr:
+        for line in run_res.stderr.splitlines():
             logger.info(line)
 
         if run_res.returncode != 0:

@@ -3,7 +3,7 @@ FROM alpine:3.16.0 AS binaries
 ARG KUBECTL_VER="1.23.6"
 ARG DOCKER_VER="20.10.15"
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-ARG KIND_VER=v0.12.0
+ARG KIND_VER=v0.14.0
 ARG APPTESTCTL_VER="0.14.1"
 
 RUN apk add --no-cache ca-certificates curl \

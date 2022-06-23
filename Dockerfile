@@ -2,7 +2,8 @@ FROM alpine:3.16.0 AS binaries
 
 ARG KUBECTL_VER="1.23.6"
 ARG DOCKER_VER="20.10.15"
-ARG KIND_VER="0.12.0"
+# renovate: datasource=github-releases depName=kubernetes-sigs/kind
+ARG KIND_VER=v0.12.0
 ARG APPTESTCTL_VER="0.14.1"
 
 RUN apk add --no-cache ca-certificates curl \
@@ -12,7 +13,7 @@ RUN apk add --no-cache ca-certificates curl \
        tar -C /binaries --strip-components 1 -xvzf - apptestctl-v${APPTESTCTL_VER}-linux-amd64/apptestctl \
     && curl -SL https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VER}.tgz | \
        tar -C /binaries --strip-components 1 -xvzf - docker/docker \
-    && curl -SL https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VER}/kind-linux-amd64 -o /binaries/kind
+    && curl -SL https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VER}/kind-linux-amd64 -o /binaries/kind
 
 COPY container-entrypoint.sh /binaries
 

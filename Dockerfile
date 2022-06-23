@@ -1,4 +1,4 @@
-FROM alpine:3.15.4 AS binaries
+FROM alpine:3.16.0 AS binaries
 
 ARG KUBECTL_VER="1.23.6"
 ARG DOCKER_VER="20.10.15"
@@ -70,6 +70,8 @@ COPY --from=binaries /binaries/* /usr/local/bin/
 COPY app_test_suite/ ${ATS_DIR}/app_test_suite/
 
 WORKDIR $ATS_DIR/workdir
+
+RUN mkdir -p ${ATS_DIR}/.cache/go-build
 
 # we assume the user will be using UID==1000 and GID=1000; if that's not true, we'll run `chown`
 # in the container's startup script

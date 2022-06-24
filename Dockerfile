@@ -1,7 +1,7 @@
 FROM alpine:3.16.0 AS binaries
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBECTL_VER=v1.23.6
+ARG KUBECTL_VER=v1.24.2
 # renovate: datasource=github-releases depName=docker/docker-ce versioning=docker
 ARG DOCKER_VER=v20.10.15
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind

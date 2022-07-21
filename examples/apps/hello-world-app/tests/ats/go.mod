@@ -1,6 +1,6 @@
 module github.com/giantswarm/app-test-suite
 
-go 1.16
+go 1.18
 
 require (
 	github.com/giantswarm/backoff v1.0.0

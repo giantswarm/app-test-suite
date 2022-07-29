@@ -5,6 +5,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.5] - 2022-07-29
+
 - Added
   - Add `--app-tests-skip-app-delete` flag to allow skipping App CR and ConfigMap deletion after tests.
 

@@ -158,6 +158,27 @@ class TestExecutor(ABC):
         """Execute test using a specific test executor and information provided as exec_info."""
         raise NotImplementedError()
 
+    def get_test_info_env_variables(self, exec_info: TestExecInfo, append_to_sys_env: bool = True) -> Dict[str, str]:
+        env_vars = {
+            "ATS_CHART_PATH": exec_info.chart_path,
+            "ATS_CHART_VERSION": exec_info.chart_ver,
+            "ATS_CLUSTER_TYPE": exec_info.cluster_type,
+            "ATS_CLUSTER_VERSION": exec_info.cluster_version,
+            "ATS_KUBE_CONFIG_PATH": exec_info.kube_config_path,
+            "ATS_TEST_TYPE": exec_info.test_type,
+            "ATS_TEST_DIR": self._test_dir,
+        }
+        if append_to_sys_env:
+            env_vars.update(os.environ)
+
+        if exec_info.app_config_file_path is not None:
+            env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
+
+        if exec_info.test_extra_info:
+            env_vars.update({"ATS_" + k.upper(): v for k, v in exec_info.test_extra_info.items()})
+
+        return env_vars
+
 
 class TestInfoProvider(BuildStep):
     """

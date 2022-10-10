@@ -195,7 +195,7 @@ def test_upgrade_pytest_runner_run(
         MOCK_KUBE_CONFIG_PATH,
         MOCK_UPGRADE_CHART_FILE_URL,
         MOCK_UPGRADE_APP_VERSION,
-        "ats_upgrade_test_stage=pre_upgrade",
+        "ats_extra_upgrade_test_stage=pre_upgrade",
     )
     assert_upgrade_tester_exec_hook(
         KEY_PRE_UPGRADE,
@@ -219,7 +219,7 @@ def test_upgrade_pytest_runner_run(
         MOCK_KUBE_CONFIG_PATH,
         MOCK_CHART_FILE_NAME,
         MOCK_CHART_VERSION,
-        "ats_upgrade_test_stage=post_upgrade",
+        "ats_extra_upgrade_test_stage=post_upgrade",
     )
     mock_requests_get_chart.assert_called_once_with(MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True)
     assert_upgrade_tester_deletes_app(configured_app_mock)

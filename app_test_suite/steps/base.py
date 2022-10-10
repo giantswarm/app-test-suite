@@ -164,18 +164,19 @@ class TestExecutor(ABC):
             "ATS_CHART_VERSION": exec_info.chart_ver,
             "ATS_CLUSTER_TYPE": exec_info.cluster_type,
             "ATS_CLUSTER_VERSION": exec_info.cluster_version,
-            "ATS_KUBE_CONFIG_PATH": exec_info.kube_config_path,
             "ATS_TEST_TYPE": exec_info.test_type,
             "ATS_TEST_DIR": self._test_dir,
         }
         if append_to_sys_env:
             env_vars.update(os.environ)
 
+        env_vars["KUBECONFIG"] = (exec_info.kube_config_path,)
+
         if exec_info.app_config_file_path is not None:
             env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
 
         if exec_info.test_extra_info:
-            env_vars.update({"ATS_" + k.upper(): v for k, v in exec_info.test_extra_info.items()})
+            env_vars.update({"ATS_EXTRA_" + k.upper(): v for k, v in exec_info.test_extra_info.items()})
 
         return env_vars
 

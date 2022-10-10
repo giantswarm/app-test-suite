@@ -22,12 +22,12 @@ def assert_run_gotest(
         "ATS_CLUSTER_VERSION": MOCK_KUBE_VERSION,
         "ATS_TEST_TYPE": test_provided,
         "ATS_TEST_DIR": "",
-        "CGO_ENABLED": "0"
+        "CGO_ENABLED": "0",
     }
-    
+
     # Because `append_to_sys_env` parameter is enabled by default
     env_vars.update(os.environ)
-    
+
     if test_extra_info:
         env_vars.update({k.upper(): v for k, v in [p.split("=") for p in test_extra_info.split(",")]})
 

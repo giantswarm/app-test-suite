@@ -5,6 +5,11 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.6] - 2022-10-10
+
+- Changed
+  - Bump `pytest-helm-charts` to `1.0.1`
+
 ## [0.2.5] - 2022-07-29
 
 - Added
@@ -103,7 +108,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added
   - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/giantswarm/app-test-suite/compare/v0.2.4...v0.2.6
 [0.2.4]: https://github.com/giantswarm/app-test-suite/compare/v0.2.0...v0.2.4
 [0.2.0]: https://github.com/giantswarm/app-test-suite/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/giantswarm/app-test-suite/compare/v0.1.3...v0.1.4

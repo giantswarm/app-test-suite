@@ -7,6 +7,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.6] - 2022-10-10
 
+- Changed
+  - Bump `pytest-helm-charts` to `1.0.1`
+
 ## [0.2.5] - 2022-07-29
 
 - Added

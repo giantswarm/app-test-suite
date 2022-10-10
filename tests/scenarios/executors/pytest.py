@@ -35,9 +35,10 @@ def assert_run_pytest(
         "info",
         f"--junitxml=test_results_{test_provided}.xml",
     ]
+    
     if test_extra_info:
-        expected_args.append("--test-extra-info")
-        expected_args.append(test_extra_info)
+        env_vars.update({k.upper(): v for k, v in [p.split("=") for p in test_extra_info.split(",")]})
+
     cast(unittest.mock.Mock, app_test_suite.steps.executors.pytest.run_and_log).assert_any_call(
         expected_args, cwd="", env_vars
         =env_vars

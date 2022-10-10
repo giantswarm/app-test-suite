@@ -170,7 +170,7 @@ class TestExecutor(ABC):
         if append_to_sys_env:
             env_vars.update(os.environ)
 
-        env_vars["KUBECONFIG"] = (exec_info.kube_config_path,)
+        env_vars["KUBECONFIG"] = exec_info.kube_config_path
 
         if exec_info.app_config_file_path is not None:
             env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path

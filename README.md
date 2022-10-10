@@ -138,11 +138,38 @@ the following commands are executed underneath:
 # here start smoke tests
 apptestctl bootstrap --kubeconfig-path=kube.config --wait
 pipenv install --deploy
-pipenv run pytest -m smoke --cluster-type kind --kube-config /ats/workdir/kube.config --chart-path hello-world-app-0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db.tgz --chart-version 0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db --chart-extra-info external_cluster_version=1.19.0 --log-cli-level info --junitxml=test_results_smoke.xml
+(
+    # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803
+    KUBECONFIG="/ats/workdir/kube.config"
+
+    ATS_CLUSTER_TYPE="kind"
+    ATS_CLUSTER_VERSION="1.19.0"
+
+    ATS_TEST_TYPE="smoke"
+
+    ATS_CHART_PATH="hello-world-app-0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db.tgz"
+    ATS_CHART_VERSION="0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db"
+
+    pipenv run pytest --log-cli-level info --junitxml=test_results_smoke.xml
+)
+
 # and here start functional tests
 apptestctl bootstrap --kubeconfig-path=kube.config --wait
 pipenv install --deploy
-pipenv run pytest -m functional --cluster-type kind --kube-config /ats/workdir/test1.kube.config --chart-path hello-world-app-0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db.tgz --chart-version 0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db --chart-extra-info external_cluster_version=1.19.0 --log-cli-level info --junitxml=test_results_functional.xml
+
+    # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803
+    KUBECONFIG="/ats/workdir/kube.config"
+
+    ATS_CLUSTER_TYPE="kind"
+    ATS_CLUSTER_VERSION="1.19.0"
+
+    ATS_TEST_TYPE="functional"
+
+    ATS_CHART_PATH="hello-world-app-0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db.tgz"
+    ATS_CHART_VERSION="0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db"
+
+    pipenv run pytest --log-cli-level info --junitxml=test_results_functional.xml
+)
 ```
 
 ### Full usage help
@@ -187,7 +214,7 @@ When you run `dats.sh -h` it shows you command line options and the relevant env
 config file are the same as for command line, just with truncated leading `--`. You can check
 [this example](examples/apps/hello-world-app/.ats/main.yaml).
 
-The configuration is made this way so you can put your defaults into the config file, yet override them with env
+The configuration is made this way, so you can put your defaults into the config file, yet override them with env
 variables or command line when needed. This way you can easily override configs for stuff like CI/CD builds.
 
 ## Execution steps details and configuration

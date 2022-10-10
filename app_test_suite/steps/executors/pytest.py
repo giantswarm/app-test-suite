@@ -85,7 +85,7 @@ class PytestExecutor(TestExecutor):
             f"--junitxml=test_results_{exec_info.test_type}.xml",
         ]
         logger.info(f"Running {self._PYTEST_BIN} tool in '{self._test_dir}' directory.")
-        run_res = run_and_log(args, cwd=self._test_dir, env_vars=env_vars)  # nosec, no user input here
+        run_res = run_and_log(args, cwd=self._test_dir, env=env_vars)  # nosec, no user input here
         # exit code 5 from pytest means that no tests matched the selector - it's not an error for us
         if run_res.returncode not in [0, 5]:
             raise ATSTestError(f"Pytest tests failed: running '{args}' in directory '{self._test_dir}' failed.")

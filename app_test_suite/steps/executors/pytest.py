@@ -80,6 +80,8 @@ class PytestExecutor(TestExecutor):
             self._PIPENV_BIN,
             "run",
             self._PYTEST_BIN,
+            "-m",
+            exec_info.test_type,
             "--log-cli-level",
             "debug" if exec_info.debug else "info",
             f"--junitxml=test_results_{exec_info.test_type}.xml",

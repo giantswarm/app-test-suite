@@ -59,26 +59,13 @@ class GotestExecutor(TestExecutor):
         return
 
     def execute_test(self, exec_info: TestExecInfo) -> None:
-        env_vars = {
-            "ATS_CHART_PATH": exec_info.chart_path,
-            "ATS_CHART_VERSION": exec_info.chart_ver,
-            "ATS_CLUSTER_TYPE": exec_info.cluster_type,
-            "ATS_CLUSTER_VERSION": exec_info.cluster_version,
-            "ATS_KUBE_CONFIG_PATH": exec_info.kube_config_path,
-            "ATS_TEST_TYPE": exec_info.test_type,
-            "ATS_TEST_DIR": self._test_dir,
-            # Set env vars needed by Go.
-            "CGO_ENABLED": "0",
-            "GOPATH": os.getenv("GOPATH", ""),
-            "HOME": os.getenv("HOME", ""),
-            "PATH": os.getenv("PATH", ""),
-        }
-
-        if exec_info.test_extra_info:
-            env_vars.update({"ATS_" + k.upper(): v for k, v in exec_info.test_extra_info.items()})
-
-        if exec_info.app_config_file_path is not None:
-            env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
+        env_vars = self.get_test_info_env_variables(exec_info)
+        env_vars.update(
+            {
+                # Set env vars needed by Go.
+                "CGO_ENABLED": "0",
+            }
+        )
 
         args = [
             self._GOTEST_BIN,

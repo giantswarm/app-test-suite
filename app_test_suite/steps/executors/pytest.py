@@ -75,32 +75,17 @@ class PytestExecutor(TestExecutor):
         run_and_log([self._PIPENV_BIN, "--venv"], cwd=self._test_dir)  # nosec, no user input here
 
     def execute_test(self, exec_info: TestExecInfo) -> None:
+        env_vars = self.get_test_info_env_variables(exec_info)
         args = [
             self._PIPENV_BIN,
             "run",
             self._PYTEST_BIN,
-            "-m",
-            exec_info.test_type,
-            "--cluster-type",
-            exec_info.cluster_type,
-            "--kube-config",
-            exec_info.kube_config_path,
-            "--chart-path",
-            exec_info.chart_path,
-            "--chart-version",
-            exec_info.chart_ver,
-            "--chart-extra-info",
-            f"external_cluster_version={exec_info.cluster_version}",
             "--log-cli-level",
             "debug" if exec_info.debug else "info",
             f"--junitxml=test_results_{exec_info.test_type}.xml",
         ]
-        if exec_info.app_config_file_path:
-            args += ["--values-file", exec_info.app_config_file_path]
-        if exec_info.test_extra_info:
-            args += ["--test-extra-info", ",".join([f"ats_{k}={v}" for k, v in exec_info.test_extra_info.items()])]
         logger.info(f"Running {self._PYTEST_BIN} tool in '{self._test_dir}' directory.")
-        run_res = run_and_log(args, cwd=self._test_dir)  # nosec, no user input here
+        run_res = run_and_log(args, cwd=self._test_dir, env=env_vars)  # nosec, no user input here
         # exit code 5 from pytest means that no tests matched the selector - it's not an error for us
         if run_res.returncode not in [0, 5]:
             raise ATSTestError(f"Pytest tests failed: running '{args}' in directory '{self._test_dir}' failed.")

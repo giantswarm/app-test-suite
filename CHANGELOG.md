@@ -5,6 +5,11 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.7] - 2022-10-19
+
+- Changed
+  - Bump `pytest-helm-charts` to `1.0.2` to fix `KUBECONFIG` path passing to `pytest-helm-charts`
+
 ## [0.2.6] - 2022-10-10
 
 - Changed

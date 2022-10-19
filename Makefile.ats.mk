@@ -19,7 +19,8 @@ __check_defined = \
 
 all: docker-build
 
-release: release_ver_to_code docker-build-image
+release: release_ver_to_code docker-test docker-build-image
+	echo "build_ver = \"${TAG}\"" > app_test_suite/version.py
 	git commit -am "Release ${TAG}"
 	git tag ${TAG}
 #	mv dats.sh.back dats.sh

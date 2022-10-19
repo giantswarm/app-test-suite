@@ -31,6 +31,8 @@ def assert_run_pytest(
         "pipenv",
         "run",
         "pytest",
+        "-m",
+        test_provided,
         "--log-cli-level",
         "info",
         f"--junitxml=test_results_{test_provided}.xml",

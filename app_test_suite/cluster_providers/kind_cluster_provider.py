@@ -68,7 +68,7 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
             "--name",
             cluster_name,
             "--image",
-            config.kindest_node_version,
+            config.kind_cluster_image,
             "--kubeconfig",
             kube_config_path,
         ]

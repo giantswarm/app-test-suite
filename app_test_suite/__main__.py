@@ -80,9 +80,9 @@ def configure_global_options(config_parser: configargparse.ArgParser) -> None:
         default=[],
     )
     config_parser.add_argument(
-        "--kindest-node-version",
+        "--kind-cluster-image",
         required=False,
-        default="v1.24.6",
+        default="kindest/node:v1.24.6",
         help="The kindest/node docker image to use for booting a kind cluster",
     )
 

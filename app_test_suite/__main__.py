@@ -83,7 +83,7 @@ def configure_global_options(config_parser: configargparse.ArgParser) -> None:
         "--kind-cluster-image",
         required=False,
         default="kindest/node:v1.24.6",
-        help="The kindest/node docker image to use for booting a kind cluster",
+        help="The container image to use for booting a kind cluster",
     )
 
 

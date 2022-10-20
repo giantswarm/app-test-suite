@@ -5,6 +5,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.9] - 2022-10-20
+
 - Added
   - Add `--kind-cluster-image` flag to configure the image used to create kind clusters, defaults to `kindest/node:v1.24.6` because that is the last version that supports PSPs that we still use in some places
 
@@ -116,7 +118,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added
   - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.2.6...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.2.9...HEAD
+[0.2.9]: https://github.com/giantswarm/app-test-suite/compare/v0.2.6...v0.2.9
 [0.2.6]: https://github.com/giantswarm/app-test-suite/compare/v0.2.4...v0.2.6
 [0.2.4]: https://github.com/giantswarm/app-test-suite/compare/v0.2.0...v0.2.4
 [0.2.0]: https://github.com/giantswarm/app-test-suite/compare/v0.1.4...v0.2.0

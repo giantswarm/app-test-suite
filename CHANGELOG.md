@@ -5,6 +5,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Added
+  - Add `--kind-cluster-image` flag to configure the image used to create kind clusters, defaults to `kindest/node:v1.24.6` because that is the last version that supports PSPs that we still use in some places
+
 ## [0.2.7] - 2022-10-19
 
 - Changed

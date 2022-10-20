@@ -62,10 +62,15 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
         cluster_name = str(uuid.uuid4())
         kube_config_path = self.__get_kube_config_from_name(cluster_name)
         kind_args = [
-            self._kind_bin, "create", "cluster",
-            "--name", cluster_name,
-            "--image", config.kindest_node_version,
-            "--kubeconfig", kube_config_path
+            self._kind_bin,
+            "create",
+            "cluster",
+            "--name",
+            cluster_name,
+            "--image",
+            config.kindest_node_version,
+            "--kubeconfig",
+            kube_config_path,
         ]
         logger.info(f"Creating KinD cluster with ID '{cluster_name}'...")
         config_file = ""

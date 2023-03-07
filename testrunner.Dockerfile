@@ -23,6 +23,6 @@ COPY tests/ tests/
 COPY examples/ examples/
 COPY .git/ ./.git/
 RUN PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy --clear --dev
-RUN pipenv run pre-commit install-hooks
+RUN pipenv run pre-commit run -a
 ENTRYPOINT ["./run-tests-in-docker.sh"]
 CMD ["--cov", "app_test_suite", "--log-cli-level", "info", "tests/"]

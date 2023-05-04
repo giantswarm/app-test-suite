@@ -7,7 +7,7 @@ ARG DOCKER_VER=v23.0.1
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
 ARG KIND_VER=v0.17.0
 # renovate: datasource=github-releases depName=giantswarm/apptestctl
-ARG APPTESTCTL_VER=v0.14.5
+ARG APPTESTCTL_VER=v0.15.0
 
 RUN apk add --no-cache ca-certificates curl \
     && mkdir -p /binaries \

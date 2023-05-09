@@ -24,7 +24,6 @@ MOCK_STABLE_APP_CATALOG_NAMESPACE = "default"
 MOCK_KUBE_CONFIG_PATH = "/nonexisting-flsdhge235/kube.config"
 MOCK_KUBE_VERSION = "1.19.1"
 MOCK_APP_NAME = "mock_app"
-MOCK_APP_NAMESPACE = "default"
 MOCK_APP_NS = "mock_ns"
 MOCK_APP_DEPLOY_NS = "mock_deploy_ns"
 MOCK_APP_VERSION = "0.1.2"
@@ -60,11 +59,11 @@ def assert_deploy_and_wait_for_app_cr(
     app_name: str, app_version: str, app_deploy_ns: str, catalog_name: str, catalog_namespace: str
 ) -> None:
     cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.create_app).assert_called_once_with(
-        unittest.mock.ANY, app_name, app_version, catalog_name, catalog_namespace, "default", app_deploy_ns, None
+        unittest.mock.ANY, app_name, app_version, catalog_name, catalog_namespace, app_deploy_ns, app_deploy_ns, None
     )
     # noinspection PyProtectedMember
     cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.wait_for_apps_to_run).assert_called_once_with(
-        unittest.mock.ANY, [app_name], "default", SimpleTestScenario._APP_DEPLOYMENT_TIMEOUT_SEC
+        unittest.mock.ANY, [app_name], app_deploy_ns, SimpleTestScenario._APP_DEPLOYMENT_TIMEOUT_SEC
     )
 
 

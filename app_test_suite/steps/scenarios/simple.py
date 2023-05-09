@@ -68,7 +68,6 @@ class SimpleTestScenario(BuildStep, ABC):
         self._configured_cluster_config_file = ""
         self._kube_client: Optional[HTTPClient] = None
         self._cluster_info: Optional[ClusterInfo] = None
-        self._default_app_cr_namespace = "default"
         self._skip_app_deploy = False
         self._test_executor = test_executor
 
@@ -270,21 +269,19 @@ class SimpleTestScenario(BuildStep, ABC):
             with open(app_config_file_path) as f:
                 config_values_raw = f.read()
                 config_values = yaml.safe_load(config_values_raw)
-        logger.info(f"Deploying App CR '{app_name}' into '{self._default_app_cr_namespace}' namespace.")
+        logger.info(f"Deploying App CR '{app_name}' into '{deploy_namespace}' namespace.")
         app_obj = create_app(
             self._kube_client,
             app_name,
             app_version,
             app_catalog_name,
             app_catalog_namespace,
-            self._default_app_cr_namespace,
+            deploy_namespace,
             deploy_namespace,
             config_values,
         )
         logger.debug(f"Waiting for app '{app_name}' to run...")
-        wait_for_apps_to_run(
-            self._kube_client, [app_name], self._default_app_cr_namespace, self._APP_DEPLOYMENT_TIMEOUT_SEC
-        )
+        wait_for_apps_to_run(self._kube_client, [app_name], deploy_namespace, self._APP_DEPLOYMENT_TIMEOUT_SEC)
         return app_obj
 
     def _upload_chart_to_app_catalog(self, config: argparse.Namespace, chart_file_path: str) -> None:

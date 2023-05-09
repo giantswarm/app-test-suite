@@ -52,7 +52,6 @@ from tests.helpers import (
     MOCK_APP_VERSION,
     patch_requests_get_chart,
     assert_upgrade_metadata_created,
-    MOCK_APP_NAMESPACE,
     MOCK_STABLE_APP_CATALOG_NAMESPACE,
 )
 from tests.scenarios.executors.gotest import assert_run_gotest, patch_gotest_test_runner
@@ -236,8 +235,8 @@ def test_upgrade_app_cr_no_configs(mocker: MockerFixture) -> None:
         MOCK_APP_VERSION,
         STABLE_APP_CATALOG_NAME,
         MOCK_STABLE_APP_CATALOG_NAMESPACE,
-        MOCK_APP_NAMESPACE,
-        MOCK_APP_NAMESPACE,
+        MOCK_APP_DEPLOY_NS,
+        MOCK_APP_DEPLOY_NS,
     )
     mocker.patch.object(configured_app.app, "reload")
     mocker.patch.object(configured_app.app, "update")
@@ -287,8 +286,8 @@ def test_upgrade_app_cr_stable_has_config(
         MOCK_APP_VERSION,
         STABLE_APP_CATALOG_NAME,
         MOCK_STABLE_APP_CATALOG_NAMESPACE,
-        MOCK_APP_NAMESPACE,
-        MOCK_APP_NAMESPACE,
+        MOCK_APP_DEPLOY_NS,
+        MOCK_APP_DEPLOY_NS,
         config_values=stable_config,
     )
     mocker.patch.object(configured_app.app, "reload")

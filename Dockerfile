@@ -71,6 +71,9 @@ COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv
 
 COPY --from=binaries /binaries/* /usr/local/bin/
 
+# remove once apptestctl has a proper release
+COPY --from=quay.io/giantswarm/apptestctl:0.15.0-0e74316f8d8af46a2e13ea012aa63ae4701ff93c /usr/local/bin/apptestctl /usr/local/bin/apptestctl
+
 COPY app_test_suite/ ${ATS_DIR}/app_test_suite/
 
 WORKDIR $ATS_DIR/workdir

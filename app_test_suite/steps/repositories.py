@@ -17,7 +17,7 @@ class AppRepository(ABC):
 
 
 class ChartMuseumAppRepository(AppRepository):
-    _CM_SERVICE_NAME = "chartmuseum-chartmuseum"
+    _CM_SERVICE_NAME = "chartmuseum"
     _CM_SERVICE_NAMESPACE = "giantswarm"
 
     def __init__(self, kube_client: HTTPClient):

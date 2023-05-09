@@ -76,7 +76,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         stable_chart_file = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_FILE)
         if catalog_url:
             url_validation_res = validator_url(catalog_url)
-            # FIXME: doesn't correctly validate 'http://chartmuseum-chartmuseum:8080/charts/' - needs at least 1 dot in
+            # FIXME: doesn't correctly validate 'http://chartmuseum:8080/charts/' - needs at least 1 dot in
             #  the domain name
             if url_validation_res is not True:
                 raise ConfigError(KEY_CFG_STABLE_APP_URL, f"Wrong catalog URL: '{url_validation_res.args[1]['value']}'")

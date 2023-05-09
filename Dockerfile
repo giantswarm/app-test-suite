@@ -72,7 +72,7 @@ COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv
 COPY --from=binaries /binaries/* /usr/local/bin/
 
 # remove once apptestctl has a proper release
-COPY --from=quay.io/giantswarm/apptestctl:0.15.0-7f7a8bedbb80e525a4dcce272071630e8282bff5 /usr/local/bin/apptestctl /usr/local/bin/apptestctl
+COPY --from=quay.io/giantswarm/apptestctl:0.15.0-382857b156d2360fc6c89392aaabcb4715c68710 /usr/local/bin/apptestctl /usr/local/bin/apptestctl
 
 COPY app_test_suite/ ${ATS_DIR}/app_test_suite/
 

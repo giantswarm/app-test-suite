@@ -15,6 +15,7 @@ from pytest_helm_charts.giantswarm_app_platform.app import (
     delete_app,
     wait_for_app_to_be_deleted,
 )
+from pytest_helm_charts.k8s.namespace import ensure_namespace_exists
 from step_exec_lib.errors import ConfigError
 from step_exec_lib.steps import BuildStep
 from step_exec_lib.types import StepType, STEP_ALL, Context
@@ -269,6 +270,8 @@ class SimpleTestScenario(BuildStep, ABC):
             with open(app_config_file_path) as f:
                 config_values_raw = f.read()
                 config_values = yaml.safe_load(config_values_raw)
+        logger.info(f"Ensuring namespace '{deploy_namespace}'.")
+        ensure_namespace_exists(self._kube_client, deploy_namespace)
         logger.info(f"Deploying App CR '{app_name}' into '{deploy_namespace}' namespace.")
         app_obj = create_app(
             self._kube_client,

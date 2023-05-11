@@ -5,6 +5,12 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Changed
+  - Update `apptestctl` to 0.16.0 for support of kubernetes 1.25
+  - Install the App CR into the target namespace. This is required because newer app-operators contain a security check to prevent installing outside of `giantswarm`, the org namespace or the same namespace as the App CR is located in. This security check is only present for App CRs that specify `inCluster: true`.
+  - Always ensure the App CR target namespace before creating the App CR
+  - Upgrade the python version in the container image to 3.9.16
+
 ## [0.2.9] - 2022-10-20
 
 - Added

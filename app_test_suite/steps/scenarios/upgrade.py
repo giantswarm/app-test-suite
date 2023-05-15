@@ -143,7 +143,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         chart_url = f"{catalog_url}/{app_name}-{stable_chart_ver}.tgz"
         with TemporaryDirectory("-ats-download") as d:
             try:
-                r = requests.get(chart_url, allow_redirects=True)
+                r = requests.get(chart_url, allow_redirects=True, timeout=10)
                 if not r.ok:
                     raise ATSTestError(
                         f"Error 'HTTP-{r.status_code}' when fetching remote chart '{chart_url}': {r.reason}"
@@ -323,7 +323,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         catalog_index_url = stable_app_catalog_url + "/index.yaml"
         logger.debug(f"Trying to download catalog index '{catalog_index_url}'.")
         try:
-            index_response = requests.get(catalog_index_url, headers={"User-agent": "Mozilla/5.0"})
+            index_response = requests.get(catalog_index_url, headers={"User-agent": "Mozilla/5.0"}, timeout=10)
             if not index_response.ok:
                 raise ATSTestError(
                     f"Couldn't get the 'index.yaml' fetched from '{catalog_index_url}'. "

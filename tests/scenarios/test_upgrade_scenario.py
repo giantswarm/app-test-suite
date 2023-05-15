@@ -142,7 +142,7 @@ def test_find_latest_version(
     else:
         assert ver == ver_found
     cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(
-        catalog_url + "/index.yaml", headers={"User-agent": "Mozilla/5.0"}
+        catalog_url + "/index.yaml", headers={"User-agent": "Mozilla/5.0"}, timeout=10
     )
 
 
@@ -220,7 +220,7 @@ def test_upgrade_pytest_runner_run(
         MOCK_CHART_VERSION,
         "ats_extra_upgrade_test_stage=post_upgrade",
     )
-    mock_requests_get_chart.assert_called_once_with(MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True)
+    mock_requests_get_chart.assert_called_once_with(MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True, timeout=10)
     assert_upgrade_tester_deletes_app(configured_app_mock)
     mock_stable_app_catalog_cr.delete.assert_called_once()
     assert_upgrade_metadata_created()

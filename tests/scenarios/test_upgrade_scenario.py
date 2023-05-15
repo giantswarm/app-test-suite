@@ -143,7 +143,7 @@ def test_find_latest_version(
     else:
         assert ver == ver_found
     cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(
-        catalog_url + "/index.yaml", headers={"User-agent": "Mozilla/5.0"}
+        catalog_url + "/index.yaml", headers={"User-agent": "Mozilla/5.0"}, timeout=10
     )
 
 

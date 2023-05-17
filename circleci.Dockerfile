@@ -1,4 +1,4 @@
-FROM quay.io/giantswarm/conftest:v0.41.0 AS conftest
+FROM quay.io/giantswarm/conftest:v0.42.1 AS conftest
 
 FROM changeme
 

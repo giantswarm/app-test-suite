@@ -5,6 +5,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Changed
+  - Update `apptestctl` to 0.17.0 for ServiceMonitor and PodMonitor CRD
+
 ## [0.3.0] - 2023-05-15
 
 - Changed

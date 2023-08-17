@@ -211,11 +211,11 @@
         },
         "pytest-helm-charts": {
             "hashes": [
-                "sha256:0ec8890234e5b5041d230e4b820f55b6e734e28f5e5439db6f830e1bf6b9a345",
-                "sha256:820bcad7cec9d42e92bd88ff19802326dd11b2de2c49017ea4bc509b7b318e81"
+                "sha256:3315679d0852f65e34ef8b39fcd65a14e9e83b9d65b4274a70efe4c06b57e715",
+                "sha256:f865e09468f0c7f3308e2b88ed713c92d5707231572553ad1bd5cffe5f851655"
             ],
             "index": "pypi",
-            "version": "==1.0.3"
+            "version": "==1.1.1"
         },
         "pyyaml": {
             "hashes": [
@@ -628,11 +628,11 @@
         },
         "setuptools": {
             "hashes": [
-                "sha256:15136a251127da2d2e77ac7a1bc231eb504654f7e3346d93613a13f2e2787535",
-                "sha256:1c39d42bda4cb89f7fdcad52b6762e3c309ec8f8715b27c684176b7d71283242"
+                "sha256:2ee892cd5f29f3373097f5a814697e397cf3ce313616df0af11231e2ad118077",
+                "sha256:b78aaa36f6b90a074c1fa651168723acbf45d14cb1196b6f02c0fd07f17623b2"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==67.5.1"
+            "version": "==67.6.0"
         },
         "tomli": {
             "hashes": [

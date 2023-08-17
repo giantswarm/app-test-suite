@@ -138,7 +138,7 @@ def test_find_latest_version(
         caught_error = e
 
     if error_type:
-        assert type(caught_error) == error_type
+        assert type(caught_error) is error_type
     else:
         assert ver == ver_found
     cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(

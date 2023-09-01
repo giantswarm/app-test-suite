@@ -7,7 +7,7 @@ ARG DOCKER_VER=v24.0.5
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
 ARG KIND_VER=v0.17.0
 # renovate: datasource=github-releases depName=giantswarm/apptestctl
-ARG APPTESTCTL_VER=v0.17.0-972c60acb3840ccb876e5b26a7b900e98afa766a
+ARG APPTESTCTL_VER=v0.17.0
 
 RUN apk add --no-cache ca-certificates curl \
     && mkdir -p /binaries \
@@ -70,6 +70,9 @@ RUN curl -SL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | \
 COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv
 
 COPY --from=binaries /binaries/* /usr/local/bin/
+
+# Remove after releasing apptestctl
+COPY --from=quay.io/giantswarm/apptestctl:0.17.0-972c60acb3840ccb876e5b26a7b900e98afa766a /usr/local/bin/apptestctl /usr/local/bin/apptestctl
 
 COPY app_test_suite/ ${ATS_DIR}/app_test_suite/
 

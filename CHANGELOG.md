@@ -5,6 +5,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Changed
+  - Update `apptestctl` to 0.18.0 for VerticalPodAutoscaler CRD
+
 ## [0.4.1] - 2023-06-12
 
 - No changes in this release. This release fixes missing version updates forgotten in 0.4.0

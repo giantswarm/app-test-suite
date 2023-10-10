@@ -7,6 +7,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.5.0] - 2023-10-10
 
+- Changed
+  - Update `apptestctl` to 0.18.0 for VPA and PolicyException CRDs.
+
 ## [0.4.1] - 2023-06-12
 
 - No changes in this release. This release fixes missing version updates forgotten in 0.4.0

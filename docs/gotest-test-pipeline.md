@@ -8,7 +8,7 @@ To make your tests automatically invocable from `ats`, you must adhere to the fo
 
 - you must put all the test code in `[CHART_TOP_DIR]/tests/ats/` directory,
 - you must set `--test-executor` to `gotest`,
-- in your test the kubeconfig path can be retrieved from the env var `ATS_KUBE_CONFIG_PATH`
+- in your test the kubeconfig path can be retrieved from the env var `KUBECONFIG`
 - tests must be tagged using Go build tags with one of the supported test types
 `smoke`, `functional` or `upgrade`.
 

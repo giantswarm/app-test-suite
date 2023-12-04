@@ -1,64 +1,61 @@
 version: 2.1
 
 orbs:
-    architect: giantswarm/architect@4.35.5
-    codecov: codecov/codecov@3.3.0
+  architect: giantswarm/architect@4.35.5
+  codecov: codecov/codecov@3.3.0
 
 workflows:
-    test:
-        jobs:
-            -   run-tests:
-                    name: run-tests
-                    filters:
+  test:
+    jobs:
+      - run-tests:
+          name: run-tests
+          filters:
                         # Needed to trigger job also on git tag.
-                        tags:
-                            only: /^v.*/
+            tags:
+              only: /^v.*/
 
-            -   architect/push-to-docker:
-                    name: push-app-test-suite-to-quay
-                    requires:
-                        - run-tests
-                    context: architect
-                    image: "quay.io/giantswarm/app-test-suite"
-                    username_envar: "QUAY_USERNAME"
-                    password_envar: "QUAY_PASSWORD"
-                    filters:
+      - architect/push-to-registries:
+          context: architect
+          name: push-to-registries
+          requires:
+            - run-tests
+          filters:
                         # Needed to trigger job also on git tag.
-                        tags:
-                            only: /^v.*/
+            tags:
+              only: /^v.*/
 
-            -   publish-github-release:
-                    name: publish-github-release-for-dats
-                    requires:
-                        - push-app-test-suite-to-quay
-                    filters:
-                        branches:
-                            ignore: /.*/
-                        tags:
-                            only: /^v.*/
+      - publish-github-release:
+          name: publish-github-release-for-dats
+          requires:
+            - push-to-registries
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
 
 
 jobs:
-    run-tests:
-        machine:
-            image: ubuntu-2004:202010-01
-        steps:
-            - checkout
+  run-tests:
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - checkout
 
-            -   run:
-                    name: Execute tests
-                    command: |
-                        make docker-test-ci
+      - run:
+          name: Execute tests
+          command: |
+            make docker-test-ci
 
-            -   codecov/upload:
-                    file: .coverage/coverage.xml
+      - codecov/upload:
+          file: .coverage/coverage.xml
 
-    publish-github-release:
-        docker:
-            -   image: cibuilds/github:0.10
-        steps:
-            - checkout
-            -   run:
-                    name: "Publish Release on GitHub"
-                    command: |
-                        ghr -t ${ARCHITECT_GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${CIRCLE_TAG} ./dats.sh
+  publish-github-release:
+    docker:
+      - image: cibuilds/github:0.10
+    steps:
+      - checkout
+      - run:
+          name: "Publish Release on GitHub"
+          command: |
+            ghr -t ${ARCHITECT_GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${CIRCLE_TAG} ./dats.sh

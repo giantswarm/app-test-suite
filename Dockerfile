@@ -23,7 +23,7 @@ COPY container-entrypoint.sh /binaries
 RUN chmod +x /binaries/*
 
 
-FROM python:3.9.16-slim AS base
+FROM python:3.12.2-slim AS base
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \

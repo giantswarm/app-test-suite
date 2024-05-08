@@ -5,6 +5,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.1] - 2024-05-08
+
 - Changed
   - Update `apptestctl` to 0.18.1 for PolicyException CRD promotion to v2beta1.
 
@@ -148,7 +150,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added
   - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/giantswarm/app-test-suite/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/giantswarm/app-test-suite/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/giantswarm/app-test-suite/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/giantswarm/app-test-suite/compare/v0.3.0...v0.4.0

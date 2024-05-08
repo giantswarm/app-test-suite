@@ -5,6 +5,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Changed
+  - Update `apptestctl` to 0.18.1 for PolicyException CRD promotion to v2beta1.
+
 ## [0.5.0] - 2023-10-10
 
 - Changed

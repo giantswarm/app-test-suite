@@ -51,7 +51,7 @@ RUN PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy --clear
 
 FROM base
 
-ARG GO_VERSION="1.18.2"
+ARG GO_VERSION="1.22.4"
 
 ENV USE_UID=0 \
     USE_GID=0 \

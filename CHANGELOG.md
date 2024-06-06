@@ -5,6 +5,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.1] - 2024-06-06
+
 ## [0.6.0] - 2024-05-15
 
 - Changed
@@ -155,7 +157,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added
   - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/giantswarm/app-test-suite/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/giantswarm/app-test-suite/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/giantswarm/app-test-suite/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/giantswarm/app-test-suite/compare/v0.4.1...v0.5.0

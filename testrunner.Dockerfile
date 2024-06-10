@@ -1,4 +1,4 @@
-FROM quay.io/giantswarm/app-test-suite:latest
+FROM gsoci.azurecr.io/giantswarm/app-test-suite:latest
 
 ARG ATS_DIR="/ats"
 

@@ -23,4 +23,4 @@ docker run -it --rm \
   -v "${HOME}/${VENVS_DIR}:${ATS_DIR}/${VENVS_DIR}" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --network host \
-  "quay.io/giantswarm/app-test-suite:${DATS_TAG}" "$@"
+  "gsoci.azurecr.io/giantswarm/app-test-suite:${DATS_TAG}" "$@"

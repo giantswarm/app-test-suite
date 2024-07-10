@@ -3,7 +3,7 @@ FROM alpine:3.20.1 AS binaries
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VER=v1.30.2
 # renovate: datasource=github-releases depName=moby/moby
-ARG DOCKER_VER=v27.0.2
+ARG DOCKER_VER=v27.0.3
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
 ARG KIND_VER=v0.23.0
 # renovate: datasource=github-releases depName=giantswarm/apptestctl

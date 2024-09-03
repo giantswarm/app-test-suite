@@ -5,6 +5,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2024-09-03
+
 - Changed
   - Update `apptestctl` to 0.20.0 to add Prometheuses and RemoteWrites CRDs.
 
@@ -162,7 +164,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added
   - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/giantswarm/app-test-suite/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/giantswarm/app-test-suite/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/giantswarm/app-test-suite/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/giantswarm/app-test-suite/compare/v0.5.0...v0.5.1

@@ -1,4 +1,4 @@
-FROM alpine:3.20.2 AS binaries
+FROM alpine:3.20.3 AS binaries
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VER=v1.31.0

@@ -5,6 +5,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Changed
+  - Update `apptestctl` to 0.21.0 to add PrometheusRules CRD.
+
 ## [0.7.0] - 2024-09-03
 
 - Changed

@@ -5,6 +5,16 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.1] - 2024-10-09
+
+- Changed
+  - chore(deps): update dependency architect to v5.9.0 (#372)
+  - chore(deps): update dependency codecov to v4.2.0 (#370)
+  - chore(deps): update dependency architect to v5.10.0 (#373)
+  - chore(deps): update dependency go to v1.23.2 (#371)
+  - chore(deps): update dependency moby/moby to v27.3.1 (#369)
+  - Dockerfile: Improve downloads. (#374)
+
 ## [0.8.0] - 2024-09-20
 
 - Changed
@@ -169,7 +179,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added
   - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/giantswarm/app-test-suite/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/giantswarm/app-test-suite/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/giantswarm/app-test-suite/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/giantswarm/app-test-suite/compare/v0.6.0...v0.6.1

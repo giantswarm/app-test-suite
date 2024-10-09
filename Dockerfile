@@ -11,12 +11,12 @@ ARG APPTESTCTL_VER=v0.21.0
 
 RUN apk add --no-cache ca-certificates curl \
     && mkdir -p /binaries \
-    && curl -SL https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VER}/bin/linux/amd64/kubectl -o /binaries/kubectl \
-    && curl -SL https://github.com/giantswarm/apptestctl/releases/download/${APPTESTCTL_VER}/apptestctl-${APPTESTCTL_VER}-linux-amd64.tar.gz | \
-       tar -C /binaries --strip-components 1 -xvzf - apptestctl-${APPTESTCTL_VER}-linux-amd64/apptestctl \
-    && curl -SL https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VER##v}.tgz | \
-       tar -C /binaries --strip-components 1 -xvzf - docker/docker \
-    && curl -SL https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VER}/kind-linux-amd64 -o /binaries/kind
+    && curl --silent --show-error --fail --location https://dl.k8s.io/release/${KUBECTL_VER}/bin/linux/amd64/kubectl --output /binaries/kubectl \
+    && curl --silent --show-error --fail --location https://github.com/giantswarm/apptestctl/releases/download/${APPTESTCTL_VER}/apptestctl-${APPTESTCTL_VER}-linux-amd64.tar.gz | \
+       tar --extract --gzip --directory /binaries --strip-components 1 apptestctl-${APPTESTCTL_VER}-linux-amd64/apptestctl \
+    && curl --silent --show-error --fail --location https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VER##v}.tgz | \
+       tar --extract --gzip --directory /binaries --strip-components 1 docker/docker \
+    && curl --silent --show-error --fail --location https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VER}/kind-linux-amd64 --output /binaries/kind
 
 COPY container-entrypoint.sh /binaries
 

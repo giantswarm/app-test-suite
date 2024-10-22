@@ -16,4 +16,4 @@ step-exec-lib = ">=0.1.5"
 semver = "*"
 
 [requires]
-python_version = "3.9"
+python_version = "3.12"

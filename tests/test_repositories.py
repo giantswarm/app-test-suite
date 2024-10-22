@@ -24,7 +24,7 @@ class TestChartMuseumRepository:
         mocker.patch("builtins.open", mocker.mock_open(read_data="test"))
         cmr.upload_artifact(config, "")
 
-        app_test_suite.steps.repositories.Service.objects.called_once_with(mock_client)
+        app_test_suite.steps.repositories.Service.objects.assert_called_once_with(mock_client)
         filter_mock.filter.assert_called_once_with(namespace="giantswarm")
         get_or_none_mock.get_or_none.assert_called_once_with(name="chartmuseum")
         cm_srv_mock.proxy_http_post.assert_called_once_with("/api/charts/", data="test")

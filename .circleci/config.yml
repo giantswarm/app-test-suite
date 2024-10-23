@@ -1,8 +1,8 @@
 version: 2.1
 
 orbs:
-  architect: giantswarm/architect@5.10.1
-  codecov: codecov/codecov@4.2.0
+    architect: giantswarm/architect@5.10.1
+    codecov: codecov/codecov@5.0.0
 
 workflows:
     test:
@@ -46,8 +46,7 @@ jobs:
                   command: |
                       make docker-test-ci
 
-            - codecov/upload:
-                  file: .coverage/coverage.xml
+            - codecov/upload
 
     publish-github-release:
         docker:

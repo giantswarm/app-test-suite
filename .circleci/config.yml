@@ -46,7 +46,7 @@ jobs:
                   command: |
                       make docker-test-ci
 
-            - codecov/upload:
+            - codecov/upload
 
     publish-github-release:
         docker:

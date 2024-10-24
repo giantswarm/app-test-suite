@@ -7,6 +7,7 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Changed
   - update python to 3.12
+  - update apptestctl to v0.22.0 to add Kyverno ClusterPolicy CRD.
 
 ## [0.8.1] - 2024-10-09
 

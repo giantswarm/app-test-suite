@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="app_test_suite",
-    version="0.5.0",
+    version="0.9.1",
     author="Łukasz Piątkowski",
     author_email="lukasz@giantswarm.io",
     description="An app testing suite for GiantSwarm app platform",
@@ -15,10 +15,10 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     keywords=["helm chart", "testing"],
     classifiers=[
-        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.12",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Development Status :: 4 - Beta",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.12",
 )

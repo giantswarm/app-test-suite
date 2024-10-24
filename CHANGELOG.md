@@ -5,6 +5,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.0] - 2024-10-24
+
 - Changed
   - update python to 3.12
   - update apptestctl to v0.22.0 to add Kyverno ClusterPolicy CRD.
@@ -187,7 +189,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added
   - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/giantswarm/app-test-suite/compare/v0.8.1...v0.10.0
 [0.8.1]: https://github.com/giantswarm/app-test-suite/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/giantswarm/app-test-suite/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/giantswarm/app-test-suite/compare/v0.6.1...v0.7.0

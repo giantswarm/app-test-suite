@@ -5,6 +5,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Changed
+  - update python to 3.12
+
 ## [0.8.1] - 2024-10-09
 
 - Changed
@@ -59,9 +62,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Changed
   - Update `apptestctl` to 0.16.0 for support of kubernetes 1.25
   - Install the App CR into the target namespace. This is required because newer app-operators
-    contain a security check to prevent installing outside of `giantswarm`, the org namespace
-    or the same namespace as the App CR is located in. This security check is only present for
-    App CRs that specify `inCluster: true`.
+        contain a security check to prevent installing outside of `giantswarm`, the org namespace
+        or the same namespace as the App CR is located in. This security check is only present for
+        App CRs that specify `inCluster: true`.
   - Always ensure the App CR target namespace before creating the App CR
   - Upgrade the python version in the container image to 3.9.16
 
@@ -69,7 +72,7 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Added
   - Add `--kind-cluster-image` flag to configure the image used to create kind clusters, defaults
-  to `kindest/node:v1.24.6` because that is the last version that supports PSPs that we still use in some places
+        to `kindest/node:v1.24.6` because that is the last version that supports PSPs that we still use in some places
 
 ## [0.2.7] - 2022-10-19
 
@@ -95,7 +98,7 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Added
   - Add `--kind-cluster-image-override` flag make it possible to augment an existing kind config
-    file to override the used kind node container image.
+        file to override the used kind node container image.
 - Changed
   - dependency updates in the Dockerfile
     - apptestctl v0.14.1
@@ -109,7 +112,7 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Added
   - Test executors can now get extra info about the test run. Currently, used to provide info about
-    upgrade test execution stage.
+        upgrade test execution stage.
 
 ## [0.2.2] - 2021-11-17
 
@@ -120,29 +123,32 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.2.1] - 2021-10-28
 
 - Changed
+
   - App Platform is now initialized only once per cluster
   - test scenarios use now Catalog CR instead of deprecated AppCatalog CR
 
 - Fixed
   - correctly handle upgrade test scenarios where only 1 out of (stable, under-test) app versions was
-    using a config file
+        using a config file
   - upgrade `step-exec-lib` to 0.1.5 to fix go test handling
 
 ## [0.2.0] - 2021-10-21
 
 - Added
+
   - New test type - upgrade test
   - New test executor - go test
   - Upgrade tests can now save YAML metadata file for the Giant Swarm App Platform (off by default)
 
 - Changed
+
   - Changed interface for the `AppRepository` class
   - Update apptestctl to v0.12.0.
   - Update step-exec-lib to v0.1.4
   - Update python to 3.9
     - Please note: this includes update of the python packed inside the docker image. If you use
-      `dats.sh` to run your tests, your projects must require and run on python 3.9 as well.
-      Check and update your `Pipfile`!
+            `dats.sh` to run your tests, your projects must require and run on python 3.9 as well.
+            Check and update your `Pipfile`!
   - Updated binaries used in the `dats.sh` docker image
     - kind to 0.11.1
     - docker to 20.10.9
@@ -150,8 +156,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Fixed
   - [pytest executor] If no tests match the scenario running, `ats` was returning non-successful
-    exit code itself. This is now fixed and such case (no tests matching a scenario) is considered
-    a success and 0 is returned as exit code.
+        exit code itself. This is now fixed and such case (no tests matching a scenario) is considered
+        a success and 0 is returned as exit code.
 
 ## [0.1.4] - 2021-09-17
 
@@ -169,6 +175,7 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.1.2] - 2021-08-18
 
 - Added
+
   - new test type - upgrade test
 
 - Changed

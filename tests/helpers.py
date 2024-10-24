@@ -81,7 +81,7 @@ def assert_app_platform_ready(kube_config_path: str) -> None:
 
 def assert_cluster_connection_created(kube_config_path: str) -> None:
     cast(unittest.mock.Mock, pykube.KubeConfig.from_file).assert_called_once_with(kube_config_path)
-    cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.HTTPClient).called_once()
+    cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.HTTPClient).assert_called_once()
 
 
 def get_base_config(mocker: MockerFixture) -> Namespace:

@@ -4,7 +4,7 @@ testpaths = ["tests"]
 
 [tool.black]
 line-length = 120
-target-version = ['py39']
+target-version = ['py312']
 include = '\.pyi?$'
 exclude = '''
 

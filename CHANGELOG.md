@@ -5,6 +5,10 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Changed
+  - update apptestctl to v0.22.1.
+  - update dats.sh to v0.10.1.
+
 ## [0.10.0] - 2024-10-24
 
 - Changed

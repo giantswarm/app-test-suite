@@ -7,6 +7,12 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.10.3] - 2025-03-20
 
+- Update Docker to v28.0.1
+- Update KIND to v0.27.0
+- Update kubectl to v1.32.3
+- Update conftest to v0.58.0
+- Go dependency updates
+
 ## [0.10.2] - 2024-10-31
 
 -   update `pytest-helm-charts` to v1.3.2

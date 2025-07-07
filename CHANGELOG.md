@@ -5,6 +5,9 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+-   Changed
+    -   update apptestctl to v0.23.0.
+
 ## [0.10.3] - 2025-03-20
 
 - Update Docker to v28.0.1

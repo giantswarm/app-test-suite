@@ -5,6 +5,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.5] - 2025-07-08
+
 -   Changed
     -   update apptestctl to v0.23.1.
 
@@ -216,7 +218,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 -   Added
     -   initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.10.4...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.10.5...HEAD
+[0.10.5]: https://github.com/giantswarm/app-test-suite/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/giantswarm/app-test-suite/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/giantswarm/app-test-suite/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/giantswarm/app-test-suite/compare/v0.10.1...v0.10.2

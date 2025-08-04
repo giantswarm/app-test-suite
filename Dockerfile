@@ -1,4 +1,4 @@
-FROM alpine:3.22.0 AS binaries
+FROM gsoci.azurecr.io/giantswarm/alpine:3.22.1 AS binaries
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VER=v1.33.2

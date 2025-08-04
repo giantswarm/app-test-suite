@@ -1,9 +1,9 @@
 FROM gsoci.azurecr.io/giantswarm/alpine:3.22.1 AS binaries
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBECTL_VER=v1.33.2
+ARG KUBECTL_VER=v1.33.3
 # renovate: datasource=github-releases depName=moby/moby
-ARG DOCKER_VER=v28.3.2
+ARG DOCKER_VER=v28.3.3
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
 ARG KIND_VER=v0.29.0
 # renovate: datasource=github-releases depName=giantswarm/apptestctl

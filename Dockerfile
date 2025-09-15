@@ -5,7 +5,7 @@ ARG KUBECTL_VER=v1.34.1
 # renovate: datasource=github-releases depName=moby/moby
 ARG DOCKER_VER=v28.4.0
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-ARG KIND_VER=v0.29.0
+ARG KIND_VER=v0.30.0
 # renovate: datasource=github-releases depName=giantswarm/apptestctl
 ARG APPTESTCTL_VER=v0.24.0
 

@@ -5,10 +5,20 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] - 2025-09-15
+
+### Changed
+
+- update kubectl to v1.34.1
+- update docker to 28.4.0
+- update kind to v0.30.0
+- update apptestctl to v0.24.0
+
 ## [0.10.6] - 2025-09-01
 
--   Changed
-    -   update apptestctl to v0.23.2.
+### Changed
+
+- update apptestctl to v0.23.2.
 
 ## [0.10.5] - 2025-07-08
 
@@ -223,7 +233,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 -   Added
     -   initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.10.6...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/giantswarm/app-test-suite/compare/v0.10.6...v0.11.0
 [0.10.6]: https://github.com/giantswarm/app-test-suite/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/giantswarm/app-test-suite/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/giantswarm/app-test-suite/compare/v0.10.3...v0.10.4

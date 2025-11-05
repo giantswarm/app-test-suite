@@ -83,7 +83,7 @@ def configure_global_options(config_parser: configargparse.ArgParser) -> None:
     config_parser.add_argument(
         "--kind-cluster-image",
         required=False,
-        default="kindest/node:v1.29.2",
+        default="kindest/node:v1.33.4",
         help="The container image to use for booting a kind cluster",
     )
 

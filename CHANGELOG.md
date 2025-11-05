@@ -8,6 +8,7 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Update conftest to [v0.63.0](https://github.com/open-policy-agent/conftest/releases/tag/v0.63.0)
+- Update kindest/node to v1.33.4
 
 ## [0.11.0] - 2025-09-15
 

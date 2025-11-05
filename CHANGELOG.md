@@ -5,6 +5,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.0] - 2025-11-05
+
 ### Changed
 
 - Update conftest to [v0.63.0](https://github.com/open-policy-agent/conftest/releases/tag/v0.63.0)
@@ -238,7 +240,8 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 -   Added
     -   initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/giantswarm/app-test-suite/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/giantswarm/app-test-suite/compare/v0.10.6...v0.11.0
 [0.10.6]: https://github.com/giantswarm/app-test-suite/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/giantswarm/app-test-suite/compare/v0.10.4...v0.10.5

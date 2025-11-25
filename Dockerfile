@@ -71,6 +71,8 @@ COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv
 
 COPY --from=binaries /binaries/* /usr/local/bin/
 
+COPY --from=gsoci.azurecr.io/giantswarm/apptestctl:0.24.0-81a6d712f23f9af147ac654046993650a60c0055  /usr/local/bin/apptestctl /usr/local/bin/apptestctl
+
 COPY app_test_suite/ ${ATS_DIR}/app_test_suite/
 
 WORKDIR $ATS_DIR/workdir

@@ -25,28 +25,42 @@ RUN chmod +x /binaries/*
 
 FROM python:3.12.7-slim AS base
 
+# Install uv from official image
+COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /bin/uv
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONFAULTHANDLER=1 \
-    ATS_DIR="/ats" \
-    PIPENV_VER="2024.1.0"
-
-RUN pip install --no-cache-dir pipenv==${PIPENV_VER}
+    ATS_DIR="/ats"
 
 WORKDIR $ATS_DIR
 
 
-FROM base as builder
+FROM base AS builder
 
-# pip prerequesties
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y gcc && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
-COPY Pipfile Pipfile.lock ./
+# Omit development dependencies
+ENV UV_NO_DEV=1
 
-RUN PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy --clear
+# Disable Python downloads, because we want to use the system interpreter
+# across both images. If using a managed Python version, it needs to be
+# copied from the build image into the final image; see `standalone.Dockerfile`
+# for an example.
+ENV UV_PYTHON_DOWNLOADS=0
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project
+
+COPY README.md ${ATS_DIR}/
+COPY app_test_suite/ ${ATS_DIR}/app_test_suite/
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked
 
 
 FROM base
@@ -67,19 +81,15 @@ RUN apt-get update && \
 RUN curl -SL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | \
     tar -C /usr/local -xzf -
 
-COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv
-
 COPY --from=binaries /binaries/* /usr/local/bin/
 
-COPY app_test_suite/ ${ATS_DIR}/app_test_suite/
+# we assume the user will be using UID==1000 and GID=1000; if that's not true, we'll run `chown`
+# in the container's startup script
+COPY --from=builder --chown=1000:1000 $ATS_DIR $ATS_DIR
 
 WORKDIR $ATS_DIR/workdir
 
 RUN mkdir -p ${ATS_DIR}/.cache/go-build
-
-# we assume the user will be using UID==1000 and GID=1000; if that's not true, we'll run `chown`
-# in the container's startup script
-RUN chown -R 1000:1000 $ATS_DIR
 
 ENTRYPOINT ["container-entrypoint.sh"]
 

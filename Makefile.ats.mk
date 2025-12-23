@@ -20,19 +20,25 @@ __check_defined = \
 all: docker-build
 
 release: release_ver_to_code docker-test docker-build-image
-	echo "build_ver = \"${TAG}\"" > app_test_suite/version.py
-	git commit -am "Release ${TAG}"
+    git add --force app_test_suite/version.py
+	git add dats.sh pyproject.toml uv.lock
+	git commit -m "Release ${TAG}" --no-verify
 	git tag ${TAG}
-#	mv dats.sh.back dats.sh
-	echo "build_ver = \"${TAG}-dev\"" > app_test_suite/version.py
-	git commit -am "Post-release version set for ${TAG}"
+	docker build . -t ${IMG}:latest -t ${IMG}:${TAG}
+	mv dats.sh.back dats.sh
+	export NEXT=$(shell uv version --dry-run --short --bump patch) && echo "build_ver = \"v$${NEXT}-dev\"" > app_test_suite/version.py
+	git add dats.sh
+	git add --force app_test_suite/version.py
+	git commit -m "Post-release version set for ${TAG}" --no-verify
 
 release_ver_to_code:
-	$(call check_defined, TAG)
+    $(call check_defined, TAG)
+	sed -i 's/version = ".*"/version = "'${TAG}'"/' pyproject.toml
+	uv lock
 	echo "build_ver = \"${TAG}\"" > app_test_suite/version.py
 	$(eval IMG_VER := ${TAG})
 	cp dats.sh dats.sh.back
-	bash -c 'sed -i "s/latest/$${TAG#v}/" dats.sh'
+	sed -i "s/:-\".*\"/:-\"$${TAG#v}\"/" dats.sh
 
 # Build the docker image from locally built binary
 docker-build: docker-build-ver docker-build-image
@@ -56,7 +62,7 @@ test-docker-args = run -it --rm -v ${PWD}/.coverage/:/ats/.coverage/
 test-docker-run = docker $(test-docker-args) ${IMG}-test:latest
 
 test:
-	pipenv run python -m pytest $(test-command)
+	uv run python -m pytest $(test-command)
 
 docker-test: docker-build-test
 	$(test-docker-run) $(test-command)

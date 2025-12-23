@@ -20,7 +20,7 @@ __check_defined = \
 all: docker-build
 
 release: release_ver_to_code docker-test docker-build-image
-    git add --force app_test_suite/version.py
+	git add --force app_test_suite/version.py
 	git add dats.sh pyproject.toml uv.lock
 	git commit -m "Release ${TAG}" --no-verify
 	git tag ${TAG}
@@ -32,7 +32,7 @@ release: release_ver_to_code docker-test docker-build-image
 	git commit -m "Post-release version set for ${TAG}" --no-verify
 
 release_ver_to_code:
-    $(call check_defined, TAG)
+	$(call check_defined, TAG)
 	sed -i 's/version = ".*"/version = "'${TAG}'"/' pyproject.toml
 	uv lock
 	echo "build_ver = \"${TAG}\"" > app_test_suite/version.py

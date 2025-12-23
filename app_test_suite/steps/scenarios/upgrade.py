@@ -111,7 +111,7 @@ class UpgradeTestScenario(SimpleTestScenario):
             if not shutil.which(cmd):
                 raise ConfigError(
                     KEY_CFG_UPGRADE_HOOK,
-                    f"Upgrade hook was configured, but '{cmd}' was not " f"found to be a valid executable.",
+                    f"Upgrade hook was configured, but '{cmd}' was not found to be a valid executable.",
                 )
         self._test_executor.validate(config, self.name)
 

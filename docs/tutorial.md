@@ -2,12 +2,13 @@
 
 ## Preparing tools
 
-**Please note**: this tutorial was written with python 3.8, but should work exactly the same with 3.9 and newer.
+**Please note**: this tutorial was written with python 3.8, but should work exactly the same with 3.9 and
+newer.
 
 To be able to complete this tutorial, you need a few tools:
 
-- `app-test-suite` itself; if you haven't done so already, we recommend getting the latest version of the `dats.sh`
-  helper from [releases](https://github.com/giantswarm/app-test-suite/releases)
+- `app-test-suite` itself; if you haven't done so already, we recommend getting the latest version of the
+  `dats.sh` helper from [releases](https://github.com/giantswarm/app-test-suite/releases)
 - a working python environment that you can use to install [pipenv](https://pypi.org/project/pipenv/)
   - if you already have python, it should be enough to run `pip install -U pipenv`
 - to be able to use the shortest path, you also need a working python 3.8 environment
@@ -19,22 +20,23 @@ To be able to complete this tutorial, you need a few tools:
 
 ### How does it work?
 
-To get started, it's important to note that `ats` just executes tests, but doesn't implement any tests nor cares about
-how you implement them. The contract is just that `ats` can invoke a specific `pytest` commands for you. If you
-implement your tests using `pytest`, `ats` can start them automatically. More information is
-available [here](pytest-test-pipeline.md). You can use `pytest` only, but the recommended way to implement tests for
-running with `ats` is using `pytest` and our plugin called
+To get started, it's important to note that `ats` just executes tests, but doesn't implement any tests nor
+cares about how you implement them. The contract is just that `ats` can invoke a specific `pytest` commands
+for you. If you implement your tests using `pytest`, `ats` can start them automatically. More information is
+available [in the pytest pipeline docs](pytest-test-pipeline.md). You can use `pytest` only, but the
+recommended way to implement tests for running with `ats` is using `pytest` and our plugin called
 [`pytest-helm-charts`](https://github.com/giantswarm/pytest-helm-charts).
 
 ### Why do I need a specific python version?
 
-In general, you can use any python version you want, unless you're using the dockerized `dats.sh` wrapper, which is also
-our recommended way of running `ats`. Inside the docker image `dats.sh` is using, there's only one python version
-available. This python version is used by `ats` to invoke your tests implemented with `pytest`. As a result, if you
-request any other python version than the one currently used by `dats.sh`, you'll get an error, as that version is not
-available inside the docker image.
+In general, you can use any python version you want, unless you're using the dockerized `dats.sh` wrapper,
+which is also our recommended way of running `ats`. Inside the docker image `dats.sh` is using, there's only
+one python version available. This python version is used by `ats` to invoke your tests implemented with
+`pytest`. As a result, if you request any other python version than the one currently used by `dats.sh`,
+you'll get an error, as that version is not available inside the docker image.
 
-You can check the current python version (and versions of all the other software projects `ats` is using) by running:
+You can check the current python version (and versions of all the other software projects `ats` is using) by
+running:
 
 ```bash
 $ dats.sh versions
@@ -59,8 +61,8 @@ mkdir examples/tutorial
 cp -a examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz examples/tutorial
 ```
 
-Let's create a directory for storing tests. `ats` looks for them in the `tests/ats`
-subdirectory of the helm chart, so let's start a fresh python virtual env there:
+Let's create a directory for storing tests. `ats` looks for them in the `tests/ats` subdirectory of the helm
+chart, so let's start a fresh python virtual env there:
 
 ```bash
 $ mkdir -p examples/tutorial/tests/ats
@@ -118,9 +120,9 @@ python_version = "3.8"
 
 #### Implementing tests
 
-Now we can start implementing actual tests. To get a full sample source code, just copy
-the `test_example.py` [file](../examples/apps/hello-world-app/tests/ats/test_example.py) to our `tests/ats` directory,
-so it looks like this:
+Now we can start implementing actual tests. To get a full sample source code, just copy the `test_example.py`
+[file](../examples/apps/hello-world-app/tests/ats/test_example.py) to our `tests/ats` directory, so it looks
+like this:
 
 ```bash
 $ ls
@@ -141,28 +143,27 @@ def test_we_have_environment(kube_cluster: Cluster) -> None:
     assert len(pykube.Node.objects(kube_cluster.kube_client)) >= 1
 ```
 
-In this test, we're only checking if we can get a working connection object to work with our cluster. This is done by
-requesting the `kube_cluster: Cluster` object for our test (test method parameters
-are [pytest fixtures](https://docs.pytest.org/en/stable/fixture.html) and are injected for you by the test framework
-itself). Additionally, we're marking our test as a "smoke" test. This information is provided for `ats` itself: we want
-to include opinionated test scenarios in `ats` and that way `ats` knows if it should run your test for specific scenario
-or not.
+In this test, we're only checking if we can get a working connection object to work with our cluster. This is
+done by requesting the `kube_cluster: Cluster` object for our test (test method parameters are
+[pytest fixtures](https://docs.pytest.org/en/stable/fixture.html) and are injected for you by the test
+framework itself). Additionally, we're marking our test as a "smoke" test. This information is provided for
+`ats` itself: we want to include opinionated test scenarios in `ats` and that way `ats` knows if it should run
+your test for specific scenario or not.
 
-You can read more about [how `ats` executes tests](./pytest-test-pipeline.md) and how to implement them
-with [pytest-helm-charts](https://pytest-helm-charts.readthedocs.io/en/latest/)
-and [pytest](https://docs.pytest.org/en/stable/index.html), including information about
+You can read more about [how `ats` executes tests](./pytest-test-pipeline.md) and how to implement them with
+[pytest-helm-charts](https://pytest-helm-charts.readthedocs.io/en/latest/) and
+[pytest](https://docs.pytest.org/en/stable/index.html), including information about
 [available fixtures](https://pytest-helm-charts.readthedocs.io/en/latest/api/pytest_helm_charts.fixtures/).
 
 #### Running tests
 
-We are now ready to build our test chart again, but this time running tests we've implemented. To do that, we need to
-have a cluster where we can deploy our chart and then execute our tests against a running application. Do make this time
-efficient, we'll use [kind](https://kind.sigs.k8s.io/docs/user/quick-start/). We're going to use embedded `ats` ability
-to create `kind` clusters, but remember that you can use any existing cluster you like - you just need to pass
-a `kube.config`
-file to `ats`. Switch back to the root directory of this repository.
-`ats` can run different types of tests on different clusters, so we have to pass cluster type option
-twice, but our cluster will be reused for both kinds of tests:
+We are now ready to build our test chart again, but this time running tests we've implemented. To do that, we
+need to have a cluster where we can deploy our chart and then execute our tests against a running application.
+Do make this time efficient, we'll use [kind](https://kind.sigs.k8s.io/docs/user/quick-start/). We're going to
+use embedded `ats` ability to create `kind` clusters, but remember that you can use any existing cluster you
+like - you just need to pass a `kube.config` file to `ats`. Switch back to the root directory of this
+repository. `ats` can run different types of tests on different clusters, so we have to pass cluster type
+option twice, but our cluster will be reused for both kinds of tests:
 
 ```bash
 # log below is truncated to interesting parts only
@@ -288,5 +289,5 @@ test_example.py:14
 2021-06-22 14:33:30,113 app_test_suite.cluster_providers.kind_cluster_provider INFO: KinD cluster deleted successfully
 ```
 
-That's it. When our tests have passed, you know that the Chart was really deployed to the cluster and responded
-to your requests!
+That's it. When our tests have passed, you know that the Chart was really deployed to the cluster and
+responded to your requests!

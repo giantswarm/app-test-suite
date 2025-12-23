@@ -28,7 +28,7 @@ def assert_run_pytest(
     env_vars.update(os.environ)
 
     expected_args = [
-        "pipenv",
+        "uv",
         "run",
         "pytest",
         "-m",
@@ -49,13 +49,9 @@ def assert_run_pytest(
 def assert_prepare_pytest_test_environment() -> None:
     run_and_log_mock = cast(unittest.mock.Mock, app_test_suite.steps.executors.pytest.run_and_log)
     assert run_and_log_mock.call_args_list[0].args[0] == [
-        "pipenv",
-        "install",
-        "--deploy",
-    ]
-    assert run_and_log_mock.call_args_list[1].args[0] == [
-        "pipenv",
-        "--venv",
+        "uv",
+        "sync",
+        "--frozen",
     ]
 
 

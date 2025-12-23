@@ -94,8 +94,7 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
                     yaml.safe_load(file)
             except Exception:
                 raise ATSTestError(
-                    f"Application config file '{app_config_file}' found, but can't be loaded"
-                    f"as a correct YAML document."
+                    f"Application config file '{app_config_file}' found, but can't be loadedas a correct YAML document."
                 )
 
     def cleanup(

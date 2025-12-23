@@ -392,16 +392,16 @@ wheels = [
 
 [[package]]
 name = "pytest-helm-charts"
-version = "1.3.2"
+version = "1.3.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "deprecated" },
     { name = "pykube-ng" },
     { name = "pytest" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b7/22/c6695015540762b94f454e0fe4b135e68b15898662b61c3b215eadbe5406/pytest_helm_charts-1.3.2.tar.gz", hash = "sha256:8bfc6e4f00a275abf67f7e602c8b6b551bad4a5c7d76bacb390512f9f0fa6e1a", size = 32591, upload-time = "2024-10-31T07:41:14.61Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5f/19/0113b54b8799f42a4848de8501c14ff95c2d5533ce6c2feeeb12f8e74358/pytest_helm_charts-1.3.4.tar.gz", hash = "sha256:08261ece312d2dae9577098d06a6da3de5dee7aafad0b7d372b4e000f86b3ad4", size = 31532, upload-time = "2025-12-23T12:20:36.071Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/c5/46e8686e1ccec110baf468653aa799c59830f4bfc3db4ad679d7d3c7c587/pytest_helm_charts-1.3.2-py3-none-any.whl", hash = "sha256:f860b1ffdad3faafc8e14b44cb256bddbac11f0badc93bdb129fe66494e89bf3", size = 46561, upload-time = "2024-10-31T07:41:12.93Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/e6/ccc9b38b80df85c56877f0d1c615185912ba7db2f14aa35a3bd221ff91fd/pytest_helm_charts-1.3.4-py3-none-any.whl", hash = "sha256:c8284c36f8c135274e76c6495cf011a5b02a0106a964549901e317dad556e688", size = 50599, upload-time = "2025-12-23T12:20:37.213Z" },
 ]
 
 [[package]]

@@ -1,13 +1,13 @@
-FROM gsoci.azurecr.io/giantswarm/alpine:3.22.2 AS binaries
+FROM gsoci.azurecr.io/giantswarm/alpine:3.23.2 AS binaries
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBECTL_VER=v1.34.2
+ARG KUBECTL_VER=v1.35.0
 # renovate: datasource=github-releases depName=moby/moby
 ARG DOCKER_VER=v28.5.2
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-ARG KIND_VER=v0.30.0
+ARG KIND_VER=v0.31.0
 # renovate: datasource=github-releases depName=giantswarm/apptestctl
-ARG APPTESTCTL_VER=v0.24.0
+ARG APPTESTCTL_VER=v0.25.0
 
 RUN apk add --no-cache ca-certificates curl \
     && mkdir -p /binaries \

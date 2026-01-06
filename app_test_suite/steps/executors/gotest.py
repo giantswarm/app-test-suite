@@ -16,7 +16,10 @@ from app_test_suite.steps.base import (
     TestExecutor,
     BaseTestScenariosFilteringPipeline,
 )
-from app_test_suite.steps.scenarios.simple import FunctionalTestScenario, SmokeTestScenario
+from app_test_suite.steps.scenarios.simple import (
+    FunctionalTestScenario,
+    SmokeTestScenario,
+)
 from app_test_suite.steps.scenarios.upgrade import UpgradeTestScenario
 
 logger = logging.getLogger(__name__)
@@ -76,7 +79,12 @@ class GotestExecutor(TestExecutor):
         logger.info(f"Running {self._GOTEST_BIN} tool in '{self._test_dir}' directory.")
 
         # If there are no Go tests with build tags for this test type we handle the error.
-        run_res = run_and_handle_error(args, "build constraints exclude all Go files", cwd=self._test_dir, env=env_vars)  # nosec, no user input here
+        run_res = run_and_handle_error(
+            args,
+            "build constraints exclude all Go files",
+            cwd=self._test_dir,
+            env=env_vars,
+        )  # nosec, no user input here
 
         logger.info("#" * 40)
         logger.info(f"Command '{args}' executed, exit code: {run_res.returncode}")
@@ -94,7 +102,9 @@ class GotestExecutor(TestExecutor):
         logger.info("#" * 40)
 
         if run_res.returncode != 0:
-            raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{self._test_dir}' failed.")
+            raise ATSTestError(
+                f"Gotest tests failed: running '{args}' in directory '{self._test_dir}' failed."
+            )
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
         gotest_dir = get_config_value_by_cmd_line_option(

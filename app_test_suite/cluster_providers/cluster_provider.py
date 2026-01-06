@@ -39,7 +39,9 @@ class ClusterProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_cluster(self, cluster_type: ClusterType, config: argparse.Namespace, **kwargs: Any) -> ClusterInfo:
+    def get_cluster(
+        self, cluster_type: ClusterType, config: argparse.Namespace, **kwargs: Any
+    ) -> ClusterInfo:
         raise NotImplementedError
 
     @abstractmethod

@@ -11,7 +11,11 @@ from tests.helpers import MOCK_KUBE_VERSION
 
 
 def assert_run_gotest(
-    test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str, test_extra_info: str = ""
+    test_provided: StepType,
+    kube_config_path: str,
+    chart_file: str,
+    app_version: str,
+    test_extra_info: str = "",
 ) -> None:
     env_vars = {
         "KUBECONFIG": kube_config_path,
@@ -29,9 +33,16 @@ def assert_run_gotest(
     env_vars.update(os.environ)
 
     if test_extra_info:
-        env_vars.update({k.upper(): v for k, v in [p.split("=") for p in test_extra_info.split(",")]})
+        env_vars.update(
+            {
+                k.upper(): v
+                for k, v in [p.split("=") for p in test_extra_info.split(",")]
+            }
+        )
 
-    cast(unittest.mock.Mock, app_test_suite.steps.executors.gotest.run_and_handle_error).assert_any_call(
+    cast(
+        unittest.mock.Mock, app_test_suite.steps.executors.gotest.run_and_handle_error
+    ).assert_any_call(
         [
             "go",
             "test",
@@ -44,5 +55,10 @@ def assert_run_gotest(
     )
 
 
-def patch_gotest_test_runner(mocker: MockerFixture, run_and_handle_error_res: unittest.mock.Mock) -> None:
-    mocker.patch("app_test_suite.steps.executors.gotest.run_and_handle_error", return_value=run_and_handle_error_res)
+def patch_gotest_test_runner(
+    mocker: MockerFixture, run_and_handle_error_res: unittest.mock.Mock
+) -> None:
+    mocker.patch(
+        "app_test_suite.steps.executors.gotest.run_and_handle_error",
+        return_value=run_and_handle_error_res,
+    )

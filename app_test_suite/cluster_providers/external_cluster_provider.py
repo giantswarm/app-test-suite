@@ -45,7 +45,10 @@ class ExternalClusterProvider(cluster_provider.ClusterProvider):
 
     def pre_run(self, config: argparse.Namespace) -> None:
         if not config.external_cluster_kubeconfig_path:
-            raise ConfigError(self.key_config_option_kubeconfig_path, "Kubeconfig file path must be configured")
+            raise ConfigError(
+                self.key_config_option_kubeconfig_path,
+                "Kubeconfig file path must be configured",
+            )
         if not os.path.isfile(config.external_cluster_kubeconfig_path):
             raise ConfigError(
                 self.key_config_option_kubeconfig_path,
@@ -53,24 +56,37 @@ class ExternalClusterProvider(cluster_provider.ClusterProvider):
             )
         self.__kubeconfig_path = config.external_cluster_kubeconfig_path
 
-        if not get_config_value_by_cmd_line_option(config, self.key_config_option_cluster_type):
+        if not get_config_value_by_cmd_line_option(
+            config, self.key_config_option_cluster_type
+        ):
             raise ConfigError(
                 self.key_config_option_cluster_type,
                 "When using external cluster you must pass an arbitrary 'type' value.",
             )
 
-        if not get_config_value_by_cmd_line_option(config, self.key_config_option_cluster_version):
+        if not get_config_value_by_cmd_line_option(
+            config, self.key_config_option_cluster_version
+        ):
             raise ConfigError(
                 self.key_config_option_cluster_type,
                 "When using external cluster you must pass an arbitrary 'version' value.",
             )
 
     def get_cluster(
-        self, cluster_type: cluster_provider.ClusterType, config: argparse.Namespace, **kwargs: Any
+        self,
+        cluster_type: cluster_provider.ClusterType,
+        config: argparse.Namespace,
+        **kwargs: Any,
     ) -> cluster_provider.ClusterInfo:
-        overridden_cluster_type = get_config_value_by_cmd_line_option(config, self.key_config_option_cluster_type)
-        cluster_version = get_config_value_by_cmd_line_option(config, self.key_config_option_cluster_version)
-        logger.debug("External cluster manager returning kubeconfig path as configured.")
+        overridden_cluster_type = get_config_value_by_cmd_line_option(
+            config, self.key_config_option_cluster_type
+        )
+        cluster_version = get_config_value_by_cmd_line_option(
+            config, self.key_config_option_cluster_version
+        )
+        logger.debug(
+            "External cluster manager returning kubeconfig path as configured."
+        )
         return cluster_provider.ClusterInfo(
             cluster_type=self.provided_cluster_type,
             overridden_cluster_type=overridden_cluster_type,
@@ -82,4 +98,6 @@ class ExternalClusterProvider(cluster_provider.ClusterProvider):
         )
 
     def delete_cluster(self, cluster_info: cluster_provider.ClusterInfo) -> None:
-        logger.debug("External cluster manager ignoring cluster deletion request (as expected).")
+        logger.debug(
+            "External cluster manager ignoring cluster deletion request (as expected)."
+        )

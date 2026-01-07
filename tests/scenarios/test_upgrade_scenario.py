@@ -20,7 +20,10 @@ from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML
 from app_test_suite.steps.base import TestExecutor
 from app_test_suite.steps.executors.gotest import GotestExecutor
 from app_test_suite.steps.executors.pytest import PytestExecutor
-from app_test_suite.steps.scenarios.simple import TEST_APP_CATALOG_NAME, TEST_APP_CATALOG_NAMESPACE
+from app_test_suite.steps.scenarios.simple import (
+    TEST_APP_CATALOG_NAME,
+    TEST_APP_CATALOG_NAMESPACE,
+)
 from app_test_suite.steps.scenarios.upgrade import (
     UpgradeTestScenario,
     STABLE_APP_CATALOG_NAME,
@@ -110,10 +113,21 @@ def test_version_sort() -> None:
         (200, "OK", "yaml: {}", ATSTestError, ""),
         (200, "OK", "entries: {}", ATSTestError, ""),
     ],
-    ids=["response OK", "index.yaml not found", "bad YAML", "no 'entries' in YAML", "app entry not found"],
+    ids=[
+        "response OK",
+        "index.yaml not found",
+        "bad YAML",
+        "no 'entries' in YAML",
+        "app entry not found",
+    ],
 )
 def test_find_latest_version(
-    mocker: MockerFixture, resp_code: int, resp_reason: str, resp_text: str, error_type: type, ver_found: str
+    mocker: MockerFixture,
+    resp_code: int,
+    resp_reason: str,
+    resp_text: str,
+    error_type: type,
+    ver_found: str,
 ) -> None:
     mock_cluster_manager = mocker.MagicMock(spec=ClusterManager)
     test_executor = mocker.MagicMock(spec=TestExecutor, name="Mock Test Executor")
@@ -126,7 +140,10 @@ def test_find_latest_version(
     requests_get_res.status_code = resp_code
     requests_get_res.reason = resp_reason
     requests_get_res.text = test_index_yaml if resp_text == "" else resp_text
-    mocker.patch("app_test_suite.steps.scenarios.upgrade.requests.get", return_value=requests_get_res)
+    mocker.patch(
+        "app_test_suite.steps.scenarios.upgrade.requests.get",
+        return_value=requests_get_res,
+    )
 
     catalog_url = "http://mock.catalog"
     app_name = "hello-world-app"
@@ -141,7 +158,9 @@ def test_find_latest_version(
         assert type(caught_error) is error_type
     else:
         assert ver == ver_found
-    cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(
+    cast(
+        Mock, app_test_suite.steps.scenarios.upgrade.requests.get
+    ).assert_called_once_with(
         catalog_url + "/index.yaml", headers={"User-agent": "Mozilla/5.0"}, timeout=10
     )
 
@@ -149,7 +168,12 @@ def test_find_latest_version(
 @pytest.mark.parametrize(
     "test_executor,patcher,asserter_test,asserter_prepare",
     [
-        (PytestExecutor(), patch_pytest_test_runner, assert_run_pytest, assert_prepare_pytest_test_environment),
+        (
+            PytestExecutor(),
+            patch_pytest_test_runner,
+            assert_run_pytest,
+            assert_prepare_pytest_test_environment,
+        ),
         (GotestExecutor(), patch_gotest_test_runner, assert_run_gotest, lambda: None),
     ],
     ids=[
@@ -167,16 +191,24 @@ def test_upgrade_pytest_runner_run(
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
 
-    configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
+    configured_app_mock = patch_base_test_runner(
+        mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS
+    )
     patcher(mocker, run_and_log_call_result_mock)
-    mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
+    mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(
+        mocker, run_and_log_call_result_mock
+    )
     mock_requests_get_chart = patch_requests_get_chart(mocker)
 
     config = get_base_config(mocker)
     configure_for_upgrade_test(config)
 
     context = {
-        CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_CHART_VERSION, "appVersion": MOCK_APP_VERSION}
+        CONTEXT_KEY_CHART_YAML: {
+            "name": MOCK_APP_NAME,
+            "version": MOCK_CHART_VERSION,
+            "appVersion": MOCK_APP_VERSION,
+        }
     }
     runner = UpgradeTestScenario(mock_cluster_manager, test_executor)
     runner.run(config, context)
@@ -185,7 +217,11 @@ def test_upgrade_pytest_runner_run(
     assert_app_platform_ready(MOCK_KUBE_CONFIG_PATH)
     assert_chart_file_uploaded(config, MOCK_CHART_FILE_NAME)
     assert_deploy_and_wait_for_app_cr(
-        MOCK_APP_NAME, MOCK_UPGRADE_APP_VERSION, MOCK_APP_DEPLOY_NS, STABLE_APP_CATALOG_NAME, MOCK_APP_DEPLOY_NS
+        MOCK_APP_NAME,
+        MOCK_UPGRADE_APP_VERSION,
+        MOCK_APP_DEPLOY_NS,
+        STABLE_APP_CATALOG_NAME,
+        MOCK_APP_DEPLOY_NS,
     )
     asserter_prepare()
     mock_stable_app_catalog_cr.create.assert_any_call()
@@ -220,7 +256,9 @@ def test_upgrade_pytest_runner_run(
         MOCK_CHART_VERSION,
         "ats_extra_upgrade_test_stage=post_upgrade",
     )
-    mock_requests_get_chart.assert_called_once_with(MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True, timeout=10)
+    mock_requests_get_chart.assert_called_once_with(
+        MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True, timeout=10
+    )
     assert_upgrade_tester_deletes_app(configured_app_mock)
     mock_stable_app_catalog_cr.delete.assert_called_once()
     assert_upgrade_metadata_created()
@@ -242,13 +280,18 @@ def test_upgrade_app_cr_no_configs(mocker: MockerFixture) -> None:
     mocker.patch.object(configured_app.app, "update")
 
     runner = UpgradeTestScenario(mocker.MagicMock(), PytestExecutor())
-    new_configured_app = runner._upgrade_app_cr(configured_app, MOCK_UPGRADE_APP_VERSION, app_config_file_path="")
+    new_configured_app = runner._upgrade_app_cr(
+        configured_app, MOCK_UPGRADE_APP_VERSION, app_config_file_path=""
+    )
 
     # both versions used no config, so there should be no change in object references
     assert new_configured_app == configured_app
     assert new_configured_app.app.obj["spec"]["version"] == MOCK_UPGRADE_APP_VERSION
     assert new_configured_app.app.obj["spec"]["catalog"] == TEST_APP_CATALOG_NAME
-    assert new_configured_app.app.obj["spec"]["catalogNamespace"] == TEST_APP_CATALOG_NAMESPACE
+    assert (
+        new_configured_app.app.obj["spec"]["catalogNamespace"]
+        == TEST_APP_CATALOG_NAMESPACE
+    )
 
 
 class ExpectedAction(Enum):
@@ -276,7 +319,10 @@ class ExpectedAction(Enum):
     ],
 )
 def test_upgrade_app_cr_stable_has_config(
-    stable_config: YamlDict, under_test_config_file: str, expected_action: ExpectedAction, mocker: MockerFixture
+    stable_config: YamlDict,
+    under_test_config_file: str,
+    expected_action: ExpectedAction,
+    mocker: MockerFixture,
 ) -> None:
     mocker.patch("pytest_helm_charts.giantswarm_app_platform.app.AppCR.create")
     mocker.patch("pytest_helm_charts.giantswarm_app_platform.app.ConfigMap.create")
@@ -300,12 +346,17 @@ def test_upgrade_app_cr_stable_has_config(
 
     runner = UpgradeTestScenario(mocker.MagicMock(), PytestExecutor())
     new_configured_app = runner._upgrade_app_cr(
-        configured_app, MOCK_UPGRADE_APP_VERSION, app_config_file_path=under_test_config_file
+        configured_app,
+        MOCK_UPGRADE_APP_VERSION,
+        app_config_file_path=under_test_config_file,
     )
 
     assert new_configured_app.app.obj["spec"]["version"] == MOCK_UPGRADE_APP_VERSION
     assert new_configured_app.app.obj["spec"]["catalog"] == TEST_APP_CATALOG_NAME
-    assert new_configured_app.app.obj["spec"]["catalogNamespace"] == TEST_APP_CATALOG_NAMESPACE
+    assert (
+        new_configured_app.app.obj["spec"]["catalogNamespace"]
+        == TEST_APP_CATALOG_NAMESPACE
+    )
     if expected_action == ExpectedAction.NO_CHANGE:
         assert new_configured_app == configured_app
         if new_configured_app.app_cm:

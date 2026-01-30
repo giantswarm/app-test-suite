@@ -84,15 +84,11 @@ def test_simple_runner_run(
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
 
-    configured_app_mock = patch_base_test_runner(
-        mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS
-    )
+    configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
     patcher(mocker, run_and_log_call_result_mock)
 
     config = get_base_config(mocker)
-    context = {
-        CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_CHART_VERSION}
-    }
+    context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_CHART_VERSION}}
     runner = scenario_type(mock_cluster_manager, test_executor)
     runner.run(config, context)
 

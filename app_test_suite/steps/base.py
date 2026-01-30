@@ -79,14 +79,10 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
             return
 
         if not config.chart_file or not os.path.isfile(config.chart_file):
-            raise ConfigError(
-                "chart-file", f"The file '{config.chart_file}' can't be found."
-            )
+            raise ConfigError("chart-file", f"The file '{config.chart_file}' can't be found.")
 
         self._cluster_manager.pre_run(config)
-        app_config_file = get_config_value_by_cmd_line_option(
-            config, self.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE
-        )
+        app_config_file = get_config_value_by_cmd_line_option(config, self.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE)
         if app_config_file:
             if not os.path.isfile(app_config_file):
                 raise ATSTestError(
@@ -161,9 +157,7 @@ class TestExecutor(ABC):
         """Execute test using a specific test executor and information provided as exec_info."""
         raise NotImplementedError()
 
-    def get_test_info_env_variables(
-        self, exec_info: TestExecInfo, append_to_sys_env: bool = True
-    ) -> Dict[str, str]:
+    def get_test_info_env_variables(self, exec_info: TestExecInfo, append_to_sys_env: bool = True) -> Dict[str, str]:
         env_vars = {
             "ATS_CHART_PATH": exec_info.chart_path,
             "ATS_CHART_VERSION": exec_info.chart_ver,
@@ -181,12 +175,7 @@ class TestExecutor(ABC):
             env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
 
         if exec_info.test_extra_info:
-            env_vars.update(
-                {
-                    "ATS_EXTRA_" + k.upper(): v
-                    for k, v in exec_info.test_extra_info.items()
-                }
-            )
+            env_vars.update({"ATS_EXTRA_" + k.upper(): v for k, v in exec_info.test_extra_info.items()})
 
         return env_vars
 
@@ -205,9 +194,7 @@ class TestInfoProvider(BuildStep):
     def run(self, config: argparse.Namespace, context: Context) -> None:
         self.extract_chart_info(config.chart_file, CONTEXT_KEY_CHART_YAML, context)
 
-    def extract_chart_info(
-        self, chart_file: str, context_key: str, context: Context
-    ) -> None:
+    def extract_chart_info(self, chart_file: str, context_key: str, context: Context) -> None:
         if not os.path.isfile(chart_file):
             raise ValidationError(self.name, f"Chart file '{chart_file}' not found")
         with TemporaryDirectory(prefix="ats-") as tmp_dir:
@@ -218,9 +205,7 @@ class TestInfoProvider(BuildStep):
                 if os.path.isfile(chart_yaml_path):
                     with open(chart_yaml_path, "r") as file:
                         chart_yaml = yaml.safe_load(file)
-                        logger.debug(
-                            f"Loading 'Chart.yaml' from subdirectory '{sub_dir}' in the chart archive."
-                        )
+                        logger.debug(f"Loading 'Chart.yaml' from subdirectory '{sub_dir}' in the chart archive.")
                         context[context_key] = chart_yaml
                     break
             else:

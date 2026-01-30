@@ -102,9 +102,7 @@ class GotestExecutor(TestExecutor):
         logger.info("#" * 40)
 
         if run_res.returncode != 0:
-            raise ATSTestError(
-                f"Gotest tests failed: running '{args}' in directory '{self._test_dir}' failed."
-            )
+            raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{self._test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
         gotest_dir = get_config_value_by_cmd_line_option(

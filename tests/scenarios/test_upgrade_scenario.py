@@ -158,9 +158,7 @@ def test_find_latest_version(
         assert type(caught_error) is error_type
     else:
         assert ver == ver_found
-    cast(
-        Mock, app_test_suite.steps.scenarios.upgrade.requests.get
-    ).assert_called_once_with(
+    cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(
         catalog_url + "/index.yaml", headers={"User-agent": "Mozilla/5.0"}, timeout=10
     )
 
@@ -191,13 +189,9 @@ def test_upgrade_pytest_runner_run(
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
 
-    configured_app_mock = patch_base_test_runner(
-        mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS
-    )
+    configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
     patcher(mocker, run_and_log_call_result_mock)
-    mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(
-        mocker, run_and_log_call_result_mock
-    )
+    mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
     mock_requests_get_chart = patch_requests_get_chart(mocker)
 
     config = get_base_config(mocker)
@@ -256,9 +250,7 @@ def test_upgrade_pytest_runner_run(
         MOCK_CHART_VERSION,
         "ats_extra_upgrade_test_stage=post_upgrade",
     )
-    mock_requests_get_chart.assert_called_once_with(
-        MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True, timeout=10
-    )
+    mock_requests_get_chart.assert_called_once_with(MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True, timeout=10)
     assert_upgrade_tester_deletes_app(configured_app_mock)
     mock_stable_app_catalog_cr.delete.assert_called_once()
     assert_upgrade_metadata_created()
@@ -280,18 +272,13 @@ def test_upgrade_app_cr_no_configs(mocker: MockerFixture) -> None:
     mocker.patch.object(configured_app.app, "update")
 
     runner = UpgradeTestScenario(mocker.MagicMock(), PytestExecutor())
-    new_configured_app = runner._upgrade_app_cr(
-        configured_app, MOCK_UPGRADE_APP_VERSION, app_config_file_path=""
-    )
+    new_configured_app = runner._upgrade_app_cr(configured_app, MOCK_UPGRADE_APP_VERSION, app_config_file_path="")
 
     # both versions used no config, so there should be no change in object references
     assert new_configured_app == configured_app
     assert new_configured_app.app.obj["spec"]["version"] == MOCK_UPGRADE_APP_VERSION
     assert new_configured_app.app.obj["spec"]["catalog"] == TEST_APP_CATALOG_NAME
-    assert (
-        new_configured_app.app.obj["spec"]["catalogNamespace"]
-        == TEST_APP_CATALOG_NAMESPACE
-    )
+    assert new_configured_app.app.obj["spec"]["catalogNamespace"] == TEST_APP_CATALOG_NAMESPACE
 
 
 class ExpectedAction(Enum):
@@ -353,10 +340,7 @@ def test_upgrade_app_cr_stable_has_config(
 
     assert new_configured_app.app.obj["spec"]["version"] == MOCK_UPGRADE_APP_VERSION
     assert new_configured_app.app.obj["spec"]["catalog"] == TEST_APP_CATALOG_NAME
-    assert (
-        new_configured_app.app.obj["spec"]["catalogNamespace"]
-        == TEST_APP_CATALOG_NAMESPACE
-    )
+    assert new_configured_app.app.obj["spec"]["catalogNamespace"] == TEST_APP_CATALOG_NAMESPACE
     if expected_action == ExpectedAction.NO_CHANGE:
         assert new_configured_app == configured_app
         if new_configured_app.app_cm:

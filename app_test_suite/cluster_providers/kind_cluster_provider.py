@@ -87,19 +87,13 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
                 config, self.key_config_option_kind_cluster_image_override
             )
             if kind_cluster_image_override:
-                config_file = self.augment_kind_config_file(
-                    config_file, kind_cluster_image_override
-                )
-                logger.info(
-                    f"Using KinD config {config_file} with ID kind node image '{kind_cluster_image_override}'"
-                )
+                config_file = self.augment_kind_config_file(config_file, kind_cluster_image_override)
+                logger.info(f"Using KinD config {config_file} with ID kind node image '{kind_cluster_image_override}'")
             kind_args.extend(["--config", config_file])
         run_res = run_and_log(kind_args, capture_output=True)  # nosec
         logger.debug(run_res.stderr)
         if run_res.returncode != 0:
-            raise ATSTestError(
-                f"Error when creating KinD cluster. Exit code is: {run_res.returncode}"
-            )
+            raise ATSTestError(f"Error when creating KinD cluster. Exit code is: {run_res.returncode}")
         cluster_version_line = run_res.stderr.splitlines()[1]
         cluster_version = cluster_version_line.split(":")[1].split(")")[0].strip()
         logger.info("KinD cluster started successfully")
@@ -126,15 +120,11 @@ class KindClusterProvider(cluster_provider.ClusterProvider):
         run_res = run_and_log(kind_args, capture_output=True)  # nosec
         logger.debug(run_res.stderr)
         if run_res.returncode != 0:
-            raise ATSTestError(
-                f"Error when deleting KinD cluster. Exit code is: {run_res.returncode}"
-            )
+            raise ATSTestError(f"Error when deleting KinD cluster. Exit code is: {run_res.returncode}")
         os.remove(kube_config_path)
         logger.info("KinD cluster deleted successfully")
 
-    def augment_kind_config_file(
-        self, kind_config_path: str, image_override: str
-    ) -> str:
+    def augment_kind_config_file(self, kind_config_path: str, image_override: str) -> str:
         with open(kind_config_path, "r") as file:
             config_yaml = yaml.safe_load(file)
             for node in config_yaml["nodes"]:

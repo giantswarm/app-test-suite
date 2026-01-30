@@ -70,9 +70,7 @@ class PytestExecutor(TestExecutor):
 
         run_res = run_and_log(args, cwd=self._test_dir)  # nosec, no user input here
         if run_res.returncode != 0:
-            raise ATSTestError(
-                f"Running '{args}' in directory '{self._test_dir}' failed."
-            )
+            raise ATSTestError(f"Running '{args}' in directory '{self._test_dir}' failed.")
 
     def execute_test(self, exec_info: TestExecInfo) -> None:
         env_vars = self.get_test_info_env_variables(exec_info)
@@ -87,14 +85,10 @@ class PytestExecutor(TestExecutor):
             f"--junitxml=test_results_{exec_info.test_type}.xml",
         ]
         logger.info(f"Running {self._PYTEST_BIN} tool in '{self._test_dir}' directory.")
-        run_res = run_and_log(
-            args, cwd=self._test_dir, env=env_vars
-        )  # nosec, no user input here
+        run_res = run_and_log(args, cwd=self._test_dir, env=env_vars)  # nosec, no user input here
         # exit code 5 from pytest means that no tests matched the selector - it's not an error for us
         if run_res.returncode not in [0, 5]:
-            raise ATSTestError(
-                f"Pytest tests failed: running '{args}' in directory '{self._test_dir}' failed."
-            )
+            raise ATSTestError(f"Pytest tests failed: running '{args}' in directory '{self._test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
         pytest_dir = get_config_value_by_cmd_line_option(

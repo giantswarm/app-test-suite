@@ -32,15 +32,11 @@ MOCK_CHART_FILE_NAME = f"{MOCK_APP_NAME}-{MOCK_CHART_VERSION}.tgz"
 MOCK_UPGRADE_UPGRADE_HOOK = "mock.sh"
 MOCK_UPGRADE_APP_CONFIG_FILE = ""
 MOCK_UPGRADE_APP_VERSION = "0.2.4-1"
-MOCK_UPGRADE_CHART_FILE_URL = (
-    f"{MOCK_UPGRADE_CATALOG_URL}/{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tgz"
-)
+MOCK_UPGRADE_CHART_FILE_URL = f"{MOCK_UPGRADE_CATALOG_URL}/{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tgz"
 UPGRADE_META_FILE_NAME = f"tested-upgrade-{MOCK_CHART_VERSION}.yaml"
 
 
-def assert_runner_deletes_app(
-    runner: ModuleType, configured_app_mock: ConfiguredApp
-) -> None:
+def assert_runner_deletes_app(runner: ModuleType, configured_app_mock: ConfiguredApp) -> None:
     cast(unittest.mock.Mock, runner.delete_app).assert_called_once_with(configured_app_mock)  # type: ignore
     # noinspection PyProtectedMember
     cast(unittest.mock.Mock, runner.wait_for_app_to_be_deleted).assert_called_once_with(  # type: ignore
@@ -52,15 +48,11 @@ def assert_runner_deletes_app(
 
 
 def assert_base_tester_deletes_app(configured_app_mock: ConfiguredApp) -> None:
-    assert_runner_deletes_app(
-        app_test_suite.steps.scenarios.simple, configured_app_mock
-    )
+    assert_runner_deletes_app(app_test_suite.steps.scenarios.simple, configured_app_mock)
 
 
 def assert_upgrade_tester_deletes_app(configured_app_mock: ConfiguredApp) -> None:
-    assert_runner_deletes_app(
-        app_test_suite.steps.scenarios.upgrade, configured_app_mock
-    )
+    assert_runner_deletes_app(app_test_suite.steps.scenarios.upgrade, configured_app_mock)
 
 
 def assert_deploy_and_wait_for_app_cr(
@@ -70,9 +62,7 @@ def assert_deploy_and_wait_for_app_cr(
     catalog_name: str,
     catalog_namespace: str,
 ) -> None:
-    cast(
-        unittest.mock.Mock, app_test_suite.steps.scenarios.simple.create_app
-    ).assert_called_once_with(
+    cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.create_app).assert_called_once_with(
         unittest.mock.ANY,
         app_name,
         app_version,
@@ -83,9 +73,7 @@ def assert_deploy_and_wait_for_app_cr(
         None,
     )
     # noinspection PyProtectedMember
-    cast(
-        unittest.mock.Mock, app_test_suite.steps.scenarios.simple.wait_for_apps_to_run
-    ).assert_called_once_with(
+    cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.wait_for_apps_to_run).assert_called_once_with(
         unittest.mock.ANY,
         [app_name],
         app_deploy_ns,
@@ -101,20 +89,14 @@ def assert_chart_file_uploaded(config: Namespace, chart_file_name: str) -> None:
 
 
 def assert_app_platform_ready(kube_config_path: str) -> None:
-    cast(
-        unittest.mock.Mock, app_test_suite.steps.scenarios.simple.run_and_log
-    ).assert_called_with(
+    cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.run_and_log).assert_called_with(
         ["apptestctl", "bootstrap", f"--kubeconfig-path={kube_config_path}", "--wait"]
     )
 
 
 def assert_cluster_connection_created(kube_config_path: str) -> None:
-    cast(unittest.mock.Mock, pykube.KubeConfig.from_file).assert_called_once_with(
-        kube_config_path
-    )
-    cast(
-        unittest.mock.Mock, app_test_suite.steps.scenarios.simple.HTTPClient
-    ).assert_called_once()
+    cast(unittest.mock.Mock, pykube.KubeConfig.from_file).assert_called_once_with(kube_config_path)
+    cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.HTTPClient).assert_called_once()
 
 
 def get_base_config(mocker: MockerFixture) -> Namespace:
@@ -147,9 +129,7 @@ def patch_base_test_runner(
         "app_test_suite.steps.scenarios.simple.run_and_log",
         return_value=run_and_log_res,
     )
-    mocker.patch(
-        "app_test_suite.steps.scenarios.simple.ChartMuseumAppRepository.upload_artifact"
-    )
+    mocker.patch("app_test_suite.steps.scenarios.simple.ChartMuseumAppRepository.upload_artifact")
     app_cr = mocker.MagicMock(name="appCR")
     app_cr.name = app_name
     app_cr.namespace = app_namespace
@@ -165,9 +145,7 @@ def patch_base_test_runner(
 
 
 def get_mock_cluster_manager(mocker: MockerFixture) -> ClusterManager:
-    mock_cluster_manager = mocker.MagicMock(
-        spec=ClusterManager, name="MockClusterManager"
-    )
+    mock_cluster_manager = mocker.MagicMock(spec=ClusterManager, name="MockClusterManager")
     mock_cluster_manager.get_cluster_for_test_type.return_value = ClusterInfo(
         ClusterType("mock"),
         None,
@@ -206,11 +184,7 @@ def patch_upgrade_test_runner(
     )
 
     def get_or_none(*_: Any, **kwargs: str) -> None:
-        res = (
-            mock_stable_app_catalog_cr
-            if kwargs["name"] == STABLE_APP_CATALOG_NAME
-            else mock_app_catalog_cr
-        )
+        res = mock_stable_app_catalog_cr if kwargs["name"] == STABLE_APP_CATALOG_NAME else mock_app_catalog_cr
         return res
 
     mock_app_catalog_cr = mocker.MagicMock(name="CatalogCR mock")
@@ -240,9 +214,7 @@ def assert_upgrade_tester_exec_hook(
     kube_config_path: str,
     deploy_namespace: str,
 ) -> None:
-    cast(
-        unittest.mock.Mock, app_test_suite.steps.scenarios.upgrade.run_and_log
-    ).assert_any_call(
+    cast(unittest.mock.Mock, app_test_suite.steps.scenarios.upgrade.run_and_log).assert_any_call(
         [
             MOCK_UPGRADE_UPGRADE_HOOK,
             stage_name,

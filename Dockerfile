@@ -26,7 +26,7 @@ RUN chmod +x /binaries/*
 FROM python:3.12.7-slim AS base
 
 # Install uv from official image
-COPY --from=ghcr.io/astral-sh/uv:0.10.1 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.10.2 /uv /bin/uv
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
 
 ENV LANG=C.UTF-8 \

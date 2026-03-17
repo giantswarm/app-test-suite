@@ -2,10 +2,11 @@ import argparse
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import List, Optional, Set, cast
+from typing import Optional, Set, cast
 
 import configargparse
 import yaml
+import pykube
 from pykube import HTTPClient, KubeConfig, ConfigMap
 from pytest_helm_charts.giantswarm_app_platform.app import (
     ConfiguredApp,
@@ -307,25 +308,10 @@ class SimpleTestScenario(BuildStep, ABC):
         )
         return app_obj
 
-    def _run_kubectl(self, args: List[str]) -> str:
-        """Run a kubectl command and return its stdout. Failures are logged but not raised."""
-        if self._cluster_info is None:
-            return ""
-        kubectl_args = ["kubectl", f"--kubeconfig={self._cluster_info.kube_config_path}"] + args
-        try:
-            run_res = run_and_log(kubectl_args, capture_output=True)
-            output = run_res.stdout or ""
-            if run_res.stderr:
-                output += run_res.stderr
-            return output
-        except Exception as ex:
-            logger.warning(f"Failed to run kubectl command {args}: {ex}")
-            return ""
-
     def _collect_failure_diagnostics(self, config: argparse.Namespace, context: Context) -> None:
         """Collect cluster diagnostics after a test failure, before cleanup destroys the evidence."""
-        if self._cluster_info is None:
-            logger.warning("No cluster info available, skipping diagnostics collection.")
+        if self._kube_client is None:
+            logger.warning("No kube client available, skipping diagnostics collection.")
             return
 
         deploy_namespace = get_config_value_by_cmd_line_option(
@@ -339,124 +325,101 @@ class SimpleTestScenario(BuildStep, ABC):
         logger.error(f"FAILURE DIAGNOSTICS for app '{app_name}' in namespace '{deploy_namespace}'")
         logger.error(f"{separator}")
 
-        # Pod status
-        output = self._run_kubectl(["get", "pods", "-n", deploy_namespace, "-o", "wide"])
-        if output:
-            logger.error(f"--- Pods in namespace '{deploy_namespace}' ---")
-            logger.error(output)
+        try:
+            # Pod status and logs
+            pods = list(pykube.Pod.objects(self._kube_client).filter(namespace=deploy_namespace))
+            if pods:
+                logger.error(f"--- Pods in namespace '{deploy_namespace}' ---")
+                for pod in pods:
+                    phase = pod.obj.get("status", {}).get("phase", "Unknown")
+                    logger.error(f"  {pod.name}: {phase}")
 
-        # Pod descriptions for non-Running pods (shows conditions, events, image pull errors)
-        output = self._run_kubectl(
-            [
-                "get",
-                "pods",
-                "-n",
-                deploy_namespace,
-                "-o",
-                "jsonpath={.items[?(@.status.phase!='Running')].metadata.name}",
-            ]
-        )
-        if output:
-            for pod_name in output.split():
-                pod_name = pod_name.strip()
-                if not pod_name:
-                    continue
-                desc = self._run_kubectl(["describe", "pod", pod_name, "-n", deploy_namespace])
-                if desc:
-                    logger.error(f"--- Describe pod '{pod_name}' ---")
-                    logger.error(desc)
+            # Full spec/status for non-Running pods (shows conditions, events, image pull errors)
+            for pod in pods:
+                if pod.obj.get("status", {}).get("phase") != "Running":
+                    logger.error(f"--- Describe pod '{pod.name}' ---")
+                    logger.error(yaml.dump(pod.obj))
 
-        # Container logs from all pods in the namespace
-        output = self._run_kubectl(
-            [
-                "get",
-                "pods",
-                "-n",
-                deploy_namespace,
-                "-o",
-                "jsonpath={.items[*].metadata.name}",
-            ]
-        )
-        if output:
-            for pod_name in output.split():
-                pod_name = pod_name.strip()
-                if not pod_name:
-                    continue
-                logs = self._run_kubectl(
-                    [
-                        "logs",
-                        pod_name,
-                        "-n",
-                        deploy_namespace,
-                        "--all-containers",
-                        "--tail=100",
-                    ]
-                )
-                if logs:
-                    logger.error(f"--- Logs from pod '{pod_name}' (last 100 lines) ---")
-                    logger.error(logs)
-                # Also get previous container logs if the container restarted
-                prev_logs = self._run_kubectl(
-                    [
-                        "logs",
-                        pod_name,
-                        "-n",
-                        deploy_namespace,
-                        "--all-containers",
-                        "--previous",
-                        "--tail=50",
-                    ]
-                )
-                if prev_logs:
-                    logger.error(f"--- Previous logs from pod '{pod_name}' (last 50 lines) ---")
-                    logger.error(prev_logs)
+            # Container logs from all pods in the namespace
+            for pod in pods:
+                all_containers = [c["name"] for c in pod.obj.get("spec", {}).get("containers", [])]
+                all_containers += [c["name"] for c in pod.obj.get("spec", {}).get("initContainers", [])]
+                for container in all_containers:
+                    try:
+                        logs = pod.logs(container=container, tail_lines=100)
+                        if logs:
+                            logger.error(f"--- Logs from pod '{pod.name}' container '{container}' (last 100 lines) ---")
+                            logger.error(logs)
+                    except Exception as ex:
+                        logger.warning(f"Failed to get logs for pod '{pod.name}' container '{container}': {ex}")
+                    try:
+                        prev_logs = pod.logs(container=container, previous=True, tail_lines=50)
+                        if prev_logs:
+                            logger.error(
+                                f"--- Previous logs from pod '{pod.name}' container '{container}' (last 50 lines) ---"
+                            )
+                            logger.error(prev_logs)
+                    except Exception:
+                        pass  # Previous logs don't exist if the container hasn't restarted
 
-        # Events in the app namespace
-        output = self._run_kubectl(
-            [
-                "get",
-                "events",
-                "-n",
-                deploy_namespace,
-                "--sort-by=.lastTimestamp",
-            ]
-        )
-        if output:
-            logger.error(f"--- Events in namespace '{deploy_namespace}' ---")
-            logger.error(output)
-
-        # App CR status
-        output = self._run_kubectl(["get", "app", "-n", deploy_namespace, "-o", "yaml"])
-        if output:
-            logger.error(f"--- App CRs in namespace '{deploy_namespace}' ---")
-            logger.error(output)
-
-        # Deployments status
-        output = self._run_kubectl(["get", "deployments", "-n", deploy_namespace, "-o", "wide"])
-        if output:
-            logger.error(f"--- Deployments in namespace '{deploy_namespace}' ---")
-            logger.error(output)
-
-        # App-operator and chart-operator logs (they run in giantswarm namespace)
-        for operator in ["app-operator", "chart-operator"]:
-            logs = self._run_kubectl(
-                [
-                    "logs",
-                    "-n",
-                    "giantswarm",
-                    f"-l=app.kubernetes.io/name={operator}",
-                    "--tail=50",
-                ]
+            # Events in the app namespace
+            events = sorted(
+                pykube.Event.objects(self._kube_client).filter(namespace=deploy_namespace),
+                key=lambda e: e.obj.get("lastTimestamp") or "",
             )
-            if logs:
-                logger.error(f"--- Logs from {operator} (last 50 lines) ---")
-                logger.error(logs)
+            if events:
+                logger.error(f"--- Events in namespace '{deploy_namespace}' ---")
+                for event in events:
+                    logger.error(
+                        f"  {event.obj.get('lastTimestamp', '')} {event.obj.get('type', '')} "
+                        f"{event.obj.get('reason', '')} {event.obj.get('message', '')}"
+                    )
 
-        # Node status (useful for Kind clusters with resource issues)
-        output = self._run_kubectl(["get", "nodes", "-o", "wide"])
-        if output:
-            logger.error("--- Cluster nodes ---")
-            logger.error(output)
+            # App CR status
+            app_crs = list(AppCR.objects(self._kube_client).filter(namespace=deploy_namespace))
+            if app_crs:
+                logger.error(f"--- App CRs in namespace '{deploy_namespace}' ---")
+                for app_cr in app_crs:
+                    logger.error(yaml.dump(app_cr.obj))
+
+            # Deployments status
+            deployments = list(pykube.Deployment.objects(self._kube_client).filter(namespace=deploy_namespace))
+            if deployments:
+                logger.error(f"--- Deployments in namespace '{deploy_namespace}' ---")
+                for deployment in deployments:
+                    logger.error(f"  {deployment.name}: {yaml.dump(deployment.obj.get('status', {}))}")
+
+            # App-operator and chart-operator logs (they run in giantswarm namespace)
+            for operator in ["app-operator", "chart-operator"]:
+                try:
+                    operator_pods = list(
+                        pykube.Pod.objects(self._kube_client).filter(
+                            namespace="giantswarm", selector={"app.kubernetes.io/name": operator}
+                        )
+                    )
+                    for pod in operator_pods:
+                        try:
+                            logs = pod.logs(tail_lines=50)
+                            if logs:
+                                logger.error(f"--- Logs from {operator} pod '{pod.name}' (last 50 lines) ---")
+                                logger.error(logs)
+                        except Exception as ex:
+                            logger.warning(f"Failed to get logs for {operator} pod '{pod.name}': {ex}")
+                except Exception as ex:
+                    logger.warning(f"Failed to get pods for {operator}: {ex}")
+
+            # Node status (useful for Kind clusters with resource issues)
+            nodes = list(pykube.Node.objects(self._kube_client).all())
+            if nodes:
+                logger.error("--- Cluster nodes ---")
+                for node in nodes:
+                    conditions = node.obj.get("status", {}).get("conditions", [])
+                    ready_cond = next((c for c in conditions if c.get("type") == "Ready"), None)
+                    ready_status = ready_cond.get("status", "Unknown") if ready_cond else "Unknown"
+                    logger.error(f"  {node.name}: Ready={ready_status}")
+
+        except Exception as ex:
+            logger.warning(f"Failed to collect diagnostics: {ex}")
 
         logger.error(f"{separator}")
         logger.error("END OF FAILURE DIAGNOSTICS")

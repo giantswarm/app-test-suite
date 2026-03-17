@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Optional, Set, cast
+from typing import List, Optional, Set, cast
 
 import configargparse
 import yaml
@@ -236,6 +236,7 @@ class SimpleTestScenario(BuildStep, ABC):
                 self._deploy_tested_chart_as_app(config, context)
             self.run_tests(config, context)
         except Exception as e:
+            self._collect_failure_diagnostics(config, context)
             raise ATSTestError(f"Application deployment failed: {e}")
         finally:
             if not get_config_value_by_cmd_line_option(
@@ -305,6 +306,161 @@ class SimpleTestScenario(BuildStep, ABC):
             self._APP_DEPLOYMENT_TIMEOUT_SEC,
         )
         return app_obj
+
+    def _run_kubectl(self, args: List[str]) -> str:
+        """Run a kubectl command and return its stdout. Failures are logged but not raised."""
+        if self._cluster_info is None:
+            return ""
+        kubectl_args = ["kubectl", f"--kubeconfig={self._cluster_info.kube_config_path}"] + args
+        try:
+            run_res = run_and_log(kubectl_args, capture_output=True)
+            output = run_res.stdout or ""
+            if run_res.stderr:
+                output += run_res.stderr
+            return output
+        except Exception as ex:
+            logger.warning(f"Failed to run kubectl command {args}: {ex}")
+            return ""
+
+    def _collect_failure_diagnostics(self, config: argparse.Namespace, context: Context) -> None:
+        """Collect cluster diagnostics after a test failure, before cleanup destroys the evidence."""
+        if self._cluster_info is None:
+            logger.warning("No cluster info available, skipping diagnostics collection.")
+            return
+
+        deploy_namespace = get_config_value_by_cmd_line_option(
+            config,
+            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
+        )
+        app_name = context.get(CONTEXT_KEY_CHART_YAML, {}).get("name", "unknown")
+        separator = "=" * 80
+
+        logger.error(f"{separator}")
+        logger.error(f"FAILURE DIAGNOSTICS for app '{app_name}' in namespace '{deploy_namespace}'")
+        logger.error(f"{separator}")
+
+        # Pod status
+        output = self._run_kubectl(["get", "pods", "-n", deploy_namespace, "-o", "wide"])
+        if output:
+            logger.error(f"--- Pods in namespace '{deploy_namespace}' ---")
+            logger.error(output)
+
+        # Pod descriptions for non-Running pods (shows conditions, events, image pull errors)
+        output = self._run_kubectl(
+            [
+                "get",
+                "pods",
+                "-n",
+                deploy_namespace,
+                "-o",
+                "jsonpath={.items[?(@.status.phase!='Running')].metadata.name}",
+            ]
+        )
+        if output:
+            for pod_name in output.split():
+                pod_name = pod_name.strip()
+                if not pod_name:
+                    continue
+                desc = self._run_kubectl(["describe", "pod", pod_name, "-n", deploy_namespace])
+                if desc:
+                    logger.error(f"--- Describe pod '{pod_name}' ---")
+                    logger.error(desc)
+
+        # Container logs from all pods in the namespace
+        output = self._run_kubectl(
+            [
+                "get",
+                "pods",
+                "-n",
+                deploy_namespace,
+                "-o",
+                "jsonpath={.items[*].metadata.name}",
+            ]
+        )
+        if output:
+            for pod_name in output.split():
+                pod_name = pod_name.strip()
+                if not pod_name:
+                    continue
+                logs = self._run_kubectl(
+                    [
+                        "logs",
+                        pod_name,
+                        "-n",
+                        deploy_namespace,
+                        "--all-containers",
+                        "--tail=100",
+                    ]
+                )
+                if logs:
+                    logger.error(f"--- Logs from pod '{pod_name}' (last 100 lines) ---")
+                    logger.error(logs)
+                # Also get previous container logs if the container restarted
+                prev_logs = self._run_kubectl(
+                    [
+                        "logs",
+                        pod_name,
+                        "-n",
+                        deploy_namespace,
+                        "--all-containers",
+                        "--previous",
+                        "--tail=50",
+                    ]
+                )
+                if prev_logs:
+                    logger.error(f"--- Previous logs from pod '{pod_name}' (last 50 lines) ---")
+                    logger.error(prev_logs)
+
+        # Events in the app namespace
+        output = self._run_kubectl(
+            [
+                "get",
+                "events",
+                "-n",
+                deploy_namespace,
+                "--sort-by=.lastTimestamp",
+            ]
+        )
+        if output:
+            logger.error(f"--- Events in namespace '{deploy_namespace}' ---")
+            logger.error(output)
+
+        # App CR status
+        output = self._run_kubectl(["get", "app", "-n", deploy_namespace, "-o", "yaml"])
+        if output:
+            logger.error(f"--- App CRs in namespace '{deploy_namespace}' ---")
+            logger.error(output)
+
+        # Deployments status
+        output = self._run_kubectl(["get", "deployments", "-n", deploy_namespace, "-o", "wide"])
+        if output:
+            logger.error(f"--- Deployments in namespace '{deploy_namespace}' ---")
+            logger.error(output)
+
+        # App-operator and chart-operator logs (they run in giantswarm namespace)
+        for operator in ["app-operator", "chart-operator"]:
+            logs = self._run_kubectl(
+                [
+                    "logs",
+                    "-n",
+                    "giantswarm",
+                    f"-l=app.kubernetes.io/name={operator}",
+                    "--tail=50",
+                ]
+            )
+            if logs:
+                logger.error(f"--- Logs from {operator} (last 50 lines) ---")
+                logger.error(logs)
+
+        # Node status (useful for Kind clusters with resource issues)
+        output = self._run_kubectl(["get", "nodes", "-o", "wide"])
+        if output:
+            logger.error("--- Cluster nodes ---")
+            logger.error(output)
+
+        logger.error(f"{separator}")
+        logger.error("END OF FAILURE DIAGNOSTICS")
+        logger.error(f"{separator}")
 
     def _upload_chart_to_app_catalog(self, config: argparse.Namespace, chart_file_path: str) -> None:
         # in future, if we want to support multiple chart repositories, we need to make this configurable

@@ -18,8 +18,6 @@ def assert_run_gotest(
     test_extra_info: str = "",
 ) -> None:
     env_vars = {
-        "KUBECONFIG": kube_config_path,
-        "ATS_APP_CONFIG_FILE_PATH": "",
         "ATS_CHART_VERSION": app_version,
         "ATS_CHART_PATH": chart_file,
         "ATS_CLUSTER_TYPE": "mock",
@@ -31,6 +29,10 @@ def assert_run_gotest(
 
     # Because `append_to_sys_env` parameter is enabled by default
     env_vars.update(os.environ)
+
+    # These are set after os.environ in get_test_info_env_variables, so they override system env
+    env_vars["KUBECONFIG"] = kube_config_path
+    env_vars["ATS_APP_CONFIG_FILE_PATH"] = ""
 
     if test_extra_info:
         env_vars.update({k.upper(): v for k, v in [p.split("=") for p in test_extra_info.split(",")]})

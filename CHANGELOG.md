@@ -5,6 +5,10 @@ following [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Add diagnostic output in case of failure
+
 ## [0.12.0] - 2025-11-05
 
 ### Changed

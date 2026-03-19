@@ -6,6 +6,7 @@ from typing import Optional, Set, cast
 
 import configargparse
 import yaml
+import pykube
 from pykube import HTTPClient, KubeConfig, ConfigMap
 from pytest_helm_charts.giantswarm_app_platform.app import (
     ConfiguredApp,
@@ -236,6 +237,7 @@ class SimpleTestScenario(BuildStep, ABC):
                 self._deploy_tested_chart_as_app(config, context)
             self.run_tests(config, context)
         except Exception as e:
+            self._collect_failure_diagnostics(config, context)
             raise ATSTestError(f"Application deployment failed: {e}")
         finally:
             if not get_config_value_by_cmd_line_option(
@@ -305,6 +307,123 @@ class SimpleTestScenario(BuildStep, ABC):
             self._APP_DEPLOYMENT_TIMEOUT_SEC,
         )
         return app_obj
+
+    def _collect_failure_diagnostics(self, config: argparse.Namespace, context: Context) -> None:
+        """Collect cluster diagnostics after a test failure, before cleanup destroys the evidence."""
+        if self._kube_client is None:
+            logger.warning("No kube client available, skipping diagnostics collection.")
+            return
+
+        deploy_namespace = get_config_value_by_cmd_line_option(
+            config,
+            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
+        )
+        app_name = context.get(CONTEXT_KEY_CHART_YAML, {}).get("name", "unknown")
+        separator = "=" * 80
+
+        logger.error(f"{separator}")
+        logger.error(f"FAILURE DIAGNOSTICS for app '{app_name}' in namespace '{deploy_namespace}'")
+        logger.error(f"{separator}")
+
+        try:
+            # Pod status and logs
+            pods = list(pykube.Pod.objects(self._kube_client).filter(namespace=deploy_namespace))
+            if pods:
+                logger.error(f"--- Pods in namespace '{deploy_namespace}' ---")
+                for pod in pods:
+                    phase = pod.obj.get("status", {}).get("phase", "Unknown")
+                    logger.error(f"  {pod.name}: {phase}")
+
+            # Full spec/status for non-Running pods (shows conditions, events, image pull errors)
+            for pod in pods:
+                if pod.obj.get("status", {}).get("phase") != "Running":
+                    logger.error(f"--- Describe pod '{pod.name}' ---")
+                    logger.error(yaml.dump(pod.obj))
+
+            # Container logs from all pods in the namespace
+            for pod in pods:
+                all_containers = [c["name"] for c in pod.obj.get("spec", {}).get("containers", [])]
+                all_containers += [c["name"] for c in pod.obj.get("spec", {}).get("initContainers", [])]
+                for container in all_containers:
+                    try:
+                        logs = pod.logs(container=container, tail_lines=100)
+                        if logs:
+                            logger.error(f"--- Logs from pod '{pod.name}' container '{container}' (last 100 lines) ---")
+                            logger.error(logs)
+                    except Exception as ex:
+                        logger.warning(f"Failed to get logs for pod '{pod.name}' container '{container}': {ex}")
+                    try:
+                        prev_logs = pod.logs(container=container, previous=True, tail_lines=50)
+                        if prev_logs:
+                            logger.error(
+                                f"--- Previous logs from pod '{pod.name}' container '{container}' (last 50 lines) ---"
+                            )
+                            logger.error(prev_logs)
+                    except Exception:
+                        pass  # Previous logs don't exist if the container hasn't restarted
+
+            # Events in the app namespace
+            events = sorted(
+                pykube.Event.objects(self._kube_client).filter(namespace=deploy_namespace),
+                key=lambda e: e.obj.get("lastTimestamp") or "",
+            )
+            if events:
+                logger.error(f"--- Events in namespace '{deploy_namespace}' ---")
+                for event in events:
+                    logger.error(
+                        f"  {event.obj.get('lastTimestamp', '')} {event.obj.get('type', '')} "
+                        f"{event.obj.get('reason', '')} {event.obj.get('message', '')}"
+                    )
+
+            # App CR status
+            app_crs = list(AppCR.objects(self._kube_client).filter(namespace=deploy_namespace))
+            if app_crs:
+                logger.error(f"--- App CRs in namespace '{deploy_namespace}' ---")
+                for app_cr in app_crs:
+                    logger.error(yaml.dump(app_cr.obj))
+
+            # Deployments status
+            deployments = list(pykube.Deployment.objects(self._kube_client).filter(namespace=deploy_namespace))
+            if deployments:
+                logger.error(f"--- Deployments in namespace '{deploy_namespace}' ---")
+                for deployment in deployments:
+                    logger.error(f"  {deployment.name}: {yaml.dump(deployment.obj.get('status', {}))}")
+
+            # App-operator and chart-operator logs (they run in giantswarm namespace)
+            for operator in ["app-operator", "chart-operator"]:
+                try:
+                    operator_pods = list(
+                        pykube.Pod.objects(self._kube_client).filter(
+                            namespace="giantswarm", selector={"app.kubernetes.io/name": operator}
+                        )
+                    )
+                    for pod in operator_pods:
+                        try:
+                            logs = pod.logs(tail_lines=50)
+                            if logs:
+                                logger.error(f"--- Logs from {operator} pod '{pod.name}' (last 50 lines) ---")
+                                logger.error(logs)
+                        except Exception as ex:
+                            logger.warning(f"Failed to get logs for {operator} pod '{pod.name}': {ex}")
+                except Exception as ex:
+                    logger.warning(f"Failed to get pods for {operator}: {ex}")
+
+            # Node status (useful for Kind clusters with resource issues)
+            nodes = list(pykube.Node.objects(self._kube_client).all())
+            if nodes:
+                logger.error("--- Cluster nodes ---")
+                for node in nodes:
+                    conditions = node.obj.get("status", {}).get("conditions", [])
+                    ready_cond = next((c for c in conditions if c.get("type") == "Ready"), None)
+                    ready_status = ready_cond.get("status", "Unknown") if ready_cond else "Unknown"
+                    logger.error(f"  {node.name}: Ready={ready_status}")
+
+        except Exception as ex:
+            logger.warning(f"Failed to collect diagnostics: {ex}")
+
+        logger.error(f"{separator}")
+        logger.error("END OF FAILURE DIAGNOSTICS")
+        logger.error(f"{separator}")
 
     def _upload_chart_to_app_catalog(self, config: argparse.Namespace, chart_file_path: str) -> None:
         # in future, if we want to support multiple chart repositories, we need to make this configurable

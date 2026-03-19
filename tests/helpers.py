@@ -123,6 +123,7 @@ def patch_base_test_runner(
     app_name: str,
     app_namespace: str,
 ) -> ConfiguredApp:
+    mocker.patch.dict(os.environ, {}, clear=True)
     mocker.patch("pykube.KubeConfig.from_file", name="MockKubeConfig")
     mocker.patch("app_test_suite.steps.scenarios.simple.HTTPClient")
     mocker.patch(

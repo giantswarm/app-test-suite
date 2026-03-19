@@ -35,7 +35,7 @@ name = "pypi"
 url = "https://pypi.org/simple"
 
 [tool.pytest.ini_options]
-minversion = "6.0"
+minversion = "v0.13.0"
 testpaths = ["tests"]
 
 [tool.ruff]

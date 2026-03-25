@@ -5,6 +5,10 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+### Added
+
+- Create `policy-exceptions` namespace before app deployment so charts with Kyverno PolicyException pre-install hooks can be installed successfully.
+
 ## [0.13.0] - 2026-03-19
 
 ### Added

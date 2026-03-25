@@ -288,6 +288,8 @@ class SimpleTestScenario(BuildStep, ABC):
                 config_values = yaml.safe_load(config_values_raw)
         logger.info(f"Ensuring namespace '{deploy_namespace}'.")
         ensure_namespace_exists(self._kube_client, deploy_namespace)
+        logger.info("Ensuring namespace 'policy-exceptions'.")
+        ensure_namespace_exists(self._kube_client, "policy-exceptions")
         logger.info(f"Deploying App CR '{app_name}' into '{deploy_namespace}' namespace.")
         app_obj = create_app(
             self._kube_client,

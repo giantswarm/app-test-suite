@@ -28,6 +28,11 @@ FROM python:3.12.7-slim AS base
 # Install uv from official image
 COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /bin/uv
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+# Disable Python downloads, because we want to use the system interpreter
+# across both images. If using a managed Python version, it needs to be
+# copied from the build image into the final image; see `standalone.Dockerfile`
+# for an example.
+ENV UV_PYTHON_DOWNLOADS=0
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
@@ -43,23 +48,16 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 # Omit development dependencies
 ENV UV_NO_DEV=1
 
-# Disable Python downloads, because we want to use the system interpreter
-# across both images. If using a managed Python version, it needs to be
-# copied from the build image into the final image; see `standalone.Dockerfile`
-# for an example.
-ENV UV_PYTHON_DOWNLOADS=0
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-install-project
 
-COPY README.md ${ATS_DIR}/
+COPY README.md uv.lock pyproject.toml ${ATS_DIR}/
 COPY app_test_suite/ ${ATS_DIR}/app_test_suite/
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked
 
 
@@ -89,7 +87,10 @@ COPY --from=builder --chown=1000:1000 $ATS_DIR $ATS_DIR
 
 WORKDIR $ATS_DIR/workdir
 
-RUN mkdir -p ${ATS_DIR}/.cache/go-build
+RUN mkdir -p "${ATS_DIR}/.cache/go-build"
+RUN mkdir -p "${ATS_DIR}/.cache/uv"
+RUN chown 1000:1000 "${ATS_DIR}"
+RUN chown -R 1000:1000 "${ATS_DIR}/.cache"
 
 ENTRYPOINT ["container-entrypoint.sh"]
 

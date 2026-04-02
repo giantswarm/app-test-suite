@@ -5,11 +5,18 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+### Changed
+
+- Revert the breaking change from release 0.13.0 for test environments. This means that the project itself is
+  kept on `uv`, but to avoid (for now) the cost of migrating all the test setups to `uv` as well, we keep them
+  on `pipenv` for the time being.
+
 ## [0.14.0] - 2026-03-26
 
 ### Added
 
-- Create `policy-exceptions` namespace before app deployment so charts with Kyverno PolicyException pre-install hooks can be installed successfully.
+- Create `policy-exceptions` namespace before app deployment so charts with Kyverno PolicyException
+  pre-install hooks can be installed successfully.
 
 ## [0.13.0] - 2026-03-19
 
@@ -20,7 +27,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 ### Changed
 
 - the project is now managed with [uv](https://docs.astral.sh/uv/)
-- BREAKING CHANGE: python tests ran by app-test-suite have to be migrated from being managed by pipenv to uv
+- ~BREAKING CHANGE~: python tests ran by app-test-suite have to be migrated from being managed by pipenv to uv
   as well. No code changes in the tests themselves are needed, just the change of the project management tool.
   More information:
     - https://www.chris-wells.net/articles/2025/04/12/pipenv-to-uv/

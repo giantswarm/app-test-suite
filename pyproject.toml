@@ -1,6 +1,6 @@
 [project]
 name = "app_test_suite"
-version = "v0.13.0"
+version = "v0.15.0"
 requires-python = ">=3.12"
 description = "An app testing suite for GiantSwarm app platform"
 readme = "README.md"
@@ -35,7 +35,7 @@ name = "pypi"
 url = "https://pypi.org/simple"
 
 [tool.pytest.ini_options]
-minversion = "v0.13.0"
+minversion = "v0.15.0"
 testpaths = ["tests"]
 
 [tool.ruff]

@@ -11,11 +11,7 @@ from tests.helpers import MOCK_KUBE_VERSION
 
 
 def assert_run_pytest(
-    test_provided: StepType,
-    kube_config_path: str,
-    chart_file: str,
-    app_version: str,
-    test_extra_info: str = "",
+    test_provided: StepType, kube_config_path: str, chart_file: str, app_version: str, test_extra_info: str = ""
 ) -> None:
     env_vars = {
         "ATS_CHART_VERSION": app_version,
@@ -34,7 +30,7 @@ def assert_run_pytest(
     env_vars["ATS_APP_CONFIG_FILE_PATH"] = ""
 
     expected_args = [
-        "uv",
+        "pipenv",
         "run",
         "pytest",
         "-m",
@@ -55,9 +51,13 @@ def assert_run_pytest(
 def assert_prepare_pytest_test_environment() -> None:
     run_and_log_mock = cast(unittest.mock.Mock, app_test_suite.steps.executors.pytest.run_and_log)
     assert run_and_log_mock.call_args_list[0].args[0] == [
-        "uv",
-        "sync",
-        "--frozen",
+        "pipenv",
+        "install",
+        "--deploy",
+    ]
+    assert run_and_log_mock.call_args_list[1].args[0] == [
+        "pipenv",
+        "--venv",
     ]
 
 
@@ -69,7 +69,4 @@ def assert_prepare_and_run_pytest(
 
 
 def patch_pytest_test_runner(mocker: MockerFixture, run_and_log_res: unittest.mock.Mock) -> None:
-    mocker.patch(
-        "app_test_suite.steps.executors.pytest.run_and_log",
-        return_value=run_and_log_res,
-    )
+    mocker.patch("app_test_suite.steps.executors.pytest.run_and_log", return_value=run_and_log_res)

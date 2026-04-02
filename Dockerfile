@@ -31,7 +31,9 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
+    PIPENV_VER="2024.1.0" \
     ATS_DIR="/ats"
+RUN pip install --no-cache-dir pipenv==${PIPENV_VER}
 
 WORKDIR $ATS_DIR
 
@@ -80,6 +82,8 @@ RUN apt-get update && \
 
 RUN curl -SL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | \
     tar -C /usr/local -xzf -
+
+COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv
 
 COPY --from=binaries /binaries/* /usr/local/bin/
 

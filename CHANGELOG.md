@@ -5,6 +5,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-04-02
+
 ### Changed
 
 - Revert the breaking change from release 0.13.0 for test environments. This means that the project itself is

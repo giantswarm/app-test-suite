@@ -31,6 +31,7 @@ workflows:
                               - main
                               - master
             - publish-github-release:
+                  context: architect
                   name: publish-github-release-for-dats
                   requires:
                       - push-to-registries

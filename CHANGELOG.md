@@ -7,7 +7,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Added
 
-- `--keep-going` flag: all test steps run to completion even when earlier steps fail; errors are reported together at the end. Requires `step-exec-lib >= 0.5.0`.
+- Keep-going mode: all test steps run to completion even when earlier steps fail; errors are reported together at the end. Enabled by default; use `--no-keep-going` to stop on first failure. Requires `step-exec-lib >= 0.5.0`.
 
 ## [0.15.0] - 2026-04-02
 

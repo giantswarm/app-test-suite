@@ -9,6 +9,27 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 - Keep-going mode: all test steps run to completion even when earlier steps fail; errors are reported together at the end. Enabled by default; use `--no-keep-going` to stop on first failure. Requires `step-exec-lib >= 0.5.0`.
 
+### Changed
+
+- **BREAKING:** `PytestExecutor` now uses `uv sync` / `uv run pytest` instead of `pipenv install --deploy` /
+  `pipenv run pytest`. App test directories must provide `pyproject.toml` + `uv.lock` instead of `Pipfile` /
+  `Pipfile.lock`. `pipenv` is no longer installed in the ATS Docker image.
+
+  **Migration:** in your chart's `tests/ats/` directory run:
+
+  ```bash
+  uv init --no-workspace --no-readme
+  uv add "pytest-helm-charts>=0.5"   # re-add your deps from Pipfile [packages]
+  rm Pipfile Pipfile.lock
+  ```
+
+  Commit `pyproject.toml` and `uv.lock`. See [docs/pytest-test-pipeline.md](docs/pytest-test-pipeline.md)
+  for full instructions.
+
+### Removed
+
+- **BREAKING:** `dats.sh` is no longer published as a release asset. Run the image directly: `docker run --rm -it -v "$(pwd):/ats/workdir" -v /var/run/docker.sock:/var/run/docker.sock --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>`.
+
 ## [0.15.0] - 2026-04-02
 
 ### Changed

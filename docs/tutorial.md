@@ -2,19 +2,15 @@
 
 ## Preparing tools
 
-**Please note**: this tutorial was written with python 3.8, but should work exactly the same with 3.9 and
-newer.
+**Please note**: this tutorial uses [uv](https://docs.astral.sh/uv/) for managing test dependencies.
+The docker image (`dats.sh`) ships `uv`, so no separate installation is needed when running inside the container.
 
 To be able to complete this tutorial, you need a few tools:
 
 - `app-test-suite` itself; if you haven't done so already, we recommend getting the latest version of the
   `dats.sh` helper from [releases](https://github.com/giantswarm/app-test-suite/releases)
-- a working python environment that you can use to install [pipenv](https://pypi.org/project/pipenv/)
-  - if you already have python, it should be enough to run `pip install -U pipenv`
-- to be able to use the shortest path, you also need a working python 3.8 environment
-  - to avoid problems like missing the specific python version, we highly recommend
-    [`pyenv`](https://github.com/pyenv/pyenv#installation) for managing python environments; once `pyenv` is
-    installed, it's enough to run `pyenv install 3.8.6` to get the python environment you need
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) for managing test dependencies locally
+  - install with: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
 ## Testing your app
 
@@ -62,61 +58,29 @@ cp -a examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf3596822
 ```
 
 Let's create a directory for storing tests. `ats` looks for them in the `tests/ats` subdirectory of the helm
-chart, so let's start a fresh python virtual env there:
+chart, so let's initialise a uv project there:
 
 ```bash
 $ mkdir -p examples/tutorial/tests/ats
 $ cd examples/tutorial/tests/ats
-$ pipenv --python 3.8
-Creating a virtualenv for this project...
-Pipfile: /home/piontec/work/giantswarm/git/app-test-suite/examples/tutorial/tests/ats/Pipfile
-Using /home/piontec/tools/pyenv/versions/3.8.8/bin/python3.8 (3.8.8) to create virtualenv...
-⠴ Creating virtual environment...created virtual environment CPython3.8.8.final.0-64 in 262ms
-  creator CPython3Posix(dest=/home/piontec/.virtualenvs/ats-DRi5BLbR, clear=False, no_vcs_ignore=False, global=False)
-  seeder FromAppData(download=False, pip=bundle, setuptools=bundle, wheel=bundle, via=copy, app_data_dir=/home/piontec/.local/share/virtualenv)
-    added seed packages: pip==21.1.2, setuptools==57.0.0, wheel==0.36.2
-  activators BashActivator,CShellActivator,FishActivator,PowerShellActivator,PythonActivator,XonshActivator
-
-✔ Successfully created virtual environment!
-Virtualenv location: /home/piontec/.virtualenvs/ats-DRi5BLbR
-Creating a Pipfile for this project...
+$ uv init --no-workspace --no-readme
+$ uv add "pytest-helm-charts>=0.5"
 ```
 
-Now, we need to add our dependencies. If we're going to use `pytest-helm-chart`, everything else will come as
-dependencies:
-
-```bash
-$ pipenv install "pytest-helm-charts>=0.3.1"
-Installing pytest-helm-charts>=0.3.1...
-Adding pytest-helm-charts to Pipfile's [packages]...
-✔ Installation Succeeded
-Pipfile.lock not found, creating...
-Locking [dev-packages] dependencies...
-Locking [packages] dependencies...
-Building requirements...
-Resolving dependencies...
-✔ Success!
-Updated Pipfile.lock (a62443)!
-Installing dependencies from Pipfile.lock (a62443)...
-  🐍   ▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉ 0/0 — 00:00:00
-```
-
-As a result, our `Pipfile` should look like this basic version:
+As a result, the `pyproject.toml` should look like this:
 
 ```toml
-[[source]]
-url = "https://pypi.org/simple"
-verify_ssl = true
-name = "pypi"
-
-[packages]
-pytest-helm-charts = ">=0.3.1"
-
-[dev-packages]
-
-[requires]
-python_version = "3.8"
+[project]
+name = "my-chart-tests"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pytest-helm-charts>=0.5",
+]
 ```
+
+Commit both `pyproject.toml` and `uv.lock` — `ats` calls `uv sync` (equivalent to `pip install`) before running
+tests and expects the lock file to be present.
 
 #### Implementing tests
 
@@ -126,7 +90,7 @@ like this:
 
 ```bash
 $ ls
-Pipfile  Pipfile.lock  test_example.py
+pyproject.toml  uv.lock  test_example.py
 ```
 
 The simplest test case code in the `test_example.py` file looks like this:

@@ -57,36 +57,22 @@ class PytestScenariosFilteringPipeline(BaseTestScenariosFilteringPipeline):
 
 
 class PytestExecutor(TestExecutor):
-    _PIPENV_BIN = "pipenv"
+    _UV_BIN = "uv"
     _PYTEST_BIN = "pytest"
 
     def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
-        # Remove any stale in-project .venv that may have been created by uv, as pipenv would
-        # try to use it and fail if the Python binary layout differs.
-        venv_dir = os.path.join(self._test_dir, ".venv")
-        if os.path.isdir(venv_dir):
-            logger.info(f"Removing stale virtualenv directory '{venv_dir}' before running pipenv.")
-            shutil.rmtree(venv_dir)
-
-        args = [self._PIPENV_BIN, "install", "--deploy"]
+        args = [self._UV_BIN, "sync"]
         if exec_info.debug:
             args.append("--verbose")
-        logger.info(
-            f"Running {self._PIPENV_BIN} tool in '{self._test_dir}' directory to install virtual env for running tests."
-        )
-        pipenv_env = os.environ
-        pipenv_env["PIPENV_IGNORE_VIRTUALENVS"] = "1"
-        pipenv_env.pop("VIRTUAL_ENV", "")
-
-        run_res = run_and_log(args, cwd=self._test_dir, env=pipenv_env)  # nosec, no user input here
+        logger.info(f"Running '{self._UV_BIN} sync' in '{self._test_dir}' to install test virtual env.")
+        run_res = run_and_log(args, cwd=self._test_dir)  # nosec, no user input here
         if run_res.returncode != 0:
             raise ATSTestError(f"Running '{args}' in directory '{self._test_dir}' failed.")
-        run_and_log([self._PIPENV_BIN, "--venv"], cwd=self._test_dir)  # nosec, no user input here
 
     def execute_test(self, exec_info: TestExecInfo) -> None:
         env_vars = self.get_test_info_env_variables(exec_info)
         args = [
-            self._PIPENV_BIN,
+            self._UV_BIN,
             "run",
             self._PYTEST_BIN,
             "-m",
@@ -117,9 +103,9 @@ class PytestExecutor(TestExecutor):
                 module_name,
                 f"Pytest tests were requested, but no python source code file was found in directory '{pytest_dir}'.",
             )
-        if shutil.which(self._PIPENV_BIN) is None:
+        if shutil.which(self._UV_BIN) is None:
             raise ValidationError(
                 module_name,
-                f"In order to install pytest virtual env, you need to have '{self._PIPENV_BIN}' installed.",
+                f"In order to install the pytest virtual env, you need to have '{self._UV_BIN}' installed.",
             )
         self._test_dir = pytest_dir

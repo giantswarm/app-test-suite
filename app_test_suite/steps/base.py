@@ -33,6 +33,9 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
     KEY_CONFIG_OPTION_SKIP_DELETE_APP = "--app-tests-skip-app-delete"
     KEY_CONFIG_OPTION_DEPLOY_NAMESPACE = "--app-tests-deploy-namespace"
     KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE = "--app-tests-app-config-file"
+    KEY_CONFIG_OPTION_PRE_DEPLOY_SCRIPT = "--app-tests-pre-deploy-script"
+    KEY_CONFIG_OPTION_PRE_HOOK = "--app-tests-pre-hook"
+    KEY_CONFIG_OPTION_POST_HOOK = "--app-tests-post-hook"
 
     def __init__(self, pipeline: List[BuildStep], cluster_manager: ClusterManager):
         super().__init__(pipeline, self.KEY_CONFIG_GROUP_NAME)
@@ -70,6 +73,21 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
             self.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE,
             required=False,
             help="Path for a configuration file (values file) for your app when it's deployed for testing.",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_PRE_DEPLOY_SCRIPT,
+            required=False,
+            help="Path to a script to run after cluster bootstrap but before chart install. KUBECONFIG is set in the environment.",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_PRE_HOOK,
+            required=False,
+            help="Executable run after chart install but before tests. ATS_* env vars and KUBECONFIG are set.",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_POST_HOOK,
+            required=False,
+            help="Executable run after tests complete (pass or skip). ATS_* env vars and KUBECONFIG are set.",
         )
         self._cluster_manager.initialize_config(self._config_parser_group)
 

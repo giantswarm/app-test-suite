@@ -25,3 +25,16 @@ def test_hello_working(kube_cluster: Cluster) -> None:
     page_res = srv.proxy_http_get("/")
     assert page_res.ok
     assert page_res.text.find("Hello World") > -1
+
+
+@pytest.mark.integration
+def test_hello_world_endpoint_content(kube_cluster: Cluster) -> None:
+    wait_for_deployments_to_run(kube_cluster.kube_client, ["hello-world-app"], "default", 120)
+    srv = cast(
+        pykube.Service,
+        pykube.Service.objects(kube_cluster.kube_client).get_or_none(name="hello-world-app-service"),
+    )
+    assert srv is not None, "hello-world-app-service not found in the 'default' namespace"
+    page_res = srv.proxy_http_get("/")
+    assert page_res.ok
+    assert "Hello World" in page_res.text

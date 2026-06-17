@@ -1,5 +1,5 @@
-//go:build smoke
-// +build smoke
+//go:build integration
+// +build integration
 
 package main
 
@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func TestHelloWorld(t *testing.T) {
+func TestHelloWorldServiceEndpoint(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
@@ -48,7 +48,7 @@ func TestHelloWorld(t *testing.T) {
 			return err
 		}
 
-		t.Logf("found service '%s'", svc.Name)
+		t.Logf("found service '%s' with %d endpoints", svc.Name, len(svc.Spec.Ports))
 		return nil
 	}
 

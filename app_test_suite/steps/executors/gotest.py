@@ -18,6 +18,7 @@ from app_test_suite.steps.base import (
 )
 from app_test_suite.steps.scenarios.simple import (
     FunctionalTestScenario,
+    IntegrationTestScenario,
     SmokeTestScenario,
 )
 from app_test_suite.steps.scenarios.upgrade import UpgradeTestScenario
@@ -36,6 +37,7 @@ class GotestTestFilteringPipeline(BaseTestScenariosFilteringPipeline):
                 TestInfoProvider(),
                 SmokeTestScenario(cluster_manager, test_executor),
                 FunctionalTestScenario(cluster_manager, test_executor),
+                IntegrationTestScenario(cluster_manager, test_executor),
                 UpgradeTestScenario(cluster_manager, test_executor),
             ],
             cluster_manager,

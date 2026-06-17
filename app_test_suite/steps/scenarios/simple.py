@@ -27,6 +27,7 @@ from app_test_suite.steps.base import (
 from app_test_suite.steps.test_types import (
     config_option_cluster_type_for_test_type,
     STEP_TEST_FUNCTIONAL,
+    STEP_TEST_INTEGRATION,
     STEP_TEST_SMOKE,
 )
 
@@ -113,6 +114,35 @@ class SimpleTestScenario(BuildStep, ABC):
         )
         self._test_executor.prepare_test_environment(exec_info)
         self._test_executor.execute_test(exec_info)
+
+    def _run_hook(self, config: argparse.Namespace, context: Context, stage: str) -> None:
+        key = (
+            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_PRE_HOOK
+            if stage == "pre"
+            else BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_POST_HOOK
+        )
+        hook_cmd = get_config_value_by_cmd_line_option(config, key)
+        if not hook_cmd:
+            return
+        logger.info(f"Running {stage}-hook '{hook_cmd}'")
+        cluster_info = cast(ClusterInfo, self._cluster_info)
+        env = os.environ.copy()
+        env["KUBECONFIG"] = os.path.abspath(cluster_info.kube_config_path)
+        env["ATS_HOOK_STAGE"] = stage
+        env["ATS_TEST_TYPE"] = str(self.test_provided)
+        env["ATS_CHART_PATH"] = config.chart_file
+        env["ATS_CHART_VERSION"] = context[CONTEXT_KEY_CHART_YAML]["version"]
+        deploy_namespace = get_config_value_by_cmd_line_option(
+            config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE
+        )
+        if deploy_namespace:
+            env["ATS_DEPLOY_NAMESPACE"] = deploy_namespace
+        release_name = context.get(CONTEXT_KEY_RELEASE_NAME)
+        if release_name:
+            env["ATS_APP_RELEASE_NAME"] = str(release_name)
+        run_res = run_and_log([hook_cmd], env=env)  # nosec
+        if run_res.returncode != 0:
+            raise ATSTestError(f"{stage.capitalize()}-hook '{hook_cmd}' failed with exit code {run_res.returncode}")
 
     def _ensure_cluster_prerequisites(self, kube_config_path: str) -> None:
         args = [
@@ -213,7 +243,9 @@ class SimpleTestScenario(BuildStep, ABC):
                 and not self._skip_app_deploy
             ):
                 self._deploy_tested_chart_as_app(config, context)
+            self._run_hook(config, context, "pre")
             self.run_tests(config, context)
+            self._run_hook(config, context, "post")
         except Exception as e:
             self._collect_failure_diagnostics(config, context)
             raise ATSTestError(f"Application deployment failed: {e}")
@@ -409,3 +441,12 @@ class SmokeTestScenario(SimpleTestScenario):
     @property
     def test_provided(self) -> StepType:
         return STEP_TEST_SMOKE
+
+
+class IntegrationTestScenario(SimpleTestScenario):
+    def __init__(self, cluster_manager: ClusterManager, test_executor: TestExecutor):
+        super().__init__(cluster_manager, test_executor)
+
+    @property
+    def test_provided(self) -> StepType:
+        return STEP_TEST_INTEGRATION

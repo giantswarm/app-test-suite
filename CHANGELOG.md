@@ -8,6 +8,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 ### Added
 
 - Keep-going mode: all test steps run to completion even when earlier steps fail; errors are reported together at the end. Enabled by default; use `--no-keep-going` to stop on first failure. Requires `step-exec-lib >= 0.5.0`.
+- Docker image is now published for `linux/amd64` and `linux/arm64`.
 
 ### Changed
 

@@ -11,7 +11,21 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Changed
 
-- `PytestExecutor` now uses `uv sync` / `uv run pytest` instead of `pipenv install --deploy` / `pipenv run pytest`. App test directories must provide `pyproject.toml` + `uv.lock` instead of `Pipfile` / `Pipfile.lock`. The `pipenv` package is no longer installed in the ATS Docker image. The `dats.sh` cache mount switches from the pipenv virtualenv cache to the uv cache (`~/.cache/uv`).
+- **BREAKING:** `PytestExecutor` now uses `uv sync` / `uv run pytest` instead of `pipenv install --deploy` /
+  `pipenv run pytest`. App test directories must provide `pyproject.toml` + `uv.lock` instead of `Pipfile` /
+  `Pipfile.lock`. `pipenv` is no longer installed in the ATS Docker image. The `dats.sh` cache mount switches
+  from the pipenv virtualenv cache to the uv cache (`~/.cache/uv`).
+
+  **Migration:** in your chart's `tests/ats/` directory run:
+
+  ```bash
+  uv init --no-workspace --no-readme
+  uv add "pytest-helm-charts>=0.5"   # re-add your deps from Pipfile [packages]
+  rm Pipfile Pipfile.lock
+  ```
+
+  Commit `pyproject.toml` and `uv.lock`. See [docs/pytest-test-pipeline.md](docs/pytest-test-pipeline.md)
+  for full instructions.
 
 ## [0.15.0] - 2026-04-02
 

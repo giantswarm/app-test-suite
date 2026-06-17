@@ -9,10 +9,66 @@ for a complete usage example.
 
 To make your tests automatically invocable from `ats`, you must adhere to the following rules:
 
-- you must put all the test code in `[CHART_TOP_DIR]/tests/ats/` directory,
-- dependencies must be managed with `pipenv` (`ats` first launches pipenv to create a virtual environment for your
-  tests, then launches your tests in that virtual environment passing Kubernetes required options, like `kube.config`
-  file, as command line arguments).
+- put all test code in `[CHART_TOP_DIR]/tests/ats/`
+- manage dependencies with [`uv`](https://docs.astral.sh/uv/): the directory must contain a `pyproject.toml`
+  and a committed `uv.lock`. `ats` runs `uv sync` before each test run and invokes tests with `uv run pytest`.
+
+## Setting up a test directory
+
+Install `uv` if you haven't already:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Create the project inside your chart's `tests/ats/` directory:
+
+```bash
+cd tests/ats
+uv init --no-workspace --no-readme
+uv add "pytest-helm-charts>=0.5"
+```
+
+This creates `pyproject.toml` and `uv.lock`. Commit both. The minimal `pyproject.toml` looks like:
+
+```toml
+[project]
+name = "my-chart-tests"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pytest-helm-charts>=0.5",
+]
+```
+
+To add more dependencies later: `uv add <package>`. To update the lock file: `uv lock --upgrade`.
+
+### Running tests locally
+
+`ats` (via `dats.sh`) handles `uv sync` for you inside the container. To run tests locally without the container,
+activate the virtualenv that `uv sync` creates:
+
+```bash
+cd tests/ats
+uv sync
+uv run pytest -m smoke
+```
+
+Or just use any Python environment you manage yourself — `uv` is only required inside the `ats` container.
+
+### Migrating from Pipfile
+
+If your test directory has a `Pipfile` / `Pipfile.lock`:
+
+```bash
+cd tests/ats
+uv init --no-workspace --no-readme
+# re-add your dependencies from Pipfile [packages]
+uv add "pytest-helm-charts>=0.5"
+rm Pipfile Pipfile.lock
+```
+
+Commit `pyproject.toml` and `uv.lock`, remove `Pipfile` and `Pipfile.lock`.
 
 The `pytest` pipeline invokes following series of steps:
 

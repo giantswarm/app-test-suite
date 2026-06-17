@@ -1,6 +1,6 @@
 # App test suite contribution guidelines
 
-`app-test-suite` is built using Python >= 3.9 and pipenv.
+`app-test-suite` is built using Python >= 3.12 and [uv](https://docs.astral.sh/uv/).
 
 ## Development setup
 
@@ -12,12 +12,12 @@ docker container.
 A good method of handling Python installations is to use [pyenv](https://github.com/pyenv/pyenv).
 
 ```bash
-# Install pipenv
-pip install pipenv
-# to create venv
-pipenv install --dev
+# Install uv (https://docs.astral.sh/uv/getting-started/installation/)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# to create venv and install all dependencies (including dev)
+uv sync
 # to configure quality check triggers
-pipenv run pre-commit install
+uv run pre-commit install
 ```
 
 You also need a bunch of binary tools, which normally are present in the docker image, but for developing locally, you

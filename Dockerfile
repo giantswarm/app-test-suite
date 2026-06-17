@@ -34,9 +34,7 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
-    PIPENV_VER="2024.1.0" \
     ATS_DIR="/ats"
-RUN pip install --no-cache-dir pipenv==${PIPENV_VER}
 
 WORKDIR $ATS_DIR
 

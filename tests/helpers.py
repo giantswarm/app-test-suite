@@ -108,8 +108,8 @@ def get_run_and_log_result_mock(mocker: MockerFixture) -> unittest.mock.Mock:
 def patch_base_test_runner(
     mocker: MockerFixture,
     run_and_log_res: unittest.mock.Mock,
-    app_name: str,
-    app_namespace: str,
+    app_name: str = "",
+    app_namespace: str = "",
 ) -> None:
     mocker.patch.dict(os.environ, {}, clear=True)
     mocker.patch("pykube.KubeConfig.from_file", name="MockKubeConfig")

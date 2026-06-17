@@ -40,7 +40,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Removed
 
-- App CR deployment path, app-operator, chart-operator, and chartmuseum support removed. Cluster bootstrap now runs `apptestctl bootstrap --install-operators=false` (CRDs only).
+- App CR deployment path, app-operator, chart-operator, and chartmuseum support removed.
+- `apptestctl` binary dropped from the Docker image. CRDs are now bundled in `container-crds/` and applied via `kubectl apply --server-side` during cluster bootstrap.
 - **BREAKING:** `dats.sh` is no longer published as a release asset. Run the image directly: `docker run --rm -it -v "$(pwd):/ats/workdir" -v /var/run/docker.sock:/var/run/docker.sock --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>`.
 
 ## [0.15.0] - 2026-04-02

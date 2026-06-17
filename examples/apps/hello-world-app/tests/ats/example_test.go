@@ -23,7 +23,7 @@ func TestHelloWorld(t *testing.T) {
 
 	var restConfig *rest.Config
 	{
-		kubeConfigPath := os.Getenv("ATS_KUBE_CONFIG_PATH")
+		kubeConfigPath := os.Getenv("KUBECONFIG")
 		restConfig, err = clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 		if err != nil {
 			t.Fatalf("failed to create REST config from %#q %#v", kubeConfigPath, err)

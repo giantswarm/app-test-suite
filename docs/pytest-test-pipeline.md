@@ -10,9 +10,10 @@ for a complete usage example.
 To make your tests automatically invocable from `ats`, you must adhere to the following rules:
 
 - you must put all the test code in `[CHART_TOP_DIR]/tests/ats/` directory,
-- dependencies must be managed with `pipenv` (`ats` first launches pipenv to create a virtual environment for your
-  tests, then launches your tests in that virtual environment passing Kubernetes required options, like `kube.config`
-  file, as command line arguments).
+- dependencies must be managed with `uv` (`ats` runs `uv sync` to create a virtual environment for your
+  tests, then launches your tests via `uv run pytest` passing Kubernetes required options, like `kube.config`
+  file, as environment variables). Your test directory must contain a `pyproject.toml` with dependencies and
+  a `uv.lock` file.
 
 The `pytest` pipeline invokes following series of steps:
 

@@ -137,7 +137,7 @@ the following commands are executed underneath:
 ```bash
 # here start smoke tests
 apptestctl bootstrap --kubeconfig-path=kube.config --wait
-pipenv install --deploy
+uv sync
 (
     # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803
     KUBECONFIG="/ats/workdir/kube.config"
@@ -150,12 +150,12 @@ pipenv install --deploy
     ATS_CHART_PATH="hello-world-app-0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db.tgz"
     ATS_CHART_VERSION="0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db"
 
-    pipenv run pytest --log-cli-level info --junitxml=test_results_smoke.xml
+    uv run pytest --log-cli-level info --junitxml=test_results_smoke.xml
 )
 
 # and here start functional tests
 apptestctl bootstrap --kubeconfig-path=kube.config --wait
-pipenv install --deploy
+uv sync
 
     # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803
     KUBECONFIG="/ats/workdir/kube.config"
@@ -168,7 +168,7 @@ pipenv install --deploy
     ATS_CHART_PATH="hello-world-app-0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db.tgz"
     ATS_CHART_VERSION="0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db"
 
-    pipenv run pytest --log-cli-level info --junitxml=test_results_functional.xml
+    uv run pytest --log-cli-level info --junitxml=test_results_functional.xml
 )
 ```
 

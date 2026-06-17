@@ -31,28 +31,6 @@ workflows:
                               - main
                               - master
 
-            - prepare-release-assets:
-                  name: prepare-release-assets
-                  requires:
-                      - push-to-registries
-                  filters:
-                      branches:
-                          ignore: /.*/
-                      tags:
-                          only: /^v.*/
-
-            - architect/upload-release-assets:
-                  context: architect
-                  name: upload-release-assets
-                  binary: dats
-                  requires:
-                      - prepare-release-assets
-                  filters:
-                      branches:
-                          ignore: /.*/
-                      tags:
-                          only: /^v.*/
-
 jobs:
     run-tests:
         machine:

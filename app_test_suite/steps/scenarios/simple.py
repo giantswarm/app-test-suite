@@ -48,10 +48,7 @@ class SimpleTestScenario(BuildStep, ABC):
     test scenario.
     """
 
-    _APPTESTCTL_BIN = "apptestctl"
-    _APPTESTCTL_BOOTSTRAP_TIMEOUT_SEC = 180
-    _MIN_APPTESTCTL_VERSION = "0.12.0"
-    _MAX_APPTESTCTL_VERSION = "1.0.0"
+    _CRD_DIR = "/etc/ats/crds"
 
     def __init__(self, cluster_manager: ClusterManager, test_executor: TestExecutor):
         self._cluster_manager = cluster_manager
@@ -145,15 +142,10 @@ class SimpleTestScenario(BuildStep, ABC):
             raise ATSTestError(f"{stage.capitalize()}-hook '{hook_cmd}' failed with exit code {run_res.returncode}")
 
     def _ensure_cluster_prerequisites(self, kube_config_path: str) -> None:
-        args = [
-            self._APPTESTCTL_BIN,
-            "bootstrap",
-            f"--kubeconfig-path={kube_config_path}",
-            "--install-operators=false",
-            "--wait",
-        ]
-        logger.info(f"Running {self._APPTESTCTL_BIN} to install CRDs on the target cluster")
-        run_res = run_and_log(args)  # nosec
+        logger.info(f"Applying cluster CRDs from {self._CRD_DIR}")
+        run_res = run_and_log(
+            ["kubectl", f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", self._CRD_DIR]
+        )  # nosec
         if run_res.returncode != 0:
             raise ATSTestError("Bootstrapping CRDs on the target cluster failed")
         logger.info("Cluster CRDs bootstrapped and ready.")
@@ -171,18 +163,7 @@ class SimpleTestScenario(BuildStep, ABC):
         )
 
     def pre_run(self, config: argparse.Namespace) -> None:
-        # verify if binary present
-        self._assert_binary_present_in_path(self._APPTESTCTL_BIN)
-        # verify version
-        run_res = run_and_log([self._APPTESTCTL_BIN, "version"], capture_output=True)  # nosec
-        version_line = run_res.stdout.splitlines()[0]
-        version = version_line.split(":")[1].strip()
-        self._assert_version_in_range(
-            self._APPTESTCTL_BIN,
-            version,
-            self._MIN_APPTESTCTL_VERSION,
-            self._MAX_APPTESTCTL_VERSION,
-        )
+        self._assert_binary_present_in_path(_HELM_BIN)
 
         cluster_type = ClusterType(
             get_config_value_by_cmd_line_option(config, self._config_cluster_type_attribute_name)
@@ -228,11 +209,8 @@ class SimpleTestScenario(BuildStep, ABC):
             raise ATSTestError("Can't establish connection to the new test cluster")
 
         if not self._cluster_info.app_platform_ready:
-            logger.debug("Cluster prerequisites not initialized, running `apptestctl`")
             self._ensure_cluster_prerequisites(self._cluster_info.kube_config_path)
             self._cluster_info.app_platform_ready = True
-        else:
-            logger.debug("Cluster prerequisites already initialized, not running `apptestctl`")
 
         try:
             if (

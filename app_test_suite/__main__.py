@@ -1,5 +1,6 @@
 """Main module. Loads configuration and executes main control loops."""
 
+import argparse
 import logging
 import os
 import sys
@@ -65,6 +66,13 @@ def configure_global_options(config_parser: configargparse.ArgParser) -> None:
         help="Type of test executor. Either pytest or gotest.",
     )
     config_parser.add_argument("--version", action="version", version=f"{app_name} {get_version()}")
+    config_parser.add_argument(
+        "--keep-going",
+        required=False,
+        default=True,
+        action=argparse.BooleanOptionalAction,
+        help="Collect all errors before failing instead of stopping on the first failure. Full pipeline support requires step-exec-lib >= 0.5.0. Use --no-keep-going for fail-fast behaviour.",
+    )
     steps_group = config_parser.add_mutually_exclusive_group()
     steps_group.add_argument(
         "--steps",

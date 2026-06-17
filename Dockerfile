@@ -1,4 +1,4 @@
-FROM gsoci.azurecr.io/giantswarm/alpine:3.23.3 AS binaries
+FROM gsoci.azurecr.io/giantswarm/alpine:3.24.1 AS binaries
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VER=v1.35.3
@@ -23,10 +23,10 @@ COPY container-entrypoint.sh /binaries
 RUN chmod +x /binaries/*
 
 
-FROM python:3.14.4-slim AS base
+FROM python:3.14.6-slim AS base
 
 # Install uv from official image
-COPY --from=ghcr.io/astral-sh/uv:0.11.6 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.21 /uv /bin/uv
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
 
 ENV LANG=C.UTF-8 \

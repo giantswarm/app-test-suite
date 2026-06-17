@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-    architect: giantswarm/architect@8.3.0
+    architect: giantswarm/architect@9.4.1
     codecov: codecov/codecov@6.0.0
 
 workflows:
@@ -30,11 +30,23 @@ workflows:
                           ignore:
                               - main
                               - master
-            - publish-github-release:
-                  context: architect
-                  name: publish-github-release-for-dats
+
+            - prepare-release-assets:
+                  name: prepare-release-assets
                   requires:
                       - push-to-registries
+                  filters:
+                      branches:
+                          ignore: /.*/
+                      tags:
+                          only: /^v.*/
+
+            - architect/upload-release-assets:
+                  context: architect
+                  name: upload-release-assets
+                  binary: dats
+                  requires:
+                      - prepare-release-assets
                   filters:
                       branches:
                           ignore: /.*/
@@ -55,12 +67,18 @@ jobs:
 
             - codecov/upload
 
-    publish-github-release:
-        docker:
-            - image: cibuilds/github:0.13
+    prepare-release-assets:
+        executor: architect/architect
         steps:
             - checkout
             - run:
-                  name: Publish Release on GitHub
+                  name: Stage dats.sh as release asset
                   command: |
-                      ghr -t ${TAYLORBOT_CIRCLECI_RELEASE_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${CIRCLE_TAG} ./dats.sh
+                      cp dats.sh dats-linux-amd64
+                      cp dats.sh dats-linux-arm64
+                      chmod +x dats-linux-amd64 dats-linux-arm64
+            - persist_to_workspace:
+                  root: .
+                  paths:
+                      - dats-linux-amd64
+                      - dats-linux-arm64

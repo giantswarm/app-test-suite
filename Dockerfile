@@ -1,5 +1,7 @@
 FROM gsoci.azurecr.io/giantswarm/alpine:3.24.1 AS binaries
 
+ARG TARGETARCH=amd64
+
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VER=v1.36.2
 # renovate: datasource=github-releases depName=moby/moby
@@ -11,12 +13,13 @@ ARG APPTESTCTL_VER=v0.25.1
 
 RUN apk add --no-cache ca-certificates curl \
     && mkdir -p /binaries \
-    && curl --silent --show-error --fail --location https://dl.k8s.io/release/${KUBECTL_VER}/bin/linux/amd64/kubectl --output /binaries/kubectl \
-    && curl --silent --show-error --fail --location https://github.com/giantswarm/apptestctl/releases/download/${APPTESTCTL_VER}/apptestctl-${APPTESTCTL_VER}-linux-amd64.tar.gz | \
-    tar --extract --gzip --directory /binaries --strip-components 1 apptestctl-${APPTESTCTL_VER}-linux-amd64/apptestctl \
-    && curl --silent --show-error --fail --location https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VER##v}.tgz | \
+    && DOCKER_ARCH=$([ "${TARGETARCH}" = "arm64" ] && echo "aarch64" || echo "x86_64") \
+    && curl --silent --show-error --fail --location https://dl.k8s.io/release/${KUBECTL_VER}/bin/linux/${TARGETARCH}/kubectl --output /binaries/kubectl \
+    && curl --silent --show-error --fail --location https://github.com/giantswarm/apptestctl/releases/download/${APPTESTCTL_VER}/apptestctl-${APPTESTCTL_VER}-linux-${TARGETARCH}.tar.gz | \
+    tar --extract --gzip --directory /binaries --strip-components 1 apptestctl-${APPTESTCTL_VER}-linux-${TARGETARCH}/apptestctl \
+    && curl --silent --show-error --fail --location https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_VER##v}.tgz | \
     tar --extract --gzip --directory /binaries --strip-components 1 docker/docker \
-    && curl --silent --show-error --fail --location https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VER}/kind-linux-amd64 --output /binaries/kind
+    && curl --silent --show-error --fail --location https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VER}/kind-linux-${TARGETARCH} --output /binaries/kind
 
 COPY container-entrypoint.sh /binaries
 
@@ -67,6 +70,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM base
 
+ARG TARGETARCH=amd64
 ARG GO_VERSION="1.23.1"
 
 ENV USE_UID=0 \
@@ -80,7 +84,7 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y curl git sudo && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN curl -SL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | \
+RUN curl -SL https://dl.google.com/go/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | \
     tar -C /usr/local -xzf -
 
 COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv

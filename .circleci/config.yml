@@ -30,16 +30,6 @@ workflows:
                           ignore:
                               - main
                               - master
-            - publish-github-release:
-                  context: architect
-                  name: publish-github-release-for-dats
-                  requires:
-                      - push-to-registries
-                  filters:
-                      branches:
-                          ignore: /.*/
-                      tags:
-                          only: /^v.*/
 
 jobs:
     run-tests:
@@ -54,13 +44,3 @@ jobs:
                       make docker-test-ci
 
             - codecov/upload
-
-    publish-github-release:
-        docker:
-            - image: cibuilds/github:0.13
-        steps:
-            - checkout
-            - run:
-                  name: Publish Release on GitHub
-                  command: |
-                      ghr -t ${TAYLORBOT_CIRCLECI_RELEASE_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${CIRCLE_TAG} ./dats.sh

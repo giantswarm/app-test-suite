@@ -13,8 +13,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 - **BREAKING:** `PytestExecutor` now uses `uv sync` / `uv run pytest` instead of `pipenv install --deploy` /
   `pipenv run pytest`. App test directories must provide `pyproject.toml` + `uv.lock` instead of `Pipfile` /
-  `Pipfile.lock`. `pipenv` is no longer installed in the ATS Docker image. The `dats.sh` cache mount switches
-  from the pipenv virtualenv cache to the uv cache (`~/.cache/uv`).
+  `Pipfile.lock`. `pipenv` is no longer installed in the ATS Docker image.
 
   **Migration:** in your chart's `tests/ats/` directory run:
 
@@ -26,6 +25,10 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
   Commit `pyproject.toml` and `uv.lock`. See [docs/pytest-test-pipeline.md](docs/pytest-test-pipeline.md)
   for full instructions.
+
+### Removed
+
+- **BREAKING:** `dats.sh` is no longer published as a release asset. Run the image directly: `docker run --rm -it -v "$(pwd):/ats/workdir" -v /var/run/docker.sock:/var/run/docker.sock --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>`.
 
 ## [0.15.0] - 2026-04-02
 

@@ -6,6 +6,7 @@ import pytest
 from pytest_mock import MockerFixture
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML, TestExecutor
+from step_exec_lib.types import StepType
 from app_test_suite.steps.executors.gotest import GotestExecutor
 from app_test_suite.steps.executors.pytest import PytestExecutor
 from app_test_suite.steps.scenarios.simple import (
@@ -166,7 +167,7 @@ def test_pre_hook_failure_raises(mocker: MockerFixture) -> None:
     fail_res = mocker.Mock()
     type(fail_res).returncode = mocker.PropertyMock(return_value=1)
 
-    def side_effect(args, **kwargs):
+    def side_effect(args: list[str], **kwargs: object) -> unittest.mock.Mock:
         if args[0] == "fail-hook.sh":
             return fail_res
         return run_and_log_res

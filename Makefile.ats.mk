@@ -8,7 +8,11 @@ export DATE ?= $(shell date '+%FT%T%:z')
 
 IMG_VER ?= ${VER}-${COMMIT}
 
-.PHONY: all release release_ver_to_code docker-build docker-build-image docker-build-ver docker-push docker-build-test test docker-test docker-test-ci
+.PHONY: all release release_ver_to_code docker-build docker-build-image docker-build-ver docker-push docker-build-test test docker-test docker-test-ci update-crds
+
+# Version of giantswarm/apptestctl whose pkg/crds/ is vendored into container-crds/.
+# Keep this in sync with container-crds/README.md.
+APPTESTCTL_CRDS_VER ?= v0.25.1
 
 check_defined = \
     $(strip $(foreach 1,$1, \
@@ -21,13 +25,11 @@ all: docker-build
 
 release: release_ver_to_code docker-test docker-build-image
 	git add --force app_test_suite/version.py
-	git add dats.sh pyproject.toml uv.lock
+	git add pyproject.toml uv.lock
 	git commit -m "Release ${TAG}" --no-verify
 	git tag ${TAG}
 	docker build . -t ${IMG}:latest -t ${IMG}:${TAG}
-	mv dats.sh.back dats.sh
 	export NEXT=$(shell uv version --dry-run --short --bump patch) && echo "build_ver = \"v$${NEXT}-dev\"" > app_test_suite/version.py
-	git add dats.sh
 	git add --force app_test_suite/version.py
 	git commit -m "Post-release version set for ${TAG}" --no-verify
 
@@ -37,8 +39,6 @@ release_ver_to_code:
 	uv lock
 	echo "build_ver = \"${TAG}\"" > app_test_suite/version.py
 	$(eval IMG_VER := ${TAG})
-	cp dats.sh dats.sh.back
-	sed -i "s/:-\".*\"/:-\"$${TAG#v}\"/" dats.sh
 
 # Build the docker image from locally built binary
 docker-build: docker-build-ver docker-build-image
@@ -69,3 +69,12 @@ docker-test: docker-build-test
 
 docker-test-ci: docker-build-test
 	$(test-docker-run) $(test-command-ci)
+
+# Re-vendor the CRD bundle from apptestctl pkg/crds/ at $(APPTESTCTL_CRDS_VER).
+update-crds: ## Refresh container-crds/ from giantswarm/apptestctl pkg/crds (set APPTESTCTL_CRDS_VER)
+	rm -rf /tmp/apptestctl-crds
+	git clone --quiet --depth 1 --branch $(APPTESTCTL_CRDS_VER) https://github.com/giantswarm/apptestctl /tmp/apptestctl-crds
+	find container-crds -name '*.yaml' -delete
+	cp /tmp/apptestctl-crds/pkg/crds/*.yaml container-crds/
+	rm -rf /tmp/apptestctl-crds
+	@echo "Vendored CRDs from apptestctl $(APPTESTCTL_CRDS_VER). Update APPTESTCTL_CRDS_VER in container-crds/README.md."

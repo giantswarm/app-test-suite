@@ -24,7 +24,7 @@ You also need a bunch of binary tools, which normally are present in the docker 
 need to install them on your own. You can list all the required tools and versions currently used by running:
 
 ```bash
-dats.sh versions
+ats versions
 ```
 
 ### With docker

@@ -37,12 +37,13 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 ### Fixed
 
 - `--app-tests-skip-app-delete` now prevents teardown of the deployed chart. It was previously ignored whenever the chart had been deployed (only honored when `--app-tests-skip-app-deploy` was also set).
+- The `versions` command no longer fails with `apptestctl: command not found` after the `apptestctl` binary was dropped from the image.
 
 ### Removed
 
 - App CR deployment path, app-operator, chart-operator, and chartmuseum support removed.
 - `apptestctl` binary dropped from the Docker image. CRDs are now bundled in `container-crds/` and applied via `kubectl apply --server-side` during cluster bootstrap.
-- **BREAKING:** `dats.sh` is no longer published as a release asset. Run the image directly: `docker run --rm -it -v "$(pwd):/ats/workdir" -v /var/run/docker.sock:/var/run/docker.sock --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>`.
+- **BREAKING:** `dats.sh` is no longer published as a release asset. Run the image directly: `docker run --rm -it -v "$(pwd):/ats/workdir" -v /var/run/docker.sock:/var/run/docker.sock --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>`. CI consumers must move to `architect/run-tests-with-ats` v10+, which runs the container directly instead of downloading `dats.sh`.
 
 ## [0.15.0] - 2026-04-02
 

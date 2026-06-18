@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import json
 import logging
 import os
 import re
@@ -53,30 +52,6 @@ KEY_UPGRADE_TEST_STAGE_EXTRA_INFO = "upgrade_test_stage"
 _HELM_PULL_TIMEOUT_SEC = 120
 
 logger = logging.getLogger(__name__)
-
-
-def _find_latest_release_by_prefix(kube_config_path: str, deploy_namespace: str, app_name: str) -> str:
-    """Return the most-recently deployed Helm release matching app_name or app_name-.
-
-    ct install always appends a random suffix (e.g. muster-abc123), and prior
-    test scenarios may have left older releases in the namespace, so we sort
-    by deployment time and return the newest match.
-    """
-    env = {**os.environ, "KUBECONFIG": kube_config_path}
-    res = subprocess.run(
-        [_HELM_BIN, "list", "--namespace", deploy_namespace, "-o", "json"],
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    if res.returncode != 0:
-        raise ATSTestError(f"helm list failed: {res.stderr}")
-    releases = json.loads(res.stdout or "[]")
-    matches = [r for r in releases if r.get("name", "") == app_name or r.get("name", "").startswith(f"{app_name}-")]
-    if not matches:
-        raise ATSTestError(f"No release matching '{app_name}' found in namespace '{deploy_namespace}'")
-    matches.sort(key=lambda r: r.get("updated", ""), reverse=True)
-    return matches[0]["name"]
 
 
 class UpgradeTestScenario(SimpleTestScenario):

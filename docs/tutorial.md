@@ -3,12 +3,12 @@
 ## Preparing tools
 
 **Please note**: this tutorial uses [uv](https://docs.astral.sh/uv/) for managing test dependencies.
-The docker image (`dats.sh`) ships `uv`, so no separate installation is needed when running inside the container.
+The ATS docker image ships `uv`, so no separate installation is needed when running inside the container.
 
 To be able to complete this tutorial, you need a few tools:
 
-- `app-test-suite` itself; if you haven't done so already, we recommend getting the latest version of the
-  `dats.sh` helper from [releases](https://github.com/giantswarm/app-test-suite/releases)
+- `app-test-suite` itself; it is distributed as a docker image you run directly (optionally via the `ats`
+  alias described in the [README](../README.md#installation))
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) for managing test dependencies locally
   - install with: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
@@ -25,17 +25,17 @@ recommended way to implement tests for running with `ats` is using `pytest` and 
 
 ### Why do I need a specific python version?
 
-In general, you can use any python version you want, unless you're using the dockerized `dats.sh` wrapper,
-which is also our recommended way of running `ats`. Inside the docker image `dats.sh` is using, there's only
+In general, you can use any python version you want, unless you're using the ATS docker image,
+which is also our recommended way of running `ats`. Inside the ATS docker image, there's only
 one python version available. This python version is used by `ats` to invoke your tests implemented with
-`pytest`. As a result, if you request any other python version than the one currently used by `dats.sh`,
+`pytest`. As a result, if you request any other python version than the one currently used by the ATS docker image,
 you'll get an error, as that version is not available inside the docker image.
 
 You can check the current python version (and versions of all the other software projects `ats` is using) by
 running:
 
 ```bash
-$ dats.sh versions
+$ ats versions
 -> python env:
 Python 3.8.6
 pip 20.3.1 from /ats/.venv/lib/python3.8/site-packages/pip (python 3.8)
@@ -129,9 +129,14 @@ like - you just need to pass a `kube.config` file to `ats`. Switch back to the r
 repository. `ats` can run different types of tests on different clusters, so we have to pass cluster type
 option twice, but our cluster will be reused for both kinds of tests:
 
+> **Note:** the captured log below is illustrative and predates the current
+> bootstrap flow. `ats` now applies CRDs with `kubectl apply --server-side -f
+> /etc/ats/crds` and deploys the chart with `ct install` (no `apptestctl`,
+> `chart-museum`, App CR, or `pipenv`).
+
 ```bash
 # log below is truncated to interesting parts only
-dats.sh -c examples/tutorial/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz --smoke-tests-cluster-type kind --functional-tests-cluster-type kind
+ats -c examples/tutorial/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz --smoke-tests-cluster-type kind --functional-tests-cluster-type kind
 2021-06-22 14:30:46,890 __main__ INFO: Starting test with the following options
 2021-06-22 14:30:46,890 __main__ INFO:
 Command Line Args:   -c examples/tutorial/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz --smoke-tests-cluster-type kind --functional-tests-cluster-type kind

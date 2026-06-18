@@ -91,7 +91,8 @@ test logic, which for different scenarios works like below:
    5. Optional `post-upgrade` hook configured with `--upgrade-tests-upgrade-hook` is executed as a system binary.
    6. Test executor is executed again to run all the tests with `upgrade` annotation.
 
-Running the docker image (via the `ats` alias) is the most straight forward way to run `app-test-suite`. As an example, we have included a chart
+Running the docker image (via the `ats` alias) is the most straight forward way to run `app-test-suite`.
+As an example, we have included a chart
 in this repository in
 [`examples/apps/hello-world-app`](examples/apps/hello-world-app). Its configuration file for
 `ats` is in the [.ats/main.yaml](examples/apps/hello-world-app/.ats/main.yaml) file.

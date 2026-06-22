@@ -27,6 +27,7 @@ MOCK_CHART_FILE_NAME = f"{MOCK_APP_NAME}-{MOCK_CHART_VERSION}.tgz"
 MOCK_UPGRADE_UPGRADE_HOOK = "mock.sh"
 MOCK_UPGRADE_APP_CONFIG_FILE = ""
 MOCK_UPGRADE_APP_VERSION = "0.2.4-1"
+MOCK_UPGRADE_CATALOG_URL = "http://mock-chart-repo.example.com"
 MOCK_STABLE_APP_FILE = f"examples/apps/hello-world-app/hello-world-app-{MOCK_UPGRADE_APP_VERSION}.tgz"
 UPGRADE_META_FILE_NAME = f"tested-upgrade-{MOCK_CHART_VERSION}.yaml"
 

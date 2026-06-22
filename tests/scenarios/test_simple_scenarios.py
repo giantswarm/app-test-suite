@@ -12,12 +12,10 @@ from app_test_suite.steps.scenarios.simple import SimpleTestScenario
 from app_test_suite.steps.scenarios.simple import (
     SmokeTestScenario,
     FunctionalTestScenario,
-    TEST_APP_CATALOG_NAME,
-    TEST_APP_CATALOG_NAMESPACE,
 )
 from tests.helpers import (
-    assert_deploy_and_wait_for_app_cr,
-    assert_chart_file_uploaded,
+    assert_helm_deployed,
+    assert_helm_uninstalled,
     assert_app_platform_ready,
     assert_cluster_connection_created,
     get_base_config,
@@ -28,9 +26,7 @@ from tests.helpers import (
     MOCK_APP_NS,
     MOCK_CHART_VERSION,
     MOCK_KUBE_CONFIG_PATH,
-    MOCK_CHART_FILE_NAME,
     MOCK_APP_DEPLOY_NS,
-    assert_base_tester_deletes_app,
 )
 from tests.scenarios.executors.gotest import patch_gotest_test_runner, assert_run_gotest
 from tests.scenarios.executors.pytest import (
@@ -84,7 +80,7 @@ def test_simple_runner_run(
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
 
-    configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
+    patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
     patcher(mocker, run_and_log_call_result_mock)
 
     config = get_base_config(mocker)
@@ -94,18 +90,11 @@ def test_simple_runner_run(
 
     assert_cluster_connection_created(MOCK_KUBE_CONFIG_PATH)
     assert_app_platform_ready(MOCK_KUBE_CONFIG_PATH)
-    assert_chart_file_uploaded(config, MOCK_CHART_FILE_NAME)
-    assert_deploy_and_wait_for_app_cr(
-        MOCK_APP_NAME,
-        MOCK_CHART_VERSION,
-        MOCK_APP_DEPLOY_NS,
-        TEST_APP_CATALOG_NAME,
-        TEST_APP_CATALOG_NAMESPACE,
-    )
+    assert_helm_deployed(MOCK_APP_NAME, config.chart_file, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
     asserter(
         runner.test_provided,
         MOCK_KUBE_CONFIG_PATH,
         config.chart_file,
         MOCK_CHART_VERSION,
     )
-    assert_base_tester_deletes_app(configured_app_mock)
+    assert_helm_uninstalled(MOCK_APP_NAME, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)

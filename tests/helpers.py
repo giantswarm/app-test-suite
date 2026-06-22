@@ -16,7 +16,6 @@ from app_test_suite.cluster_providers import ExternalClusterProvider
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
 from app_test_suite.steps.scenarios.simple import _HELM_BIN, _HELM_DEPLOY_TIMEOUT
 
-MOCK_UPGRADE_CATALOG_URL = "http://chartmuseum.giantswarm:8080/charts/"
 MOCK_KUBE_CONFIG_PATH = "/nonexisting-flsdhge235/kube.config"
 MOCK_KUBE_VERSION = "1.19.1"
 MOCK_APP_NAME = "mock_app"
@@ -72,9 +71,9 @@ def assert_helm_uninstalled(release_name: str, deploy_namespace: str, kube_confi
     )
 
 
-def assert_app_platform_ready(kube_config_path: str) -> None:
+def assert_cluster_prerequisites_ready(kube_config_path: str) -> None:
     cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.run_and_log).assert_any_call(
-        ["apptestctl", "bootstrap", f"--kubeconfig-path={kube_config_path}", "--wait"]
+        ["apptestctl", "bootstrap", f"--kubeconfig-path={kube_config_path}", "--install-operators=false", "--wait"]
     )
 
 

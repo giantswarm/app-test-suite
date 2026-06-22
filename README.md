@@ -135,7 +135,7 @@ the following commands are executed underneath:
 
 ```bash
 # here start smoke tests
-apptestctl bootstrap --kubeconfig-path=kube.config --wait
+apptestctl bootstrap --kubeconfig-path=kube.config --install-operators=false --wait
 uv sync
 (
     # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803
@@ -156,7 +156,7 @@ uv sync
 )
 
 # and here start functional tests
-apptestctl bootstrap --kubeconfig-path=kube.config --wait
+apptestctl bootstrap --kubeconfig-path=kube.config --install-operators=false --wait
 uv sync
 
     # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803

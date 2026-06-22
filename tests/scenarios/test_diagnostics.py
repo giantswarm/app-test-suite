@@ -5,16 +5,18 @@ import pytest
 import pykube
 from pytest_mock import MockerFixture
 
+from app_test_suite.cluster_providers import ExternalClusterProvider
+from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML
 from app_test_suite.steps.executors.pytest import PytestExecutor
-from app_test_suite.steps.scenarios.simple import SmokeTestScenario
+from app_test_suite.steps.scenarios.simple import SmokeTestScenario, CONTEXT_KEY_RELEASE_NAME
 from tests.helpers import (
     MOCK_APP_DEPLOY_NS,
     MOCK_APP_NAME,
+    MOCK_KUBE_CONFIG_PATH,
+    MOCK_KUBE_VERSION,
     get_mock_cluster_manager,
 )
-
-_GIANTSWARM_NS = "giantswarm"
 
 
 # ---------------------------------------------------------------------------
@@ -67,12 +69,6 @@ def _make_node(mocker: MockerFixture, name: str, ready: str) -> unittest.mock.Ma
     return node
 
 
-def _make_app_cr(mocker: MockerFixture, name: str) -> unittest.mock.MagicMock:
-    cr = mocker.MagicMock(name=f"appcr-{name}")
-    cr.obj = {"metadata": {"name": name}, "spec": {}}
-    return cr
-
-
 def _make_deployment(mocker: MockerFixture, name: str) -> unittest.mock.MagicMock:
     dep = mocker.MagicMock(name=f"deploy-{name}")
     dep.name = name
@@ -83,52 +79,57 @@ def _make_deployment(mocker: MockerFixture, name: str) -> unittest.mock.MagicMoc
 def _patch_pykube(
     mocker: MockerFixture,
     app_ns_pods: list | None = None,
-    giantswarm_pods: list | None = None,
     events: list | None = None,
-    app_crs: list | None = None,
     deployments: list | None = None,
     nodes: list | None = None,
 ) -> None:
     """Patch all pykube API lookups used by _collect_failure_diagnostics."""
     _app_ns_pods = app_ns_pods or []
-    _giantswarm_pods = giantswarm_pods or []
 
-    # Pod.objects — dispatches on namespace kwarg
     pod_query = mocker.MagicMock(name="pod_query")
-    pod_query.filter.side_effect = lambda **kwargs: (
-        _giantswarm_pods if kwargs.get("namespace") == _GIANTSWARM_NS else _app_ns_pods
-    )
+    pod_query.filter.return_value = _app_ns_pods
     mocker.patch.object(pykube.Pod, "objects", return_value=pod_query)
 
-    # Event.objects
     event_query = mocker.MagicMock(name="event_query")
     event_query.filter.return_value = events or []
     mocker.patch.object(pykube.Event, "objects", return_value=event_query)
 
-    # AppCR.objects — imported into the module under test
-    app_cr_query = mocker.MagicMock(name="app_cr_query")
-    app_cr_query.filter.return_value = app_crs or []
-    mocker.patch("app_test_suite.steps.scenarios.simple.AppCR.objects", return_value=app_cr_query)
-
-    # Deployment.objects
     deploy_query = mocker.MagicMock(name="deploy_query")
     deploy_query.filter.return_value = deployments or []
     mocker.patch.object(pykube.Deployment, "objects", return_value=deploy_query)
 
-    # Node.objects
     node_query = mocker.MagicMock(name="node_query")
     node_query.all.return_value = nodes or []
     mocker.patch.object(pykube.Node, "objects", return_value=node_query)
 
 
+def _patch_run_and_log(mocker: MockerFixture, stdout: str = "") -> unittest.mock.MagicMock:
+    result = mocker.MagicMock(name="run_and_log_result")
+    result.returncode = 0
+    result.stdout = stdout
+    return mocker.patch("app_test_suite.steps.scenarios.simple.run_and_log", return_value=result)
+
+
 def _make_scenario(mocker: MockerFixture) -> SmokeTestScenario:
     scenario = SmokeTestScenario(get_mock_cluster_manager(mocker), PytestExecutor())
     scenario._kube_client = mocker.MagicMock(name="kube_client")
+    scenario._cluster_info = ClusterInfo(
+        ClusterType("mock"),
+        None,
+        MOCK_KUBE_VERSION,
+        "mock_cluster_id",
+        MOCK_KUBE_CONFIG_PATH,
+        ExternalClusterProvider(),
+        "",
+    )
     return scenario
 
 
 def _make_context() -> dict:
-    return {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": "0.1.0"}}
+    return {
+        CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": "0.1.0"},
+        CONTEXT_KEY_RELEASE_NAME: MOCK_APP_NAME,
+    }
 
 
 def _make_config(mocker: MockerFixture) -> unittest.mock.MagicMock:
@@ -150,7 +151,6 @@ def test_diagnostics_skipped_when_no_kube_client(mocker: MockerFixture, caplog: 
         scenario._collect_failure_diagnostics(_make_config(mocker), _make_context())
 
     assert any("No kube client" in r.message for r in caplog.records)
-    # pykube should never be touched
     mocker.patch.object(pykube.Pod, "objects")  # would fail if already called
     assert not any(isinstance(r.levelno, int) and r.levelno == logging.ERROR for r in caplog.records)
 
@@ -158,6 +158,7 @@ def test_diagnostics_skipped_when_no_kube_client(mocker: MockerFixture, caplog: 
 def test_diagnostics_logs_running_pod_phase(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
     pod = _make_pod(mocker, "running-pod", "Running")
     _patch_pykube(mocker, app_ns_pods=[pod])
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.ERROR):
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
@@ -169,19 +170,20 @@ def test_diagnostics_logs_running_pod_phase(mocker: MockerFixture, caplog: pytes
 def test_diagnostics_dumps_yaml_for_non_running_pod(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
     pod = _make_pod(mocker, "crashed-pod", "CrashLoopBackOff")
     _patch_pykube(mocker, app_ns_pods=[pod])
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.ERROR):
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
 
     error_messages = [r.message for r in caplog.records if r.levelno == logging.ERROR]
     assert any("Describe pod 'crashed-pod'" in m for m in error_messages)
-    # YAML dump of pod.obj should appear
     assert any("crashed-pod" in m and "CrashLoopBackOff" in m for m in error_messages)
 
 
 def test_diagnostics_skips_yaml_dump_for_running_pod(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
     pod = _make_pod(mocker, "ok-pod", "Running")
     _patch_pykube(mocker, app_ns_pods=[pod])
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.ERROR):
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
@@ -196,6 +198,7 @@ def test_diagnostics_collects_container_logs(mocker: MockerFixture, caplog: pyte
         "" if previous else f"log from {container}"
     )
     _patch_pykube(mocker, app_ns_pods=[pod])
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.ERROR):
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
@@ -211,6 +214,7 @@ def test_diagnostics_collects_init_container_logs(mocker: MockerFixture, caplog:
         "" if previous else f"log from {container}"
     )
     _patch_pykube(mocker, app_ns_pods=[pod])
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.ERROR):
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
@@ -227,6 +231,7 @@ def test_diagnostics_collects_previous_logs_when_available(
         "previous crash log" if previous else "current log"
     )
     _patch_pykube(mocker, app_ns_pods=[pod])
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.ERROR):
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
@@ -244,9 +249,9 @@ def test_diagnostics_silently_skips_missing_previous_logs(
         (_ for _ in ()).throw(Exception("no previous log")) if previous else "current log"
     )
     _patch_pykube(mocker, app_ns_pods=[pod])
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.ERROR):
-        # Must not raise
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
 
     error_messages = [r.message for r in caplog.records if r.levelno == logging.ERROR]
@@ -259,6 +264,7 @@ def test_diagnostics_logs_events_sorted_by_timestamp(mocker: MockerFixture, capl
         _make_event(mocker, "2024-01-01T00:00:01Z", "Normal", "Pulled", "Image pulled"),
     ]
     _patch_pykube(mocker, events=events)
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.ERROR):
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
@@ -266,27 +272,56 @@ def test_diagnostics_logs_events_sorted_by_timestamp(mocker: MockerFixture, capl
     error_messages = [r.message for r in caplog.records if r.levelno == logging.ERROR]
     event_messages = [m for m in error_messages if "Pulled" in m or "BackOff" in m]
     assert len(event_messages) == 2
-    # Earlier timestamp should appear first
     assert event_messages.index(next(m for m in event_messages if "Pulled" in m)) < event_messages.index(
         next(m for m in event_messages if "BackOff" in m)
     )
 
 
-def test_diagnostics_logs_app_crs(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
-    app_cr = _make_app_cr(mocker, MOCK_APP_NAME)
-    _patch_pykube(mocker, app_crs=[app_cr])
+def test_diagnostics_logs_helm_status(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
+    _patch_pykube(mocker)
+    mock_run = _patch_run_and_log(mocker, stdout="NAME: mock_app\nSTATUS: deployed")
+
+    with caplog.at_level(logging.ERROR):
+        _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
+
+    mock_run.assert_any_call(
+        ["helm", "status", MOCK_APP_NAME, "-n", MOCK_APP_DEPLOY_NS],
+        env=unittest.mock.ANY,
+    )
+    error_messages = [r.message for r in caplog.records if r.levelno == logging.ERROR]
+    assert any("helm status" in m and MOCK_APP_NAME in m for m in error_messages)
+
+
+def test_diagnostics_logs_helm_get_values(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
+    _patch_pykube(mocker)
+    mock_run = _patch_run_and_log(mocker, stdout="replicaCount: 1")
+
+    with caplog.at_level(logging.ERROR):
+        _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
+
+    mock_run.assert_any_call(
+        ["helm", "get", "values", MOCK_APP_NAME, "-n", MOCK_APP_DEPLOY_NS],
+        env=unittest.mock.ANY,
+    )
+
+
+def test_diagnostics_no_app_cr_or_operator_logs(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
+    _patch_pykube(mocker)
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.ERROR):
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
 
     error_messages = [r.message for r in caplog.records if r.levelno == logging.ERROR]
-    assert any(f"App CRs in namespace '{MOCK_APP_DEPLOY_NS}'" in m for m in error_messages)
-    assert any(MOCK_APP_NAME in m for m in error_messages)
+    assert not any("App CR" in m for m in error_messages)
+    assert not any("app-operator" in m for m in error_messages)
+    assert not any("chart-operator" in m for m in error_messages)
 
 
 def test_diagnostics_logs_deployments(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
     dep = _make_deployment(mocker, "my-deploy")
     _patch_pykube(mocker, deployments=[dep])
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.ERROR):
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
@@ -296,45 +331,14 @@ def test_diagnostics_logs_deployments(mocker: MockerFixture, caplog: pytest.LogC
     assert any("my-deploy" in m for m in error_messages)
 
 
-def test_diagnostics_collects_operator_pod_logs(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
-    app_operator_pod = _make_pod(mocker, "app-operator-abc", "Running", logs="app-operator log output")
-    chart_operator_pod = _make_pod(mocker, "chart-operator-xyz", "Running", logs="chart-operator log output")
-
-    app_operator_pod.logs.return_value = "app-operator log output"
-    chart_operator_pod.logs.return_value = "chart-operator log output"
-
-    _patch_pykube(mocker, giantswarm_pods=[app_operator_pod, chart_operator_pod])
-
-    with caplog.at_level(logging.ERROR):
-        _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
-
-    error_messages = [r.message for r in caplog.records if r.levelno == logging.ERROR]
-    assert any("app-operator log output" in m for m in error_messages)
-    assert any("chart-operator log output" in m for m in error_messages)
-
-
-def test_diagnostics_logs_node_status(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
-    nodes = [_make_node(mocker, "node-1", "True"), _make_node(mocker, "node-2", "False")]
-    _patch_pykube(mocker, nodes=nodes)
-
-    with caplog.at_level(logging.ERROR):
-        _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
-
-    error_messages = [r.message for r in caplog.records if r.levelno == logging.ERROR]
-    assert any("node-1" in m and "Ready=True" in m for m in error_messages)
-    assert any("node-2" in m and "Ready=False" in m for m in error_messages)
-
-
 def test_diagnostics_handles_api_exception_gracefully(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
     mocker.patch.object(pykube.Pod, "objects", side_effect=Exception("API unavailable"))
-    # Other pykube objects still need to be patched to avoid real API calls
     mocker.patch.object(pykube.Event, "objects", side_effect=Exception("API unavailable"))
-    mocker.patch("app_test_suite.steps.scenarios.simple.AppCR.objects", side_effect=Exception("API unavailable"))
     mocker.patch.object(pykube.Deployment, "objects", side_effect=Exception("API unavailable"))
     mocker.patch.object(pykube.Node, "objects", side_effect=Exception("API unavailable"))
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.WARNING):
-        # Must not propagate the exception
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
 
     assert any("Failed to collect diagnostics" in r.message for r in caplog.records)
@@ -346,9 +350,22 @@ def test_diagnostics_handles_pod_log_exception_gracefully(
     pod = _make_pod(mocker, "broken-pod", "Running")
     pod.logs.side_effect = Exception("log stream unavailable")
     _patch_pykube(mocker, app_ns_pods=[pod])
+    _patch_run_and_log(mocker)
 
     with caplog.at_level(logging.WARNING):
-        # Must not propagate the exception
         _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
 
     assert any("Failed to get logs" in r.message and "broken-pod" in r.message for r in caplog.records)
+
+
+def test_diagnostics_logs_node_status(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
+    nodes = [_make_node(mocker, "node-1", "True"), _make_node(mocker, "node-2", "False")]
+    _patch_pykube(mocker, nodes=nodes)
+    _patch_run_and_log(mocker)
+
+    with caplog.at_level(logging.ERROR):
+        _make_scenario(mocker)._collect_failure_diagnostics(_make_config(mocker), _make_context())
+
+    error_messages = [r.message for r in caplog.records if r.levelno == logging.ERROR]
+    assert any("node-1" in m and "Ready=True" in m for m in error_messages)
+    assert any("node-2" in m and "Ready=False" in m for m in error_messages)

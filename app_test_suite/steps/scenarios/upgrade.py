@@ -361,7 +361,7 @@ class UpgradeTestScenario(SimpleTestScenario):
             "clusterVersion": cluster_version,
             "upgradeToChartVersion": stable_chart_version,
             "upgradeToAppVersion": stable_app_version,
-            "timestamp": datetime.datetime.utcnow().replace(microsecond=0).isoformat(),
+            "timestamp": datetime.datetime.now(datetime.UTC).replace(microsecond=0).isoformat(),
         }
         meta_dir = f"{app_name}-{stable_chart_version}.tgz-meta"
         if not os.path.isdir(meta_dir):

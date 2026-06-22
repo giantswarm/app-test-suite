@@ -11,7 +11,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 - `helm` is now bundled in the ATS Docker image (renovate-pinned).
 - `--app-tests-pre-hook`: executable run after chart install but before the label-filtered tests; `KUBECONFIG`, `ATS_*`, and `ATS_HOOK_STAGE=pre` are set in the environment.
 - `--app-tests-post-hook`: executable run after tests complete (pass or no-match); same env contract as pre-hook with `ATS_HOOK_STAGE=post`.
-- `docs/TEST_CONTRACT.md`: documents the phases, labels, env-var contract, and the relationship between scenario-level hooks and upgrade-stage hooks.
+- `docs/TEST_CONTRACT.md`: documents the phases, labels, environment-variable contract, and the relationship between scenario-level hooks and upgrade-stage hooks.
 - Keep-going mode: all test steps run to completion even when earlier steps fail; errors are reported together at the end. Enabled by default; use `--no-keep-going` to stop on first failure. Requires `step-exec-lib >= 0.5.0`.
 - Docker image is now published for `linux/amd64` and `linux/arm64`.
 

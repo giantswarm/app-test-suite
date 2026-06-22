@@ -45,7 +45,7 @@ WORKDIR $ATS_DIR
 
 FROM base AS builder
 
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+ENV UV_LINK_MODE=copy
 
 # Omit development dependencies
 ENV UV_NO_DEV=1

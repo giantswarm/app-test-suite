@@ -143,7 +143,7 @@ def test_pre_and_post_hook_called_with_correct_env(mocker: MockerFixture) -> Non
         assert env["ATS_CHART_PATH"] == REAL_CHART_FILE
         assert env["KUBECONFIG"] == os.path.abspath(MOCK_KUBE_CONFIG_PATH)
         assert env["ATS_DEPLOY_NAMESPACE"] == MOCK_APP_DEPLOY_NS
-        assert env["ATS_APP_RELEASE_NAME"] == REAL_CHART_APP_NAME
+        assert env["ATS_RELEASE_NAME"] == REAL_CHART_APP_NAME
 
 
 def test_pre_hook_skipped_when_not_configured(mocker: MockerFixture) -> None:

@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Optional, Set, cast
+from typing import Dict, Optional, Set, cast
 
 import configargparse
 import yaml
@@ -43,7 +43,10 @@ TEST_APP_CATALOG_NAME: str = "chartmuseum"
 TEST_APP_CATALOG_NAMESPACE: str = "default"
 CONTEXT_KEY_APP_CR: str = "app_cr"
 CONTEXT_KEY_APP_CM_CR: str = "app_cm_cr"
+CONTEXT_KEY_RELEASE_NAME: str = "release_name"
 CHART_YAML = "Chart.yaml"
+_HELM_BIN = "helm"
+_HELM_DEPLOY_TIMEOUT = "30m"
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +109,10 @@ class SimpleTestScenario(BuildStep, ABC):
             config,
             BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE,
         )
+        deploy_namespace = get_config_value_by_cmd_line_option(
+            config,
+            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
+        )
         cluster_info = cast(ClusterInfo, self._cluster_info)
         exec_info = TestExecInfo(
             chart_path=config.chart_file,
@@ -116,6 +123,8 @@ class SimpleTestScenario(BuildStep, ABC):
             kube_config_path=os.path.abspath(cluster_info.kube_config_path),
             test_type=self.test_provided,
             debug=config.debug,
+            release_name=context.get(CONTEXT_KEY_RELEASE_NAME),
+            deploy_namespace=deploy_namespace,
         )
         self._test_executor.prepare_test_environment(exec_info)
         self._test_executor.execute_test(exec_info)
@@ -217,14 +226,12 @@ class SimpleTestScenario(BuildStep, ABC):
         except Exception:
             raise ATSTestError("Can't establish connection to the new test cluster")
 
-        # prepare app platform and upload artifacts
         if not self._cluster_info.app_platform_ready:
-            logger.debug("App Platform not initialized, running `apptestctl`")
+            logger.debug("Cluster prerequisites not initialized, running `apptestctl`")
             self._ensure_app_platform_ready(self._cluster_info.kube_config_path)
             self._cluster_info.app_platform_ready = True
         else:
-            logger.debug("App Platform already initialized, not running `apptestctl`")
-        self._upload_chart_to_app_catalog(config, config.chart_file)
+            logger.debug("Cluster prerequisites already initialized, not running `apptestctl`")
 
         try:
             if (
@@ -242,16 +249,13 @@ class SimpleTestScenario(BuildStep, ABC):
         finally:
             if not get_config_value_by_cmd_line_option(
                 config,
-                BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_SKIP_DEPLOY_APP,
-            ) or not get_config_value_by_cmd_line_option(
-                config,
                 BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_SKIP_DELETE_APP,
             ):
                 self._delete_app(config, context)
+                self._delete_release(config, context)
 
     def _deploy_tested_chart_as_app(self, config: argparse.Namespace, context: Context) -> None:
-        app_name = context[CONTEXT_KEY_CHART_YAML]["name"]
-        app_version = context[CONTEXT_KEY_CHART_YAML]["version"]
+        release_name = context[CONTEXT_KEY_CHART_YAML]["name"]
         deploy_namespace = get_config_value_by_cmd_line_option(
             config,
             BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
@@ -260,17 +264,39 @@ class SimpleTestScenario(BuildStep, ABC):
             config,
             BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE,
         )
+        self._helm_deploy(release_name, config.chart_file, deploy_namespace, app_config_file_path)
+        context[CONTEXT_KEY_RELEASE_NAME] = release_name
 
-        app_obj = self._deploy_chart(
-            app_name,
-            app_version,
+    def _helm_deploy(
+        self,
+        release_name: str,
+        chart_file: str,
+        deploy_namespace: str,
+        app_config_file_path: Optional[str],
+    ) -> None:
+        logger.info("Ensuring namespace 'policy-exceptions'.")
+        ensure_namespace_exists(self._kube_client, "policy-exceptions")
+
+        args = [
+            _HELM_BIN,
+            "upgrade",
+            "--install",
+            release_name,
+            chart_file,
+            "--namespace",
             deploy_namespace,
-            app_config_file_path,
-            TEST_APP_CATALOG_NAME,
-            TEST_APP_CATALOG_NAMESPACE,
-        )
-        context[CONTEXT_KEY_APP_CR] = app_obj.app
-        context[CONTEXT_KEY_APP_CM_CR] = app_obj.app_cm
+            "--create-namespace",
+            "--reset-values",
+            "--wait",
+            "--timeout",
+            _HELM_DEPLOY_TIMEOUT,
+        ]
+        if app_config_file_path:
+            args += ["--values", app_config_file_path]
+        logger.info(f"Installing chart as Helm release '{release_name}' into namespace '{deploy_namespace}'.")
+        run_res = run_and_log(args, env=self._helm_env())  # nosec, chart file is the user's responsibility
+        if run_res.returncode != 0:
+            raise ATSTestError(f"Installing Helm release '{release_name}' failed")
 
     def _deploy_chart(
         self,
@@ -455,6 +481,26 @@ class SimpleTestScenario(BuildStep, ABC):
             self._APP_DELETION_TIMEOUT_SEC,
         )
         logger.info("Application deleted")
+
+    def _delete_release(self, config: argparse.Namespace, context: Context) -> None:
+        release_name = context.get(CONTEXT_KEY_RELEASE_NAME)
+        if release_name is None:
+            return
+        deploy_namespace = get_config_value_by_cmd_line_option(
+            config,
+            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
+        )
+        logger.info(f"Uninstalling Helm release '{release_name}' from namespace '{deploy_namespace}'.")
+        run_res = run_and_log(
+            [_HELM_BIN, "uninstall", release_name, "--namespace", deploy_namespace, "--wait"],
+            env=self._helm_env(),
+        )  # nosec
+        if run_res.returncode != 0:
+            logger.warning(f"Uninstalling Helm release '{release_name}' failed; continuing.")
+
+    def _helm_env(self) -> Dict[str, str]:
+        kube_config_path = cast(ClusterInfo, self._cluster_info).kube_config_path
+        return {**os.environ, "KUBECONFIG": kube_config_path}
 
 
 class FunctionalTestScenario(SimpleTestScenario):

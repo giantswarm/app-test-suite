@@ -130,6 +130,10 @@ class TestExecInfo:
     """Should the test engine be run with debug enabled."""
     test_extra_info: Optional[Dict[str, str]] = None
     """Optional dict of key-value pairs that will be passed to the test executor"""
+    release_name: Optional[str] = None
+    """Name of the Helm release the chart under test was deployed as."""
+    deploy_namespace: Optional[str] = None
+    """Namespace the chart under test was deployed into."""
 
 
 class TestExecutor(ABC):
@@ -173,6 +177,12 @@ class TestExecutor(ABC):
 
         if exec_info.app_config_file_path is not None:
             env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
+
+        if exec_info.release_name is not None:
+            env_vars["ATS_RELEASE_NAME"] = exec_info.release_name
+
+        if exec_info.deploy_namespace is not None:
+            env_vars["ATS_RELEASE_NAMESPACE"] = exec_info.deploy_namespace
 
         if exec_info.test_extra_info:
             env_vars.update({"ATS_EXTRA_" + k.upper(): v for k, v in exec_info.test_extra_info.items()})

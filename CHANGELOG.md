@@ -7,11 +7,14 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Added
 
+- Test suites receive `ATS_RELEASE_NAME` and `ATS_RELEASE_NAMESPACE` environment variables identifying the deployed Helm release and the namespace it was installed into.
+- `helm` is now bundled in the ATS Docker image (renovate-pinned).
 - Keep-going mode: all test steps run to completion even when earlier steps fail; errors are reported together at the end. Enabled by default; use `--no-keep-going` to stop on first failure. Requires `step-exec-lib >= 0.5.0`.
 - Docker image is now published for `linux/amd64` and `linux/arm64`.
 
 ### Changed
 
+- **BREAKING:** Smoke, functional, and upgrade scenarios now deploy the chart under test directly with Helm (`helm upgrade --install`, `helm uninstall`) instead of creating an `App` CR. The upgrade scenario installs the stable chart, runs `helm upgrade` to the version under test, and uninstalls with Helm. Test suites that read the `App` CR must instead assert against the deployed workloads via the kube client, using `ATS_RELEASE_NAME` / `ATS_RELEASE_NAMESPACE`. Values files continue to be passed through `--app-tests-app-config-file` (forwarded to `helm --values`).
 - **BREAKING:** `PytestExecutor` now uses `uv sync` / `uv run pytest` instead of `pipenv install --deploy` /
   `pipenv run pytest`. App test directories must provide `pyproject.toml` + `uv.lock` instead of `Pipfile` /
   `Pipfile.lock`. `pipenv` is no longer installed in the ATS Docker image.

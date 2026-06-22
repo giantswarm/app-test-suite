@@ -1,11 +1,8 @@
 import unittest
-from enum import Enum
 from typing import cast, Callable
 from unittest.mock import Mock
 
 import pytest
-from pytest_helm_charts.giantswarm_app_platform.app import create_app
-from pytest_helm_charts.utils import YamlDict
 from pytest_mock import MockerFixture
 from requests import Response
 from semver import VersionInfo
@@ -20,13 +17,8 @@ from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML
 from app_test_suite.steps.base import TestExecutor
 from app_test_suite.steps.executors.gotest import GotestExecutor
 from app_test_suite.steps.executors.pytest import PytestExecutor
-from app_test_suite.steps.scenarios.simple import (
-    TEST_APP_CATALOG_NAME,
-    TEST_APP_CATALOG_NAMESPACE,
-)
 from app_test_suite.steps.scenarios.upgrade import (
     UpgradeTestScenario,
-    STABLE_APP_CATALOG_NAME,
     KEY_PRE_UPGRADE,
     KEY_POST_UPGRADE,
 )
@@ -43,19 +35,15 @@ from tests.helpers import (
     assert_cluster_connection_created,
     MOCK_KUBE_CONFIG_PATH,
     assert_app_platform_ready,
-    assert_chart_file_uploaded,
+    assert_helm_deployed,
+    assert_helm_uninstalled,
     MOCK_CHART_FILE_NAME,
-    assert_deploy_and_wait_for_app_cr,
     MOCK_UPGRADE_APP_VERSION,
     MOCK_APP_DEPLOY_NS,
-    MOCK_UPGRADE_CHART_FILE_URL,
+    MOCK_STABLE_APP_FILE,
     assert_upgrade_tester_exec_hook,
-    assert_app_updated,
-    assert_upgrade_tester_deletes_app,
     MOCK_APP_VERSION,
-    patch_requests_get_chart,
     assert_upgrade_metadata_created,
-    MOCK_STABLE_APP_CATALOG_NAMESPACE,
 )
 from tests.scenarios.executors.gotest import assert_run_gotest, patch_gotest_test_runner
 from tests.scenarios.executors.pytest import (
@@ -189,10 +177,9 @@ def test_upgrade_pytest_runner_run(
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
 
-    configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
+    patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
     patcher(mocker, run_and_log_call_result_mock)
-    mock_app_catalog_cr, mock_stable_app_catalog_cr = patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
-    mock_requests_get_chart = patch_requests_get_chart(mocker)
+    patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
 
     config = get_base_config(mocker)
     configure_for_upgrade_test(config)
@@ -205,24 +192,18 @@ def test_upgrade_pytest_runner_run(
         }
     }
     runner = UpgradeTestScenario(mock_cluster_manager, test_executor)
+    runner._stable_from_local_file = True
     runner.run(config, context)
 
     assert_cluster_connection_created(MOCK_KUBE_CONFIG_PATH)
     assert_app_platform_ready(MOCK_KUBE_CONFIG_PATH)
-    assert_chart_file_uploaded(config, MOCK_CHART_FILE_NAME)
-    assert_deploy_and_wait_for_app_cr(
-        MOCK_APP_NAME,
-        MOCK_UPGRADE_APP_VERSION,
-        MOCK_APP_DEPLOY_NS,
-        STABLE_APP_CATALOG_NAME,
-        MOCK_APP_DEPLOY_NS,
-    )
+    # stable version installed via helm
+    assert_helm_deployed(MOCK_APP_NAME, MOCK_STABLE_APP_FILE, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
     asserter_prepare()
-    mock_stable_app_catalog_cr.create.assert_any_call()
     asserter_test(
         runner.test_provided,
         MOCK_KUBE_CONFIG_PATH,
-        MOCK_UPGRADE_CHART_FILE_URL,
+        MOCK_STABLE_APP_FILE,
         MOCK_UPGRADE_APP_VERSION,
         "ats_extra_upgrade_test_stage=pre_upgrade",
     )
@@ -234,7 +215,8 @@ def test_upgrade_pytest_runner_run(
         MOCK_KUBE_CONFIG_PATH,
         MOCK_APP_DEPLOY_NS,
     )
-    assert_app_updated(configured_app_mock)
+    # under-test version installed via helm upgrade
+    assert_helm_deployed(MOCK_APP_NAME, MOCK_CHART_FILE_NAME, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
     assert_upgrade_tester_exec_hook(
         KEY_POST_UPGRADE,
         MOCK_APP_NAME,
@@ -250,116 +232,5 @@ def test_upgrade_pytest_runner_run(
         MOCK_CHART_VERSION,
         "ats_extra_upgrade_test_stage=post_upgrade",
     )
-    mock_requests_get_chart.assert_called_once_with(MOCK_UPGRADE_CHART_FILE_URL, allow_redirects=True, timeout=10)
-    assert_upgrade_tester_deletes_app(configured_app_mock)
-    mock_stable_app_catalog_cr.delete.assert_called_once()
+    assert_helm_uninstalled(MOCK_APP_NAME, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
     assert_upgrade_metadata_created()
-
-
-def test_upgrade_app_cr_no_configs(mocker: MockerFixture) -> None:
-    mocker.patch("pytest_helm_charts.giantswarm_app_platform.app.AppCR.create")
-    mocker.patch("pytest_helm_charts.giantswarm_app_platform.app.ConfigMap.create")
-    configured_app = create_app(
-        mocker.MagicMock(),
-        MOCK_APP_NAME,
-        MOCK_APP_VERSION,
-        STABLE_APP_CATALOG_NAME,
-        MOCK_STABLE_APP_CATALOG_NAMESPACE,
-        MOCK_APP_DEPLOY_NS,
-        MOCK_APP_DEPLOY_NS,
-    )
-    mocker.patch.object(configured_app.app, "reload")
-    mocker.patch.object(configured_app.app, "update")
-
-    runner = UpgradeTestScenario(mocker.MagicMock(), PytestExecutor())
-    new_configured_app = runner._upgrade_app_cr(configured_app, MOCK_UPGRADE_APP_VERSION, app_config_file_path="")
-
-    # both versions used no config, so there should be no change in object references
-    assert new_configured_app == configured_app
-    assert new_configured_app.app.obj["spec"]["version"] == MOCK_UPGRADE_APP_VERSION
-    assert new_configured_app.app.obj["spec"]["catalog"] == TEST_APP_CATALOG_NAME
-    assert new_configured_app.app.obj["spec"]["catalogNamespace"] == TEST_APP_CATALOG_NAMESPACE
-
-
-class ExpectedAction(Enum):
-    NO_CHANGE = 1
-    CM_DELETED = 2
-    CM_CREATED = 3
-    CM_UPDATED = 4
-
-
-@pytest.mark.parametrize(
-    "stable_config,under_test_config_file,expected_action",
-    [
-        (None, "", ExpectedAction.NO_CHANGE),
-        ({"test1": "val1"}, "", ExpectedAction.CM_DELETED),
-        (None, "tests/assets/mock_config.yaml", ExpectedAction.CM_CREATED),
-        ({"test1": "val1"}, "tests/assets/mock_config.yaml", ExpectedAction.NO_CHANGE),
-        ({"test1": "val2"}, "tests/assets/mock_config.yaml", ExpectedAction.CM_UPDATED),
-    ],
-    ids=[
-        "both no config",
-        "only stable has config",
-        "only under-test has config",
-        "both use config - no change",
-        "both use config - with change",
-    ],
-)
-def test_upgrade_app_cr_stable_has_config(
-    stable_config: YamlDict,
-    under_test_config_file: str,
-    expected_action: ExpectedAction,
-    mocker: MockerFixture,
-) -> None:
-    mocker.patch("pytest_helm_charts.giantswarm_app_platform.app.AppCR.create")
-    mocker.patch("pytest_helm_charts.giantswarm_app_platform.app.ConfigMap.create")
-    configured_app = create_app(
-        mocker.MagicMock(),
-        MOCK_APP_NAME,
-        MOCK_APP_VERSION,
-        STABLE_APP_CATALOG_NAME,
-        MOCK_STABLE_APP_CATALOG_NAMESPACE,
-        MOCK_APP_DEPLOY_NS,
-        MOCK_APP_DEPLOY_NS,
-        config_values=stable_config,
-    )
-    mocker.patch.object(configured_app.app, "reload")
-    mocker.patch.object(configured_app.app, "update")
-    if configured_app.app_cm:
-        mocker.patch.object(configured_app.app_cm, "create")
-        mocker.patch.object(configured_app.app_cm, "reload")
-        mocker.patch.object(configured_app.app_cm, "update")
-        mocker.patch.object(configured_app.app_cm, "delete")
-
-    runner = UpgradeTestScenario(mocker.MagicMock(), PytestExecutor())
-    new_configured_app = runner._upgrade_app_cr(
-        configured_app,
-        MOCK_UPGRADE_APP_VERSION,
-        app_config_file_path=under_test_config_file,
-    )
-
-    assert new_configured_app.app.obj["spec"]["version"] == MOCK_UPGRADE_APP_VERSION
-    assert new_configured_app.app.obj["spec"]["catalog"] == TEST_APP_CATALOG_NAME
-    assert new_configured_app.app.obj["spec"]["catalogNamespace"] == TEST_APP_CATALOG_NAMESPACE
-    if expected_action == ExpectedAction.NO_CHANGE:
-        assert new_configured_app == configured_app
-        if new_configured_app.app_cm:
-            cast(Mock, new_configured_app.app_cm.update).assert_not_called()
-    elif expected_action == ExpectedAction.CM_UPDATED:
-        cast(Mock, new_configured_app.app_cm.update).assert_called_once()
-    elif expected_action == ExpectedAction.CM_DELETED:
-        cast(Mock, configured_app.app_cm.delete).assert_called_once()
-        assert new_configured_app.app_cm is None
-        assert "config" not in new_configured_app.app.obj["spec"]
-    elif expected_action == ExpectedAction.CM_CREATED:
-        assert new_configured_app.app_cm is not None
-        cast(Mock, new_configured_app.app_cm.create).assert_called_once()
-        assert "config" in new_configured_app.app.obj["spec"]
-        assert (
-            new_configured_app.app.obj["spec"]["config"]["configMap"]["name"]
-            == new_configured_app.app_cm.obj["metadata"]["name"]
-        )
-        assert (
-            new_configured_app.app.obj["spec"]["config"]["configMap"]["namespace"]
-            == new_configured_app.app_cm.obj["metadata"]["namespace"]
-        )

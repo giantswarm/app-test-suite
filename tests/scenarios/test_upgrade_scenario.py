@@ -37,7 +37,7 @@ from tests.helpers import (
     MOCK_CHART_VERSION,
     assert_cluster_connection_created,
     MOCK_KUBE_CONFIG_PATH,
-    assert_app_platform_ready,
+    assert_cluster_prerequisites_ready,
     assert_helm_deployed,
     assert_helm_uninstalled,
     MOCK_CHART_FILE_NAME,
@@ -200,7 +200,7 @@ def test_upgrade_pytest_runner_run(
     runner.run(config, context)
 
     assert_cluster_connection_created(MOCK_KUBE_CONFIG_PATH)
-    assert_app_platform_ready(MOCK_KUBE_CONFIG_PATH)
+    assert_cluster_prerequisites_ready(MOCK_KUBE_CONFIG_PATH)
     # stable version installed via helm
     assert_helm_deployed(MOCK_APP_NAME, MOCK_STABLE_APP_FILE, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
     asserter_prepare()

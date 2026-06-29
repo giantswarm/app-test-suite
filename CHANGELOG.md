@@ -9,6 +9,9 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 - Test suites receive `ATS_RELEASE_NAME` and `ATS_RELEASE_NAMESPACE` environment variables identifying the deployed Helm release and the namespace it was installed into.
 - `helm` is now bundled in the ATS Docker image (renovate-pinned).
+- `--app-tests-pre-hook`: executable run after chart install but before the label-filtered tests; `KUBECONFIG`, `ATS_*`, and `ATS_HOOK_STAGE=pre` are set in the environment.
+- `--app-tests-post-hook`: executable run after tests complete (pass or no-match); same env contract as pre-hook with `ATS_HOOK_STAGE=post`.
+- `docs/TEST_CONTRACT.md`: documents the phases, labels, env-var contract, and the relationship between scenario-level hooks and upgrade-stage hooks.
 - Keep-going mode: all test steps run to completion even when earlier steps fail; errors are reported together at the end. Enabled by default; use `--no-keep-going` to stop on first failure. Requires `step-exec-lib >= 0.5.0`.
 - Docker image is now published for `linux/amd64` and `linux/arm64`.
 
@@ -37,7 +40,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Removed
 
-- App CR deployment path, app-operator, chart-operator, and chartmuseum support removed. Cluster bootstrap now runs `apptestctl bootstrap --install-operators=false` (CRDs only).
+- App CR deployment path, app-operator, chart-operator, and chartmuseum support removed.
+- `apptestctl` binary dropped from the Docker image. CRDs are now bundled in `container-crds/` and applied via `kubectl apply --server-side` during cluster bootstrap.
 - **BREAKING:** `dats.sh` is no longer published as a release asset. Run the image directly: `docker run --rm -it -v "$(pwd):/ats/workdir" -v /var/run/docker.sock:/var/run/docker.sock --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>`.
 
 ## [0.15.0] - 2026-04-02

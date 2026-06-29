@@ -138,27 +138,44 @@ class UpgradeTestScenario(SimpleTestScenario):
             TestInfoProvider().extract_chart_info(stable_chart_file_path, CONTEXT_KEY_STABLE_CHART_YAML, context)
             return stable_chart_file_path, stable_app_version
 
-        # `helm pull --repo` resolves against an HTTP(S) chart repository index (e.g. chartmuseum).
-        # OCI catalog URLs (oci://...) are not handled here; they would need `helm pull oci://.../<chart>`.
         catalog_url = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_URL)
         stable_chart_ver = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_VERSION)
+        is_oci = catalog_url.startswith("oci://")
+
         if stable_chart_ver == "latest":
+            if is_oci:
+                raise ATSTestError(
+                    f"'latest' version resolution is not supported for OCI catalog URLs; "
+                    f"specify an explicit version with --upgrade-tests-app-version"
+                )
             stable_chart_ver = self._get_latest_app_version(catalog_url, app_name)
 
         logger.info(f"Pulling stable chart '{app_name}' version '{stable_chart_ver}' from '{catalog_url}'.")
+        if is_oci:
+            pull_args = [
+                _HELM_BIN,
+                "pull",
+                f"{catalog_url}/{app_name}",
+                "--version",
+                stable_chart_ver,
+                "--destination",
+                download_dir,
+            ]
+        else:
+            pull_args = [
+                _HELM_BIN,
+                "pull",
+                app_name,
+                "--repo",
+                catalog_url,
+                "--version",
+                stable_chart_ver,
+                "--destination",
+                download_dir,
+            ]
         try:
             run_res = run_and_log(
-                [
-                    _HELM_BIN,
-                    "pull",
-                    app_name,
-                    "--repo",
-                    catalog_url,
-                    "--version",
-                    stable_chart_ver,
-                    "--destination",
-                    download_dir,
-                ],
+                pull_args,
                 env=self._helm_env(),
                 timeout=_HELM_PULL_TIMEOUT_SEC,
             )  # nosec

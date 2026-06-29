@@ -307,3 +307,58 @@ def test_resolve_stable_chart_remote_pull_fails(mocker: MockerFixture) -> None:
 
     with pytest.raises(ATSTestError, match="failed"):
         runner._resolve_stable_chart(_remote_upgrade_config(mocker), {}, MOCK_APP_NAME, "/tmp/ats-dl")
+
+
+MOCK_OCI_CATALOG_URL = "oci://giantswarmpublic.azurecr.io/giantswarm-catalog"
+
+
+def _oci_upgrade_config(mocker: MockerFixture) -> Mock:
+    config = mocker.Mock(name="OciConfigMock")
+    config.upgrade_tests_app_catalog_url = MOCK_OCI_CATALOG_URL
+    config.upgrade_tests_app_version = MOCK_UPGRADE_APP_VERSION
+    return config
+
+
+def _oci_upgrade_config_latest(mocker: MockerFixture) -> Mock:
+    config = mocker.Mock(name="OciConfigMockLatest")
+    config.upgrade_tests_app_catalog_url = MOCK_OCI_CATALOG_URL
+    config.upgrade_tests_app_version = "latest"
+    return config
+
+
+def test_resolve_stable_chart_oci_pulls_with_helm(mocker: MockerFixture) -> None:
+    mocker.patch(
+        "app_test_suite.steps.scenarios.upgrade.run_and_log",
+        return_value=get_run_and_log_result_mock(mocker),
+    )
+    mocker.patch("app_test_suite.steps.scenarios.upgrade.TestInfoProvider")
+    runner = _make_remote_upgrade_runner(mocker)
+
+    chart_file, chart_ver = runner._resolve_stable_chart(
+        _oci_upgrade_config(mocker), {}, MOCK_APP_NAME, "/tmp/ats-dl"
+    )
+
+    assert chart_ver == MOCK_UPGRADE_APP_VERSION
+    assert chart_file == f"/tmp/ats-dl/{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tgz"
+    run_and_log_mock = cast(Mock, app_test_suite.steps.scenarios.upgrade.run_and_log)
+    run_and_log_mock.assert_called_once()
+    assert run_and_log_mock.call_args.args[0] == [
+        _HELM_BIN,
+        "pull",
+        f"{MOCK_OCI_CATALOG_URL}/{MOCK_APP_NAME}",
+        "--version",
+        MOCK_UPGRADE_APP_VERSION,
+        "--destination",
+        "/tmp/ats-dl",
+    ]
+    assert run_and_log_mock.call_args.kwargs["timeout"] == _HELM_PULL_TIMEOUT_SEC
+
+
+def test_resolve_stable_chart_oci_latest_raises_error(mocker: MockerFixture) -> None:
+    run_and_log_mock = mocker.patch("app_test_suite.steps.scenarios.upgrade.run_and_log")
+    mocker.patch("app_test_suite.steps.scenarios.upgrade.TestInfoProvider")
+    runner = _make_remote_upgrade_runner(mocker)
+
+    with pytest.raises(ATSTestError, match="latest"):
+        runner._resolve_stable_chart(_oci_upgrade_config_latest(mocker), {}, MOCK_APP_NAME, "/tmp/ats-dl")
+    run_and_log_mock.assert_not_called()

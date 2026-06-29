@@ -7,6 +7,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Added
 
+- OCI catalog URLs (`oci://...`) are now supported for `--upgrade-tests-app-catalog-url`; `helm pull oci://<url>/<chart>` is used automatically. Specifying `--upgrade-tests-app-version latest` with an OCI URL is rejected with an error.
 - Test suites receive `ATS_RELEASE_NAME` and `ATS_RELEASE_NAMESPACE` environment variables identifying the deployed Helm release and the namespace it was installed into.
 - `helm` is now bundled in the ATS Docker image (renovate-pinned).
 - `--app-tests-pre-hook`: executable run after chart install but before the label-filtered tests; `KUBECONFIG`, `ATS_*`, and `ATS_HOOK_STAGE=pre` are set in the environment.

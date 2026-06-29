@@ -145,8 +145,8 @@ class UpgradeTestScenario(SimpleTestScenario):
         if stable_chart_ver == "latest":
             if is_oci:
                 raise ATSTestError(
-                    f"'latest' version resolution is not supported for OCI catalog URLs; "
-                    f"specify an explicit version with --upgrade-tests-app-version"
+                    "'latest' version resolution is not supported for OCI catalog URLs; "
+                    "specify an explicit version with --upgrade-tests-app-version"
                 )
             stable_chart_ver = self._get_latest_app_version(catalog_url, app_name)
 

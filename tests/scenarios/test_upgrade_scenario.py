@@ -334,9 +334,7 @@ def test_resolve_stable_chart_oci_pulls_with_helm(mocker: MockerFixture) -> None
     mocker.patch("app_test_suite.steps.scenarios.upgrade.TestInfoProvider")
     runner = _make_remote_upgrade_runner(mocker)
 
-    chart_file, chart_ver = runner._resolve_stable_chart(
-        _oci_upgrade_config(mocker), {}, MOCK_APP_NAME, "/tmp/ats-dl"
-    )
+    chart_file, chart_ver = runner._resolve_stable_chart(_oci_upgrade_config(mocker), {}, MOCK_APP_NAME, "/tmp/ats-dl")
 
     assert chart_ver == MOCK_UPGRADE_APP_VERSION
     assert chart_file == f"/tmp/ats-dl/{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tgz"

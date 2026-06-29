@@ -16,7 +16,7 @@ from app_test_suite.steps.scenarios.simple import (
 from tests.helpers import (
     assert_helm_deployed,
     assert_helm_uninstalled,
-    assert_app_platform_ready,
+    assert_cluster_prerequisites_ready,
     assert_cluster_connection_created,
     get_base_config,
     get_run_and_log_result_mock,
@@ -89,7 +89,7 @@ def test_simple_runner_run(
     runner.run(config, context)
 
     assert_cluster_connection_created(MOCK_KUBE_CONFIG_PATH)
-    assert_app_platform_ready(MOCK_KUBE_CONFIG_PATH)
+    assert_cluster_prerequisites_ready(MOCK_KUBE_CONFIG_PATH)
     assert_helm_deployed(MOCK_APP_NAME, config.chart_file, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
     asserter(
         runner.test_provided,

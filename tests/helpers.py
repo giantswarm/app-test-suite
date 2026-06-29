@@ -74,7 +74,7 @@ def assert_helm_uninstalled(release_name: str, deploy_namespace: str, kube_confi
 
 def assert_cluster_prerequisites_ready(kube_config_path: str) -> None:
     cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.run_and_log).assert_any_call(
-        ["apptestctl", "bootstrap", f"--kubeconfig-path={kube_config_path}", "--install-operators=false", "--wait"]
+        ["kubectl", f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", "/etc/ats/crds"]
     )
 
 
@@ -108,8 +108,8 @@ def get_run_and_log_result_mock(mocker: MockerFixture) -> unittest.mock.Mock:
 def patch_base_test_runner(
     mocker: MockerFixture,
     run_and_log_res: unittest.mock.Mock,
-    app_name: str,
-    app_namespace: str,
+    app_name: str = "",
+    app_namespace: str = "",
 ) -> None:
     mocker.patch.dict(os.environ, {}, clear=True)
     mocker.patch("pykube.KubeConfig.from_file", name="MockKubeConfig")

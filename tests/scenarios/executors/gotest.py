@@ -7,7 +7,7 @@ from step_exec_lib.types import StepType
 
 import app_test_suite
 import app_test_suite.steps.executors.gotest
-from tests.helpers import MOCK_KUBE_VERSION
+from tests.helpers import MOCK_KUBE_VERSION, MOCK_APP_NAME, MOCK_APP_DEPLOY_NS
 
 
 def assert_run_gotest(
@@ -33,6 +33,8 @@ def assert_run_gotest(
     # These are set after os.environ in get_test_info_env_variables, so they override system env
     env_vars["KUBECONFIG"] = kube_config_path
     env_vars["ATS_APP_CONFIG_FILE_PATH"] = ""
+    env_vars["ATS_RELEASE_NAME"] = MOCK_APP_NAME
+    env_vars["ATS_RELEASE_NAMESPACE"] = MOCK_APP_DEPLOY_NS
 
     if test_extra_info:
         env_vars.update({k.upper(): v for k, v in [p.split("=") for p in test_extra_info.split(",")]})

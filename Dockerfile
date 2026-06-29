@@ -10,6 +10,8 @@ ARG DOCKER_VER=v28.5.2
 ARG KIND_VER=v0.32.0
 # renovate: datasource=github-releases depName=giantswarm/apptestctl
 ARG APPTESTCTL_VER=v0.25.1
+# renovate: datasource=github-releases depName=helm/helm
+ARG HELM_VER=v4.2.2
 
 RUN apk add --no-cache ca-certificates curl \
     && mkdir -p /binaries \
@@ -19,6 +21,8 @@ RUN apk add --no-cache ca-certificates curl \
     tar --extract --gzip --directory /binaries --strip-components 1 apptestctl-${APPTESTCTL_VER}-linux-${TARGETARCH}/apptestctl \
     && curl --silent --show-error --fail --location https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_VER##v}.tgz | \
     tar --extract --gzip --directory /binaries --strip-components 1 docker/docker \
+    && curl --silent --show-error --fail --location https://get.helm.sh/helm-${HELM_VER}-linux-${TARGETARCH}.tar.gz | \
+    tar --extract --gzip --directory /binaries --strip-components 1 linux-${TARGETARCH}/helm \
     && curl --silent --show-error --fail --location https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VER}/kind-linux-${TARGETARCH} --output /binaries/kind
 
 COPY container-entrypoint.sh /binaries
@@ -41,7 +45,7 @@ WORKDIR $ATS_DIR
 
 FROM base AS builder
 
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+ENV UV_LINK_MODE=copy
 
 # Omit development dependencies
 ENV UV_NO_DEV=1

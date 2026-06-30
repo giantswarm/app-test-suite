@@ -106,13 +106,12 @@ Each run consist of two stages: bootstrapping and test execution.
 
 - if you configured your run with `*-tests-cluster-type kind`, a cluster is created with `kind` tool
 - `ats` connects to the target test cluster and runs [`apptestctl`](https://github.com/giantswarm/apptestctl) -
-  an additional tool that deploys components of App Platform
-  (`app-operator`, `chart-operator` and CRDs they use)
-- `ats` deploys `chart-museum`: a simple helm chart registry that will be used to store your chart under test
-- creates `Catalog` CR for the chart repository provided by `chart-museum`
-- creates `App` CR for your chart: as a result, your application defined in the chart is already deployed to the test
-  cluster (you can disable creating this app with `app-tests-skip-app-deploy` option; this might be needed if you
-  need more control over your test, like: setup additional CRDs or install additional apps).
+  an additional tool that installs the CRDs your chart may reference
+- `ats` deploys your chart under test directly with Helm (`helm upgrade --install`); your application defined in the
+  chart is deployed to the test cluster (you can disable this with the `app-tests-skip-app-deploy` option; this might
+  be needed if you need more control over your test, like setting up additional CRDs or installing additional apps).
+  The deployed release name and namespace are exposed to your tests via the `ATS_RELEASE_NAME` and
+  `ATS_RELEASE_NAMESPACE` environment variables.
 
 After that, `ats` hands control over to your tests.
 
@@ -136,7 +135,7 @@ the following commands are executed underneath:
 
 ```bash
 # here start smoke tests
-apptestctl bootstrap --kubeconfig-path=kube.config --wait
+apptestctl bootstrap --kubeconfig-path=kube.config --install-operators=false --wait
 uv sync
 (
     # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803
@@ -150,11 +149,14 @@ uv sync
     ATS_CHART_PATH="hello-world-app-0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db.tgz"
     ATS_CHART_VERSION="0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db"
 
+    ATS_RELEASE_NAME="hello-world-app"
+    ATS_RELEASE_NAMESPACE="default"
+
     uv run pytest --log-cli-level info --junitxml=test_results_smoke.xml
 )
 
 # and here start functional tests
-apptestctl bootstrap --kubeconfig-path=kube.config --wait
+apptestctl bootstrap --kubeconfig-path=kube.config --install-operators=false --wait
 uv sync
 
     # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803
@@ -167,6 +169,9 @@ uv sync
 
     ATS_CHART_PATH="hello-world-app-0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db.tgz"
     ATS_CHART_VERSION="0.1.8-1112d08fc7d610a61ace4233a4e8aecda54118db"
+
+    ATS_RELEASE_NAME="hello-world-app"
+    ATS_RELEASE_NAMESPACE="default"
 
     uv run pytest --log-cli-level info --junitxml=test_results_functional.xml
 )

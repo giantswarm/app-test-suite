@@ -33,6 +33,8 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
     KEY_CONFIG_OPTION_SKIP_DELETE_APP = "--app-tests-skip-app-delete"
     KEY_CONFIG_OPTION_DEPLOY_NAMESPACE = "--app-tests-deploy-namespace"
     KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE = "--app-tests-app-config-file"
+    KEY_CONFIG_OPTION_PRE_HOOK = "--app-tests-pre-hook"
+    KEY_CONFIG_OPTION_POST_HOOK = "--app-tests-post-hook"
 
     def __init__(self, pipeline: List[BuildStep], cluster_manager: ClusterManager):
         super().__init__(pipeline, self.KEY_CONFIG_GROUP_NAME)
@@ -70,6 +72,16 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
             self.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE,
             required=False,
             help="Path for a configuration file (values file) for your app when it's deployed for testing.",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_PRE_HOOK,
+            required=False,
+            help="Executable run after chart install but before tests. ATS_* env vars and KUBECONFIG are set.",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_POST_HOOK,
+            required=False,
+            help="Executable run after tests complete (pass or skip). ATS_* env vars and KUBECONFIG are set.",
         )
         self._cluster_manager.initialize_config(self._config_parser_group)
 
@@ -130,6 +142,10 @@ class TestExecInfo:
     """Should the test engine be run with debug enabled."""
     test_extra_info: Optional[Dict[str, str]] = None
     """Optional dict of key-value pairs that will be passed to the test executor"""
+    release_name: Optional[str] = None
+    """Name of the Helm release the chart under test was deployed as."""
+    deploy_namespace: Optional[str] = None
+    """Namespace the chart under test was deployed into."""
 
 
 class TestExecutor(ABC):
@@ -173,6 +189,12 @@ class TestExecutor(ABC):
 
         if exec_info.app_config_file_path is not None:
             env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path
+
+        if exec_info.release_name is not None:
+            env_vars["ATS_RELEASE_NAME"] = exec_info.release_name
+
+        if exec_info.deploy_namespace is not None:
+            env_vars["ATS_RELEASE_NAMESPACE"] = exec_info.deploy_namespace
 
         if exec_info.test_extra_info:
             env_vars.update({"ATS_EXTRA_" + k.upper(): v for k, v in exec_info.test_extra_info.items()})

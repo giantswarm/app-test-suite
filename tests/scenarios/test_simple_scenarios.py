@@ -1,24 +1,24 @@
+import os
 import unittest.mock
-from typing import Callable, Type
+from typing import Callable, Type, cast
 
 import pytest
 from pytest_mock import MockerFixture
-from step_exec_lib.types import StepType
-
+from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML, TestExecutor
+from step_exec_lib.types import StepType
 from app_test_suite.steps.executors.gotest import GotestExecutor
 from app_test_suite.steps.executors.pytest import PytestExecutor
-from app_test_suite.steps.scenarios.simple import SimpleTestScenario
 from app_test_suite.steps.scenarios.simple import (
+    SimpleTestScenario,
     SmokeTestScenario,
     FunctionalTestScenario,
-    TEST_APP_CATALOG_NAME,
-    TEST_APP_CATALOG_NAMESPACE,
+    CONTEXT_KEY_RELEASE_NAME,
 )
 from tests.helpers import (
-    assert_deploy_and_wait_for_app_cr,
-    assert_chart_file_uploaded,
-    assert_app_platform_ready,
+    assert_helm_deployed,
+    assert_helm_uninstalled,
+    assert_cluster_prerequisites_ready,
     assert_cluster_connection_created,
     get_base_config,
     get_run_and_log_result_mock,
@@ -26,17 +26,20 @@ from tests.helpers import (
     get_mock_cluster_manager,
     MOCK_APP_NAME,
     MOCK_APP_NS,
+    MOCK_CHART_FILE_NAME,
     MOCK_CHART_VERSION,
     MOCK_KUBE_CONFIG_PATH,
-    MOCK_CHART_FILE_NAME,
     MOCK_APP_DEPLOY_NS,
-    assert_base_tester_deletes_app,
 )
 from tests.scenarios.executors.gotest import patch_gotest_test_runner, assert_run_gotest
 from tests.scenarios.executors.pytest import (
     patch_pytest_test_runner,
     assert_prepare_and_run_pytest,
 )
+
+REAL_CHART_APP_NAME = MOCK_APP_NAME
+REAL_CHART_VERSION = MOCK_CHART_VERSION
+REAL_CHART_FILE = MOCK_CHART_FILE_NAME
 
 
 @pytest.mark.parametrize(
@@ -84,7 +87,7 @@ def test_simple_runner_run(
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
 
-    configured_app_mock = patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
+    patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
     patcher(mocker, run_and_log_call_result_mock)
 
     config = get_base_config(mocker)
@@ -93,19 +96,88 @@ def test_simple_runner_run(
     runner.run(config, context)
 
     assert_cluster_connection_created(MOCK_KUBE_CONFIG_PATH)
-    assert_app_platform_ready(MOCK_KUBE_CONFIG_PATH)
-    assert_chart_file_uploaded(config, MOCK_CHART_FILE_NAME)
-    assert_deploy_and_wait_for_app_cr(
-        MOCK_APP_NAME,
-        MOCK_CHART_VERSION,
-        MOCK_APP_DEPLOY_NS,
-        TEST_APP_CATALOG_NAME,
-        TEST_APP_CATALOG_NAMESPACE,
-    )
+    assert_cluster_prerequisites_ready(MOCK_KUBE_CONFIG_PATH)
+    assert_helm_deployed(MOCK_APP_NAME, config.chart_file, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
     asserter(
         runner.test_provided,
         MOCK_KUBE_CONFIG_PATH,
         config.chart_file,
         MOCK_CHART_VERSION,
     )
-    assert_base_tester_deletes_app(configured_app_mock)
+    assert_helm_uninstalled(MOCK_APP_NAME, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
+
+
+def _make_smoke_runner(mocker: MockerFixture) -> SmokeTestScenario:
+    run_and_log_res = get_run_and_log_result_mock(mocker)
+    patch_base_test_runner(mocker, run_and_log_res)
+    patch_pytest_test_runner(mocker, run_and_log_res)
+    return SmokeTestScenario(get_mock_cluster_manager(mocker), PytestExecutor())
+
+
+def test_pre_and_post_hook_called_with_correct_env(mocker: MockerFixture) -> None:
+    runner = _make_smoke_runner(mocker)
+    config = get_base_config(mocker)
+    config.app_tests_pre_hook = "pre-hook.sh"
+    config.app_tests_post_hook = "post-hook.sh"
+    context = {
+        CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION},
+        CONTEXT_KEY_RELEASE_NAME: REAL_CHART_APP_NAME,
+    }
+
+    runner.run(config, context)
+
+    import app_test_suite.steps.scenarios.simple as simple_mod
+
+    calls = cast(unittest.mock.Mock, simple_mod.run_and_log).call_args_list
+    hook_calls = [c for c in calls if c.args[0][0] in ("pre-hook.sh", "post-hook.sh")]
+    assert len(hook_calls) == 2, f"expected 2 hook calls, got {len(hook_calls)}"
+
+    pre_call = next(c for c in hook_calls if c.args[0][0] == "pre-hook.sh")
+    post_call = next(c for c in hook_calls if c.args[0][0] == "post-hook.sh")
+
+    for call, stage in ((pre_call, "pre"), (post_call, "post")):
+        env = call.kwargs["env"]
+        assert env["ATS_HOOK_STAGE"] == stage
+        assert env["ATS_TEST_TYPE"] == "smoke"
+        assert env["ATS_CHART_VERSION"] == REAL_CHART_VERSION
+        assert env["ATS_CHART_PATH"] == REAL_CHART_FILE
+        assert env["KUBECONFIG"] == os.path.abspath(MOCK_KUBE_CONFIG_PATH)
+        assert env["ATS_DEPLOY_NAMESPACE"] == MOCK_APP_DEPLOY_NS
+        assert env["ATS_RELEASE_NAME"] == REAL_CHART_APP_NAME
+
+
+def test_pre_hook_skipped_when_not_configured(mocker: MockerFixture) -> None:
+    runner = _make_smoke_runner(mocker)
+    config = get_base_config(mocker)
+    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
+
+    runner.run(config, context)
+
+    import app_test_suite.steps.scenarios.simple as simple_mod
+
+    calls = cast(unittest.mock.Mock, simple_mod.run_and_log).call_args_list
+    assert not any(c.args[0][0] in ("pre-hook.sh", "post-hook.sh") for c in calls)
+
+
+def test_pre_hook_failure_raises(mocker: MockerFixture) -> None:
+    run_and_log_res = get_run_and_log_result_mock(mocker)
+    patch_base_test_runner(mocker, run_and_log_res)
+    patch_pytest_test_runner(mocker, run_and_log_res)
+
+    fail_res = mocker.Mock()
+    type(fail_res).returncode = mocker.PropertyMock(return_value=1)
+
+    def side_effect(args: list[str], **kwargs: object) -> unittest.mock.Mock:
+        if args[0] == "fail-hook.sh":
+            return fail_res
+        return run_and_log_res
+
+    mocker.patch("app_test_suite.steps.scenarios.simple.run_and_log", side_effect=side_effect)
+
+    runner = SmokeTestScenario(get_mock_cluster_manager(mocker), PytestExecutor())
+    config = get_base_config(mocker)
+    config.app_tests_pre_hook = "fail-hook.sh"
+    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
+
+    with pytest.raises(ATSTestError, match="Pre-hook"):
+        runner.run(config, context)

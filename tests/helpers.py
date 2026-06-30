@@ -74,7 +74,8 @@ def assert_helm_uninstalled(release_name: str, deploy_namespace: str, kube_confi
 
 def assert_cluster_prerequisites_ready(kube_config_path: str) -> None:
     cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.run_and_log).assert_any_call(
-        ["kubectl", f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", "/etc/ats/crds"]
+        ["kubectl", f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", "/etc/ats/crds"],
+        capture_output=True,
     )
 
 
@@ -100,8 +101,8 @@ def get_base_config(mocker: MockerFixture) -> Namespace:
 def get_run_and_log_result_mock(mocker: MockerFixture) -> unittest.mock.Mock:
     system_call_result_mock = mocker.Mock(name="SysCallResult")
     type(system_call_result_mock).returncode = mocker.PropertyMock(return_value=0)
-    type(system_call_result_mock).stdout = mocker.PropertyMock(return_value="")
-    type(system_call_result_mock).stderr = mocker.PropertyMock(return_value="")
+    type(system_call_result_mock).stdout = mocker.PropertyMock(return_value=b"")
+    type(system_call_result_mock).stderr = mocker.PropertyMock(return_value=b"")
     return system_call_result_mock
 
 

@@ -72,9 +72,10 @@ docker-test-ci: docker-build-test
 
 # Re-vendor the CRD bundle from apptestctl pkg/crds/ at $(APPTESTCTL_CRDS_VER).
 update-crds: ## Refresh container-crds/ from giantswarm/apptestctl pkg/crds (set APPTESTCTL_CRDS_VER)
-	rm -rf /tmp/apptestctl-crds
-	git clone --quiet --depth 1 --branch $(APPTESTCTL_CRDS_VER) https://github.com/giantswarm/apptestctl /tmp/apptestctl-crds
-	find container-crds -name '*.yaml' -delete
-	cp /tmp/apptestctl-crds/pkg/crds/*.yaml container-crds/
-	rm -rf /tmp/apptestctl-crds
+	set -e; \
+	TMPDIR=$$(mktemp -d); \
+	git clone --quiet --depth 1 --branch $(APPTESTCTL_CRDS_VER) https://github.com/giantswarm/apptestctl "$$TMPDIR"; \
+	find container-crds -name '*.yaml' -delete; \
+	cp "$$TMPDIR"/pkg/crds/*.yaml container-crds/; \
+	rm -rf "$$TMPDIR"
 	@echo "Vendored CRDs from apptestctl $(APPTESTCTL_CRDS_VER). Update APPTESTCTL_CRDS_VER in container-crds/README.md."

@@ -133,7 +133,7 @@ class SimpleTestScenario(BuildStep, ABC):
             config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE
         )
         if deploy_namespace:
-            env["ATS_DEPLOY_NAMESPACE"] = deploy_namespace
+            env["ATS_RELEASE_NAMESPACE"] = deploy_namespace
         release_name = context.get(CONTEXT_KEY_RELEASE_NAME)
         if release_name:
             env["ATS_RELEASE_NAME"] = str(release_name)

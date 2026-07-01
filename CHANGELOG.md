@@ -17,6 +17,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Changed
 
+- **BREAKING:** The upgrade-stage hook (`--upgrade-tests-upgrade-hook`) now receives its context through environment variables instead of positional arguments, matching the `pre`/`post` scenario hooks. It gets `ATS_HOOK_STAGE` (`pre_upgrade` or `post_upgrade`), `ATS_RELEASE_NAME`, `ATS_RELEASE_NAMESPACE`, `ATS_UPGRADE_FROM_VERSION`, `ATS_UPGRADE_TO_VERSION`, and `KUBECONFIG`. Hook scripts reading positional `$1`..`$6` must read these variables instead.
 - **BREAKING:** Smoke, functional, and upgrade scenarios now deploy the chart under test directly with Helm (`helm upgrade --install`, `helm uninstall`) instead of creating an `App` CR. The upgrade scenario installs the stable chart, runs `helm upgrade` to the version under test, and uninstalls with Helm. Test suites that read the `App` CR must instead assert against the deployed workloads via the kube client, using `ATS_RELEASE_NAME` / `ATS_RELEASE_NAMESPACE`. Values files continue to be passed through `--app-tests-app-config-file` (forwarded to `helm --values`).
 - **BREAKING:** During the pre-upgrade test phase, `ATS_CHART_PATH` is now the local path of the stable chart `.tgz` instead of a remote chartmuseum URL. Test suites that fetched it as a URL must read it as a filesystem path.
 - **BREAKING:** `PytestExecutor` now uses `uv sync` / `uv run pytest` instead of `pipenv install --deploy` /

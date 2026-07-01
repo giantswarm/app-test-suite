@@ -164,17 +164,19 @@ def assert_upgrade_tester_exec_hook(
     kube_config_path: str,
     deploy_namespace: str,
 ) -> None:
-    cast(unittest.mock.Mock, app_test_suite.steps.scenarios.upgrade.run_and_log).assert_any_call(
-        [
-            MOCK_UPGRADE_UPGRADE_HOOK,
-            stage_name,
-            app_name,
-            from_version,
-            to_version,
-            kube_config_path,
-            deploy_namespace,
-        ],
+    run_and_log_mock = cast(unittest.mock.Mock, app_test_suite.steps.scenarios.upgrade.run_and_log)
+    hook_call = next(
+        c
+        for c in run_and_log_mock.call_args_list
+        if c.args[0] == [MOCK_UPGRADE_UPGRADE_HOOK] and c.kwargs.get("env", {}).get("ATS_HOOK_STAGE") == stage_name
     )
+    env = hook_call.kwargs["env"]
+    assert env["ATS_TEST_TYPE"] == "upgrade"
+    assert env["ATS_RELEASE_NAME"] == app_name
+    assert env["ATS_UPGRADE_FROM_VERSION"] == from_version
+    assert env["ATS_UPGRADE_TO_VERSION"] == to_version
+    assert env["KUBECONFIG"] == kube_config_path
+    assert env["ATS_RELEASE_NAMESPACE"] == deploy_namespace
 
 
 def assert_upgrade_metadata_created() -> None:

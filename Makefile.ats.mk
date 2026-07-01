@@ -10,10 +10,6 @@ IMG_VER ?= ${VER}-${COMMIT}
 
 .PHONY: all release release_ver_to_code docker-build docker-build-image docker-build-ver docker-push docker-build-test test docker-test docker-test-ci update-crds
 
-# Version of giantswarm/apptestctl whose pkg/crds/ is vendored into container-crds/.
-# Keep this in sync with container-crds/README.md.
-APPTESTCTL_CRDS_VER ?= v0.25.1
-
 check_defined = \
     $(strip $(foreach 1,$1, \
         $(call __check_defined,$1,$(strip $(value 2)))))
@@ -70,12 +66,6 @@ docker-test: docker-build-test
 docker-test-ci: docker-build-test
 	$(test-docker-run) $(test-command-ci)
 
-# Re-vendor the CRD bundle from apptestctl pkg/crds/ at $(APPTESTCTL_CRDS_VER).
-update-crds: ## Refresh container-crds/ from giantswarm/apptestctl pkg/crds (set APPTESTCTL_CRDS_VER)
-	set -e; \
-	TMPDIR=$$(mktemp -d); \
-	git clone --quiet --depth 1 --branch $(APPTESTCTL_CRDS_VER) https://github.com/giantswarm/apptestctl "$$TMPDIR"; \
-	find container-crds -name '*.yaml' -delete; \
-	cp "$$TMPDIR"/pkg/crds/*.yaml container-crds/; \
-	rm -rf "$$TMPDIR"
-	@echo "Vendored CRDs from apptestctl $(APPTESTCTL_CRDS_VER). Update APPTESTCTL_CRDS_VER in container-crds/README.md."
+# Refresh the CRD bundle directly from its upstream sources.
+update-crds: ## Refresh container-crds/ from upstream sources via hack/sync-crds.sh
+	bash hack/sync-crds.sh

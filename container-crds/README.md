@@ -11,19 +11,21 @@ Dockerfile copies this directory to `/etc/ats/crds/`.
 
 ## Provenance
 
-These manifests are vendored verbatim from
-[`giantswarm/apptestctl`](https://github.com/giantswarm/apptestctl) `pkg/crds/`,
-pinned to **v0.25.1**. apptestctl in turn syncs them from their upstream projects
-(App platform, Cilium, Prometheus Operator, VPA, Kyverno, Gateway API + inference
-extension, KEDA) via its own `hack/sync-crds.sh`.
+These manifests are downloaded verbatim, straight from their upstream projects (App platform,
+Cilium, Prometheus Operator, VPA, Kyverno, Gateway API + inference extension, KEDA), by
+`hack/sync-crds.sh`. Version pins live in variables at the top of that script.
+
+Most pins are tracked by Renovate via inline `# renovate:` comments in the script and get bumped
+automatically as PRs. Two are pinned manually and need periodic manual bumps:
+
+- `verticalpodautoscalers.yaml` (FairwindsOps/charts) — that repo has no git tags, so there's
+  nothing for Renovate to track; pinned to a commit SHA instead.
+- `gateway-api.yaml` — pulled via `helm template` from a private OCI registry Renovate can't reach.
 
 ## Refreshing
 
 ```bash
-make update-crds                          # uses APPTESTCTL_CRDS_VER (default v0.25.1)
-make update-crds APPTESTCTL_CRDS_VER=v0.26.0
+make update-crds
 ```
 
-After bumping, update the pinned version above and in `Makefile.ats.mk`
-(`APPTESTCTL_CRDS_VER`), and review the diff: these are not tracked by Renovate,
-so refreshing is a manual step.
+Review the diff before committing.

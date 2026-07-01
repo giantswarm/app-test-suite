@@ -34,6 +34,11 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
   Commit `pyproject.toml` and `uv.lock`. See [docs/pytest-test-pipeline.md](docs/pytest-test-pipeline.md)
   for full instructions.
 
+- The bundled `container-crds/` are now synced directly from their upstream projects by
+  `hack/sync-crds.sh` (run via `make update-crds`) instead of being vendored from `giantswarm/apptestctl`'s
+  `pkg/crds/`. Every source is pinned to an explicit version; most pins are kept up to date automatically by
+  Renovate. This drops the last dependency on `apptestctl`.
+
 ### Fixed
 
 - `--app-tests-skip-app-delete` now prevents teardown of the deployed chart. It was previously ignored whenever the chart had been deployed (only honored when `--app-tests-skip-app-deploy` was also set).

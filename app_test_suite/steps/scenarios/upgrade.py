@@ -6,7 +6,7 @@ import re
 import shutil
 import subprocess
 from tempfile import TemporaryDirectory
-from typing import Tuple, cast, Match, Optional, Dict
+from typing import Tuple, cast, List, Match, Optional, Dict
 
 import requests
 import yaml
@@ -50,6 +50,9 @@ KEY_PRE_UPGRADE = "pre_upgrade"
 KEY_POST_UPGRADE = "post_upgrade"
 KEY_UPGRADE_TEST_STAGE_EXTRA_INFO = "upgrade_test_stage"
 _HELM_PULL_TIMEOUT_SEC = 120
+_HTTP_TIMEOUT_SEC = 10
+_OCI_SCHEME = "oci://"
+_STABLE_VERSION_KEYWORD = "stable"
 
 logger = logging.getLogger(__name__)
 
@@ -140,15 +143,13 @@ class UpgradeTestScenario(SimpleTestScenario):
 
         catalog_url = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_URL)
         stable_chart_ver = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_VERSION)
-        is_oci = catalog_url.startswith("oci://")
+        is_oci = catalog_url.startswith(_OCI_SCHEME)
 
-        if stable_chart_ver == "latest":
+        if stable_chart_ver == _STABLE_VERSION_KEYWORD:
             if is_oci:
-                raise ATSTestError(
-                    "'latest' version resolution is not supported for OCI catalog URLs; "
-                    "specify an explicit version with --upgrade-tests-app-version"
-                )
-            stable_chart_ver = self._get_latest_app_version(catalog_url, app_name)
+                stable_chart_ver = self._get_latest_stable_oci_version(catalog_url, app_name)
+            else:
+                stable_chart_ver = self._get_latest_stable_version(catalog_url, app_name)
 
         logger.info(f"Pulling stable chart '{app_name}' version '{stable_chart_ver}' from '{catalog_url}'.")
         if is_oci:
@@ -260,12 +261,14 @@ class UpgradeTestScenario(SimpleTestScenario):
                 exec_info.cluster_version,
             )
 
-    def _get_latest_app_version(self, stable_app_catalog_url: str, app_name: str) -> str:
-        logger.info("Trying to detect latest app version available in the catalog.")
+    def _get_latest_stable_version(self, stable_app_catalog_url: str, app_name: str) -> str:
+        logger.info("Trying to detect the latest stable app version available in the catalog.")
         catalog_index_url = stable_app_catalog_url + "/index.yaml"
         logger.debug(f"Trying to download catalog index '{catalog_index_url}'.")
         try:
-            index_response = requests.get(catalog_index_url, headers={"User-agent": "Mozilla/5.0"}, timeout=10)
+            index_response = requests.get(
+                catalog_index_url, headers={"User-agent": "Mozilla/5.0"}, timeout=_HTTP_TIMEOUT_SEC
+            )
             if not index_response.ok:
                 raise ATSTestError(
                     f"Couldn't get the 'index.yaml' fetched from '{catalog_index_url}'. "
@@ -276,14 +279,14 @@ class UpgradeTestScenario(SimpleTestScenario):
             index_response.close()
         except RequestException as e:
             logger.error(
-                f"Error when trying to fetch remote '{catalog_index_url}' to detect what the 'latest'"
-                f" version of the app is: '{e}'."
+                f"Error when trying to fetch remote '{catalog_index_url}' to detect the latest stable"
+                f" version of the app: '{e}'."
             )
             raise
         except (YAMLError, ParserError) as e:
             logger.error(
-                f"Error when trying to parse YAML from a remote '{catalog_index_url}' to detect what"
-                f" the 'latest' version of the app is: '{e}'."
+                f"Error when trying to parse YAML from a remote '{catalog_index_url}' to detect the latest"
+                f" stable version of the app: '{e}'."
             )
             raise
 
@@ -294,12 +297,88 @@ class UpgradeTestScenario(SimpleTestScenario):
                 f"App '{app_name}' was not found in the 'index.yaml' fetched from '{catalog_index_url}'."
             )
         versions = [e["version"] for e in index["entries"][app_name]]
-        versions.sort(key=VersionInfo.parse, reverse=True)
+        latest_stable = self._pick_latest_stable_version(versions, app_name, catalog_index_url)
         logger.info(
-            f"Detected '{versions[0]}' as the latest available version of app '{app_name}'"
+            f"Detected '{latest_stable}' as the latest stable version of app '{app_name}'"
             f" in catalog '{catalog_index_url}'."
         )
-        return versions[0]
+        return latest_stable
+
+    def _get_latest_stable_oci_version(self, stable_app_catalog_url: str, app_name: str) -> str:
+        logger.info("Trying to detect the latest stable app version available in the OCI registry.")
+        registry_path = stable_app_catalog_url[len(_OCI_SCHEME) :]
+        registry_host, _, repository_prefix = registry_path.partition("/")
+        repository = f"{repository_prefix}/{app_name}" if repository_prefix else app_name
+        tags = self._list_oci_tags(registry_host, repository)
+        latest_stable = self._pick_latest_stable_version(tags, app_name, stable_app_catalog_url)
+        logger.info(
+            f"Detected '{latest_stable}' as the latest stable version of app '{app_name}'"
+            f" in OCI registry '{stable_app_catalog_url}'."
+        )
+        return latest_stable
+
+    @staticmethod
+    def _list_oci_tags(registry_host: str, repository: str) -> List[str]:
+        tags_url = f"https://{registry_host}/v2/{repository}/tags/list"
+        try:
+            response = requests.get(tags_url, timeout=_HTTP_TIMEOUT_SEC)
+            if response.status_code == 401:
+                token = UpgradeTestScenario._get_oci_pull_token(response, repository)
+                response = requests.get(
+                    tags_url, headers={"Authorization": f"Bearer {token}"}, timeout=_HTTP_TIMEOUT_SEC
+                )
+            if not response.ok:
+                raise ATSTestError(
+                    f"Couldn't list tags for '{repository}' from '{tags_url}'. "
+                    f"Reason: [{response.status_code}] {response.reason}."
+                )
+            tags = response.json().get("tags") or []
+            response.close()
+        except RequestException as e:
+            logger.error(f"Error when trying to list tags for '{repository}' from '{tags_url}': '{e}'.")
+            raise
+        return tags
+
+    @staticmethod
+    def _get_oci_pull_token(challenge_response: requests.Response, repository: str) -> str:
+        challenge = challenge_response.headers.get("WWW-Authenticate", "")
+        params = dict(re.findall(r'(\w+)="([^"]*)"', challenge))
+        realm = params.get("realm")
+        if not realm:
+            raise ATSTestError(
+                f"OCI registry did not advertise a bearer token realm for '{repository}'; "
+                f"'WWW-Authenticate' header was '{challenge}'."
+            )
+        query = {
+            "service": params.get("service", ""),
+            "scope": params.get("scope") or f"repository:{repository}:pull",
+        }
+        token_response = requests.get(realm, params=query, timeout=_HTTP_TIMEOUT_SEC)
+        if not token_response.ok:
+            raise ATSTestError(
+                f"Couldn't get an anonymous pull token from '{realm}' for '{repository}'. "
+                f"Reason: [{token_response.status_code}] {token_response.reason}."
+            )
+        token_body = token_response.json()
+        token = token_body.get("token") or token_body.get("access_token")
+        if not token:
+            raise ATSTestError(f"Token endpoint '{realm}' returned no token for '{repository}'.")
+        return token
+
+    @staticmethod
+    def _pick_latest_stable_version(versions: List[str], app_name: str, source: str) -> str:
+        stable_versions = []
+        for version in versions:
+            try:
+                parsed = VersionInfo.parse(version)
+            except ValueError:
+                continue
+            if parsed.prerelease is None:
+                stable_versions.append(version)
+        if not stable_versions:
+            raise ATSTestError(f"No stable version of app '{app_name}' was found in '{source}'.")
+        stable_versions.sort(key=VersionInfo.parse, reverse=True)
+        return stable_versions[0]
 
     def _run_upgrade_hook(
         self,

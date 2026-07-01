@@ -7,7 +7,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Added
 
-- OCI catalog URLs (`oci://...`) are now supported for `--upgrade-tests-app-catalog-url`; `helm pull oci://<url>/<chart>` is used automatically. Specifying `--upgrade-tests-app-version latest` with an OCI URL is rejected with an error.
+- OCI catalog URLs (`oci://...`) are now supported for `--upgrade-tests-app-catalog-url`; `helm pull oci://<url>/<chart>` is used automatically.
+- `--upgrade-tests-app-version stable` (the new default) discovers the latest stable (non-prerelease) version to upgrade from, for both HTTP(S) chart repositories (via `index.yaml`) and OCI registries (via the registry tags API).
 - Test suites receive `ATS_RELEASE_NAME` and `ATS_RELEASE_NAMESPACE` environment variables identifying the deployed Helm release and the namespace it was installed into.
 - `helm` is now bundled in the ATS Docker image (renovate-pinned).
 - `--app-tests-pre-hook`: executable run after chart install but before the label-filtered tests; `KUBECONFIG`, `ATS_*`, and `ATS_HOOK_STAGE=pre` are set in the environment.
@@ -18,6 +19,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Changed
 
+- **BREAKING:** The `--upgrade-tests-app-version` magic value `latest` is renamed to `stable` and now resolves to the latest stable (non-prerelease) version instead of the latest version overall. The default changed from `latest` to `stable`. Pass an explicit version to pin one.
 - **BREAKING:** Smoke, functional, and upgrade scenarios now deploy the chart under test directly with Helm (`helm upgrade --install`, `helm uninstall`) instead of creating an `App` CR. The upgrade scenario installs the stable chart, runs `helm upgrade` to the version under test, and uninstalls with Helm. Test suites that read the `App` CR must instead assert against the deployed workloads via the kube client, using `ATS_RELEASE_NAME` / `ATS_RELEASE_NAMESPACE`. Values files continue to be passed through `--app-tests-app-config-file` (forwarded to `helm --values`).
 - **BREAKING:** During the pre-upgrade test phase, `ATS_CHART_PATH` is now the local path of the stable chart `.tgz` instead of a remote chartmuseum URL. Test suites that fetched it as a URL must read it as a filesystem path.
 - **BREAKING:** `PytestExecutor` now uses `uv sync` / `uv run pytest` instead of `pipenv install --deploy` /

@@ -37,9 +37,24 @@ To build the Chart, please consider the companion [app-build-suite](https://gith
 
 ### Installation
 
-`ats` is distributed as a docker image, so the easiest way to install and use it is to get our `dats.sh`
-script from [releases](https://github.com/giantswarm/app-test-suite/releases). `dats.sh` is a wrapper script that
-launches for you `ats` inside a docker container and provides all the necessary docker options required to make it work.
+`ats` is distributed as a docker image, so you run it directly with `docker run`. The interactive run command is:
+
+```bash
+docker run --rm -it \
+  -e USE_UID="$(id -u)" \
+  -e USE_GID="$(id -g)" \
+  -e DOCKER_GID="$(getent group docker | cut -d: -f3)" \
+  -v "$(pwd):/ats/workdir" \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --network host \
+  gsoci.azurecr.io/giantswarm/app-test-suite:<version>
+```
+
+To keep the examples below readable, define a shell alias once:
+
+```bash
+alias ats='docker run --rm -it -e USE_UID="$(id -u)" -e USE_GID="$(id -g)" -e DOCKER_GID="$(getent group docker | cut -d: -f3)" -v "$(pwd):/ats/workdir" -v /var/run/docker.sock:/var/run/docker.sock --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>'
+```
 
 Alternatively, you can just checkout this repository and build the docker image yourself by running:
 
@@ -76,15 +91,16 @@ test logic, which for different scenarios works like below:
    5. Optional `post-upgrade` hook configured with `--upgrade-tests-upgrade-hook` is executed as a system binary.
    6. Test executor is executed again to run all the tests with `upgrade` annotation.
 
-Executing `dats.sh` is the most straight forward way to run `app-test-suite`. As an example, we have included a chart
+Running the docker image (via the `ats` alias) is the most straight forward way to run `app-test-suite`.
+As an example, we have included a chart
 in this repository in
 [`examples/apps/hello-world-app`](examples/apps/hello-world-app). Its configuration file for
 `ats` is in the [.ats/main.yaml](examples/apps/hello-world-app/.ats/main.yaml) file.
-To test the chart using `dats.sh`
+To test the chart using `ats`
 and the provided config file, run:
 
 ```bash
-dats.sh -c examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz
+ats -c examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz
 ```
 
 To run it, you need to have an existing Kubernetes cluster. `kube.config` file needed to authorize with it
@@ -105,8 +121,8 @@ Each run consist of two stages: bootstrapping and test execution.
 `app-test-suite` automates preparation of a cluster used for testing in the following way:
 
 - if you configured your run with `*-tests-cluster-type kind`, a cluster is created with `kind` tool
-- `ats` connects to the target test cluster and runs [`apptestctl`](https://github.com/giantswarm/apptestctl) -
-  an additional tool that installs the CRDs your chart may reference
+- `ats` connects to the target test cluster and applies the bundled CRDs with
+  `kubectl apply --server-side -f /etc/ats/crds` (the CRDs vendored in `container-crds/`; no operators are installed)
 - `ats` deploys your chart under test directly with Helm (`helm upgrade --install`); your application defined in the
   chart is deployed to the test cluster (you can disable this with the `app-tests-skip-app-deploy` option; this might
   be needed if you need more control over your test, like setting up additional CRDs or installing additional apps).
@@ -122,7 +138,7 @@ After bootstrapping, `ats` starts executing test scenarios. Currently, we have 3
 look at what happens when you execute:
 
 ```bash
-dats.sh -c examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz \
+ats -c examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz \
   --functional-tests-cluster-type external \
   --smoke-tests-cluster-type external \
   --skip-steps upgrade \
@@ -135,7 +151,7 @@ the following commands are executed underneath:
 
 ```bash
 # here start smoke tests
-apptestctl bootstrap --kubeconfig-path=kube.config --install-operators=false --wait
+kubectl --kubeconfig=kube.config apply --server-side -f /etc/ats/crds
 uv sync
 (
     # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803
@@ -156,7 +172,7 @@ uv sync
 )
 
 # and here start functional tests
-apptestctl bootstrap --kubeconfig-path=kube.config --install-operators=false --wait
+kubectl --kubeconfig=kube.config apply --server-side -f /etc/ats/crds
 uv sync
 
     # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803
@@ -182,7 +198,7 @@ uv sync
 To get an overview of available options, please run:
 
 ```bash
-dats.sh -h
+ats -h
 ```
 
 To learn what they mean and how to use them, please follow to
@@ -194,14 +210,14 @@ This tool works by executing a series of so called `Build Steps`.
 The important property in `app-test-suite` is that you can only execute a subset of all the build steps. This idea
 should be useful for integrating `ats` with other workflows, like CI/CD systems or for running parts of the build
 process on your local machine during development. You can either run only a selected set of steps using `--steps` option
-or you can run all if them excluding some using `--skip-steps`. Check `dats.sh -h` output for step names available
+or you can run all if them excluding some using `--skip-steps`. Check `ats -h` output for step names available
 to `--steps` and `--skip-steps`
 flags.
 
 To skip or include multiple step names, separate them with space, like in this example:
 
 ```bash
-dats.sh -c examples/apps/hello-world-app/mychart-0.1.0.tgz --skip-steps test_unit test_performance
+ats -c examples/apps/hello-world-app/mychart-0.1.0.tgz --skip-steps test_unit test_performance
 ```
 
 ### Configuring app-test-suite
@@ -215,7 +231,7 @@ are:
   exist, then it tries to load the default config file from the current working directory's
   `.ats/main.yaml`).
 
-When you run `dats.sh -h` it shows you command line options and the relevant environment variables names. Options for a
+When you run `ats -h` it shows you command line options and the relevant environment variables names. Options for a
 config file are the same as for command line, just with truncated leading `--`. You can check
 [this example](examples/apps/hello-world-app/.ats/main.yaml).
 

@@ -40,6 +40,7 @@ from tests.scenarios.executors.pytest import (
 REAL_CHART_APP_NAME = MOCK_APP_NAME
 REAL_CHART_VERSION = MOCK_CHART_VERSION
 REAL_CHART_FILE = MOCK_CHART_FILE_NAME
+REAL_CHART_RELEASE_NAME = MOCK_APP_NAME
 
 
 @pytest.mark.parametrize(

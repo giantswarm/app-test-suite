@@ -8,8 +8,6 @@ if [ $# -eq 1 ] && [ "$1" == "versions" ]; then
   echo "-> kubectl:"
   kubectl version --client
   echo
-  echo "-> apptestctl:"
-  apptestctl version
   echo "-> kind:"
   kind version
   echo

@@ -45,7 +45,7 @@ To add more dependencies later: `uv add <package>`. To update the lock file: `uv
 
 ### Running tests locally
 
-`ats` (via `dats.sh`) handles `uv sync` for you inside the container. To run tests locally without the container,
+`ats` (the docker image) handles `uv sync` for you inside the container. To run tests locally without the container,
 activate the virtualenv that `uv sync` creates:
 
 ```bash
@@ -111,7 +111,7 @@ file and skip it from command line.
 
    ```bash
    # command-line version
-   dats.sh -c my-chart --smoke-tests-cluster-type kind \
+   ats -c my-chart --smoke-tests-cluster-type kind \
      --functional-tests-cluster-type external \
      --external-cluster-kubeconfig-path kube.config \
      --external-cluster-type EKS \

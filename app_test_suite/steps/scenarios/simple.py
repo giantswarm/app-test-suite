@@ -33,6 +33,7 @@ from app_test_suite.steps.test_types import (
 CONTEXT_KEY_RELEASE_NAME: str = "release_name"
 CHART_YAML = "Chart.yaml"
 _HELM_BIN = "helm"
+_KUBECTL_BIN = "kubectl"
 _HELM_DEPLOY_TIMEOUT = "30m"
 
 logger = logging.getLogger(__name__)
@@ -143,10 +144,13 @@ class SimpleTestScenario(BuildStep, ABC):
     def _ensure_cluster_prerequisites(self, kube_config_path: str) -> None:
         logger.info(f"Applying cluster CRDs from {self._CRD_DIR}")
         run_res = run_and_log(
-            ["kubectl", f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", self._CRD_DIR]
+            ["kubectl", f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", self._CRD_DIR],
+            capture_output=True,
         )  # nosec
         if run_res.returncode != 0:
-            raise ATSTestError("Bootstrapping CRDs on the target cluster failed")
+            raise ATSTestError(
+                f"Bootstrapping CRDs on the target cluster failed:\n{run_res.stderr.decode(errors='replace')}"
+            )
         logger.info("Cluster CRDs bootstrapped and ready.")
 
     def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
@@ -163,6 +167,7 @@ class SimpleTestScenario(BuildStep, ABC):
 
     def pre_run(self, config: argparse.Namespace) -> None:
         self._assert_binary_present_in_path(_HELM_BIN)
+        self._assert_binary_present_in_path(_KUBECTL_BIN)
 
         cluster_type = ClusterType(
             get_config_value_by_cmd_line_option(config, self._config_cluster_type_attribute_name)
@@ -189,7 +194,6 @@ class SimpleTestScenario(BuildStep, ABC):
         self._test_executor.validate(config, self.name)
 
     def run(self, config: argparse.Namespace, context: Context) -> None:
-        # this API might need a change if we need to pass some more information than just type and config file
         logger.info(
             f"Requesting new cluster of type '{self._configured_cluster_type}' using config file"
             f" '{self._configured_cluster_config_file}'."

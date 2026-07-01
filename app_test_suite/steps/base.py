@@ -54,13 +54,13 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
             self.KEY_CONFIG_OPTION_SKIP_DEPLOY_APP,
             required=False,
             action="store_true",
-            help="Skip automated app deployment for the test run to the test cluster (using an App CR).",
+            help="Skip automated app deployment for the test run to the test cluster (via 'helm upgrade --install').",
         )
         self._config_parser_group.add_argument(
             self.KEY_CONFIG_OPTION_SKIP_DELETE_APP,
             required=False,
             action="store_true",
-            help="Skip automated App CR and ConfigMap deletion for the test run to the test cluster.",
+            help="Skip automated teardown of the deployed chart (via 'helm uninstall') after the test run.",
         )
         self._config_parser_group.add_argument(
             self.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
@@ -106,7 +106,7 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
                     yaml.safe_load(file)
             except Exception:
                 raise ATSTestError(
-                    f"Application config file '{app_config_file}' found, but can't be loadedas a correct YAML document."
+                    f"Application config file '{app_config_file}' found, but can't be loaded as a correct YAML document."
                 )
 
     def cleanup(

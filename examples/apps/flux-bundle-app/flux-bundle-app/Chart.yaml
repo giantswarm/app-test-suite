@@ -1,0 +1,5 @@
+apiVersion: v2
+name: flux-bundle-app
+description: Example bundle chart rendering Flux resources, used to test GitOps engine support
+version: 0.1.0
+appVersion: 0.1.0

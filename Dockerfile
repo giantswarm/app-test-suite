@@ -89,6 +89,7 @@ COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv
 
 COPY --from=binaries /binaries/* /usr/local/bin/
 COPY container-crds/*.yaml /etc/ats/crds/
+COPY container-gitops/*.yaml /etc/ats/gitops/
 
 # we assume the user will be using UID==1000 and GID=1000; if that's not true, we'll run `chown`
 # in the container's startup script

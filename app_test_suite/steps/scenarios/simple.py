@@ -21,7 +21,12 @@ from app_test_suite.errors import ATSTestError
 from app_test_suite.gitops import (
     GitOpsEngine,
     detect_engines,
+    install_engine,
     parse_engines_option,
+    parse_timeout_to_seconds,
+    resolve_engine_overlay,
+    wait_for_bundle_drained,
+    wait_for_bundle_ready,
 )
 from app_test_suite.steps.base import (
     TestExecutor,
@@ -65,6 +70,9 @@ class SimpleTestScenario(BuildStep, ABC):
         self._test_executor = test_executor
         # None means 'auto': detect engines from the rendered chart at run time
         self._configured_gitops_engines: Optional[List[GitOpsEngine]] = None
+        self._gitops_bundle_ready_timeout_sec = 600
+        # engine of the matrix leg currently being executed; None on the plain Helm path
+        self._current_gitops_engine: Optional[GitOpsEngine] = None
 
     @property
     def steps_provided(self) -> Set[StepType]:
@@ -110,10 +118,8 @@ class SimpleTestScenario(BuildStep, ABC):
             config,
             BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE,
         )
-        deploy_namespace = get_config_value_by_cmd_line_option(
-            config,
-            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
-        )
+        deploy_namespace = self._effective_deploy_namespace(config)
+        test_extra_info = {"gitops_engine": self._current_gitops_engine.value} if self._current_gitops_engine else None
         cluster_info = cast(ClusterInfo, self._cluster_info)
         exec_info = TestExecInfo(
             chart_path=config.chart_file,
@@ -126,6 +132,7 @@ class SimpleTestScenario(BuildStep, ABC):
             debug=config.debug,
             release_name=context.get(CONTEXT_KEY_RELEASE_NAME),
             deploy_namespace=deploy_namespace,
+            test_extra_info=test_extra_info,
         )
         self._test_executor.prepare_test_environment(exec_info)
         self._test_executor.execute_test(exec_info)
@@ -147,9 +154,7 @@ class SimpleTestScenario(BuildStep, ABC):
         env["ATS_TEST_TYPE"] = str(self.test_provided)
         env["ATS_CHART_PATH"] = config.chart_file
         env["ATS_CHART_VERSION"] = context[CONTEXT_KEY_CHART_YAML]["version"]
-        deploy_namespace = get_config_value_by_cmd_line_option(
-            config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE
-        )
+        deploy_namespace = self._effective_deploy_namespace(config)
         if deploy_namespace:
             env["ATS_RELEASE_NAMESPACE"] = deploy_namespace
         release_name = context.get(CONTEXT_KEY_RELEASE_NAME)
@@ -255,6 +260,14 @@ class SimpleTestScenario(BuildStep, ABC):
                     self._config_gitops_values_attribute_name(engine),
                     f"GitOps values overlay '{overlay_path}' for engine '{engine.value}' doesn't exist.",
                 )
+        timeout_option = get_config_value_by_cmd_line_option(
+            config, self._config_gitops_bundle_ready_timeout_attribute_name
+        )
+        if timeout_option:
+            try:
+                self._gitops_bundle_ready_timeout_sec = parse_timeout_to_seconds(timeout_option)
+            except ValueError as e:
+                raise ConfigError(self._config_gitops_bundle_ready_timeout_attribute_name, str(e))
 
     def run(self, config: argparse.Namespace, context: Context) -> None:
         logger.info(
@@ -274,14 +287,32 @@ class SimpleTestScenario(BuildStep, ABC):
         except Exception:
             raise ATSTestError("Can't establish connection to the new test cluster")
 
-        if not self._cluster_info.app_platform_ready:
+        if not self._cluster_info.crds_ready:
             self._ensure_cluster_prerequisites(self._cluster_info.kube_config_path)
-            self._cluster_info.app_platform_ready = True
+            self._cluster_info.crds_ready = True
 
         gitops_engines = self._resolve_gitops_engines(config)
-        if gitops_engines:
-            logger.info(f"GitOps engine matrix for this scenario: {[e.value for e in gitops_engines]}.")
+        if not gitops_engines:
+            self._run_test_leg(config, context)
+            return
 
+        logger.info(f"GitOps engine matrix for this scenario: {[e.value for e in gitops_engines]}.")
+        for engine in gitops_engines:
+            if engine is not GitOpsEngine.FLUX:
+                raise ATSTestError(
+                    f"GitOps engine '{engine.value}' was detected in the rendered chart but is not implemented"
+                    f" yet; set {self._config_gitops_engines_attribute_name} to 'flux' or 'helm' explicitly."
+                )
+            self._ensure_gitops_engine_installed(engine, config)
+            logger.info(f"Running {self.test_provided} tests for the '{engine.value}' GitOps engine leg.")
+            self._current_gitops_engine = engine
+            try:
+                self._run_test_leg(config, context)
+            finally:
+                self._current_gitops_engine = None
+
+    def _run_test_leg(self, config: argparse.Namespace, context: Context) -> None:
+        deployed_by_leg = False
         try:
             if (
                 not get_config_value_by_cmd_line_option(
@@ -291,6 +322,13 @@ class SimpleTestScenario(BuildStep, ABC):
                 and not self._skip_app_deploy
             ):
                 self._deploy_tested_chart_as_app(config, context)
+                deployed_by_leg = True
+                if self._current_gitops_engine:
+                    wait_for_bundle_ready(
+                        cast(ClusterInfo, self._cluster_info).kube_config_path,
+                        self._current_gitops_engine,
+                        self._gitops_bundle_ready_timeout_sec,
+                    )
             self._run_hook(config, context, "pre")
             self.run_tests(config, context)
             self._run_hook(config, context, "post")
@@ -304,6 +342,35 @@ class SimpleTestScenario(BuildStep, ABC):
                 BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_SKIP_DELETE_APP,
             ):
                 self._delete_release(config, context)
+                if self._current_gitops_engine and deployed_by_leg:
+                    wait_for_bundle_drained(
+                        cast(ClusterInfo, self._cluster_info).kube_config_path,
+                        self._current_gitops_engine,
+                        self._effective_deploy_namespace(config),
+                        self._gitops_bundle_ready_timeout_sec,
+                    )
+
+    def _ensure_gitops_engine_installed(self, engine: GitOpsEngine, config: argparse.Namespace) -> None:
+        cluster_info = cast(ClusterInfo, self._cluster_info)
+        if engine.value in cluster_info.gitops_engines_ready:
+            return
+        manifest_source = get_config_value_by_cmd_line_option(
+            config,
+            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_GITOPS_FLUX_INSTALL_MANIFEST
+            if engine is GitOpsEngine.FLUX
+            else BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_GITOPS_ARGO_INSTALL_MANIFEST,
+        )
+        install_engine(engine, cluster_info.kube_config_path, manifest_source)
+        cluster_info.gitops_engines_ready.add(engine.value)
+
+    def _effective_deploy_namespace(self, config: argparse.Namespace) -> str:
+        deploy_namespace: str = get_config_value_by_cmd_line_option(
+            config,
+            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
+        )
+        if self._current_gitops_engine:
+            return f"{deploy_namespace}-{self._current_gitops_engine.value}"
+        return deploy_namespace
 
     def _resolve_gitops_engines(self, config: argparse.Namespace) -> List[GitOpsEngine]:
         if self._configured_gitops_engines is not None:
@@ -317,15 +384,22 @@ class SimpleTestScenario(BuildStep, ABC):
 
     def _deploy_tested_chart_as_app(self, config: argparse.Namespace, context: Context) -> None:
         release_name = context[CONTEXT_KEY_CHART_YAML]["name"]
-        deploy_namespace = get_config_value_by_cmd_line_option(
-            config,
-            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
-        )
+        deploy_namespace = self._effective_deploy_namespace(config)
         app_config_file_path = get_config_value_by_cmd_line_option(
             config,
             BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE,
         )
-        self._helm_deploy(release_name, config.chart_file, deploy_namespace, app_config_file_path)
+        values_files = [app_config_file_path] if app_config_file_path else []
+        if self._current_gitops_engine:
+            overlay_path = resolve_engine_overlay(
+                self._current_gitops_engine,
+                get_config_value_by_cmd_line_option(
+                    config, self._config_gitops_values_attribute_name(self._current_gitops_engine)
+                ),
+            )
+            if overlay_path:
+                values_files.append(overlay_path)
+        self._helm_deploy(release_name, config.chart_file, deploy_namespace, values_files)
         context[CONTEXT_KEY_RELEASE_NAME] = release_name
 
     def _helm_deploy(
@@ -333,7 +407,7 @@ class SimpleTestScenario(BuildStep, ABC):
         release_name: str,
         chart_file: str,
         deploy_namespace: str,
-        app_config_file_path: Optional[str],
+        values_files: List[str],
     ) -> None:
         # Giant Swarm charts may ship PolicyException resources in the policy-exceptions namespace;
         # ensure it exists so the install does not fail on a cluster that lacks it.
@@ -354,8 +428,8 @@ class SimpleTestScenario(BuildStep, ABC):
             "--timeout",
             _HELM_DEPLOY_TIMEOUT,
         ]
-        if app_config_file_path:
-            args += ["--values", app_config_file_path]
+        for values_file in values_files:
+            args += ["--values", values_file]
         logger.info(f"Installing chart as Helm release '{release_name}' into namespace '{deploy_namespace}'.")
         run_res = run_and_log(args, env=self._helm_env())  # nosec, chart file is the user's responsibility
         if run_res.returncode != 0:
@@ -367,10 +441,7 @@ class SimpleTestScenario(BuildStep, ABC):
             logger.warning("No kube client available, skipping diagnostics collection.")
             return
 
-        deploy_namespace = get_config_value_by_cmd_line_option(
-            config,
-            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
-        )
+        deploy_namespace = self._effective_deploy_namespace(config)
         release_name = context.get(
             CONTEXT_KEY_RELEASE_NAME, context.get(CONTEXT_KEY_CHART_YAML, {}).get("name", "unknown")
         )
@@ -469,10 +540,7 @@ class SimpleTestScenario(BuildStep, ABC):
         release_name = context.get(CONTEXT_KEY_RELEASE_NAME)
         if release_name is None:
             return
-        deploy_namespace = get_config_value_by_cmd_line_option(
-            config,
-            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
-        )
+        deploy_namespace = self._effective_deploy_namespace(config)
         logger.info(f"Uninstalling Helm release '{release_name}' from namespace '{deploy_namespace}'.")
         run_res = run_and_log(
             [_HELM_BIN, "uninstall", release_name, "--namespace", deploy_namespace, "--wait"],
@@ -480,6 +548,7 @@ class SimpleTestScenario(BuildStep, ABC):
         )  # nosec
         if run_res.returncode != 0:
             logger.warning(f"Uninstalling Helm release '{release_name}' failed; continuing.")
+        context.pop(CONTEXT_KEY_RELEASE_NAME, None)
 
     def _helm_env(self) -> Dict[str, str]:
         kube_config_path = cast(ClusterInfo, self._cluster_info).kube_config_path

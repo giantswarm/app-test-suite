@@ -1,8 +1,8 @@
 import argparse
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import NewType, Optional, Any
+from dataclasses import dataclass, field
+from typing import NewType, Optional, Any, Set
 
 import configargparse
 
@@ -28,8 +28,10 @@ class ClusterInfo:
     managing_provider: "ClusterProvider"
     # cluster might have an optional config file used to create that cluster
     config_file: str
-    # a flag indicating if the App Platform was already initialized
-    app_platform_ready: bool = False
+    # a flag indicating if the bundled CRDs were already applied to this cluster
+    crds_ready: bool = False
+    # GitOps engines (by name) already installed on this cluster
+    gitops_engines_ready: Set[str] = field(default_factory=set)
 
 
 class ClusterProvider(ABC):

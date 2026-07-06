@@ -9,7 +9,10 @@ for a complete usage example.
 
 To make your tests automatically invocable from `ats`, you must adhere to the following rules:
 
-- put all test code in `[CHART_TOP_DIR]/tests/ats/`
+- put all test code in the `tests/ats/` directory relative to where you run `ats` from (the working
+  directory). This is decoupled from the `--chart-file` archive location, so the chart `.tgz` can live
+  anywhere. Override the location with `--app-tests-pytest-tests-dir` (relative to the working directory,
+  or an absolute path).
 - manage dependencies with [`uv`](https://docs.astral.sh/uv/): the directory must contain a `pyproject.toml`
   and a committed `uv.lock`. `ats` runs `uv sync` before each test run and invokes tests with `uv run pytest`.
 

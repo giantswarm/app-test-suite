@@ -59,14 +59,14 @@ mkdir examples/tutorial
 cp -a examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz examples/tutorial
 ```
 
-Let's create a directory for storing tests. `ats` looks for them in the `tests/ats` subdirectory of the helm
-chart, so let's initialise a uv project there:
+Let's create a directory for storing tests. `ats` looks for them in the `tests/ats` subdirectory relative to
+the directory you run `ats` from (the working directory), so let's initialise a uv project there:
 
 ```bash
-$ mkdir -p examples/tutorial/tests/ats
-$ cd examples/tutorial/tests/ats
-$ uv init --no-workspace --no-readme
-$ uv add "pytest-helm-charts>=0.5"
+mkdir -p examples/tutorial/tests/ats
+cd examples/tutorial/tests/ats
+uv init --no-workspace --no-readme
+uv add "pytest-helm-charts>=0.5"
 ```
 
 As a result, the `pyproject.toml` should look like this:
@@ -127,13 +127,15 @@ We are now ready to build our test chart again, but this time running tests we'v
 need to have a cluster where we can deploy our chart and then execute our tests against a running application.
 Do make this time efficient, we'll use [kind](https://kind.sigs.k8s.io/docs/user/quick-start/). We're going to
 use embedded `ats` ability to create `kind` clusters, but remember that you can use any existing cluster you
-like - you just need to pass a `kube.config` file to `ats`. Switch back to the root directory of this
-repository. `ats` can run different types of tests on different clusters, so we have to pass cluster type
+like - you just need to pass a `kube.config` file to `ats`. Run `ats` from the `examples/tutorial` directory,
+so it discovers the tests in `tests/ats` relative to it (the chart archive passed with `-c` can live
+anywhere). `ats` can run different types of tests on different clusters, so we have to pass cluster type
 option twice, but our cluster will be reused for both kinds of tests:
 
 ```bash
 # log truncated to key steps
-ats -c examples/tutorial/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz \
+cd examples/tutorial
+ats -c hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz \
     --smoke-tests-cluster-type kind --functional-tests-cluster-type kind
 ...
 INFO: Running pre-run step for TestInfoProvider
@@ -145,11 +147,11 @@ INFO: Cluster CRDs bootstrapped and ready.
 INFO: Ensuring namespace 'policy-exceptions'.
 INFO: Installing chart as Helm release 'hello-world-app' into namespace 'default'.
 INFO: Running command: helm upgrade --install hello-world-app \
-    examples/tutorial/hello-world-app-0.2.3-....tgz \
+    hello-world-app-0.2.3-....tgz \
     --namespace default --create-namespace --reset-values --wait --timeout 30m
 ...
-INFO: Running 'uv sync' in 'examples/tutorial/tests/ats' to install test virtual env.
-INFO: Running pytest tool in 'examples/tutorial/tests/ats' directory.
+INFO: Running 'uv sync' in 'tests/ats' to install test virtual env.
+INFO: Running pytest tool in 'tests/ats' directory.
 INFO: Running command: uv run pytest -m smoke --log-cli-level info --junitxml=test_results_smoke.xml
 
 test_example.py::test_we_have_environment PASSED                                [100%]

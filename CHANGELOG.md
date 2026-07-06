@@ -46,6 +46,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Fixed
 
+- Tests are now discovered relative to the executing directory (the current working directory) instead of relative to the location of the `--chart-file` archive, so the chart `.tgz` can live anywhere (e.g. a build output directory) without having to be moved next to your `tests/ats` directory ([#196](https://github.com/giantswarm/app-test-suite/issues/196)). The `.ats/main.yaml` config file is likewise now discovered relative to the working directory. For backward compatibility, if the test directory isn't found relative to the working directory but exists next to the chart file, the old location is used with a deprecation warning; when both a working-directory and a chart-file config exist, the chart-file one still takes precedence.
 - `--app-tests-skip-app-delete` now prevents teardown of the deployed chart. It was previously ignored whenever the chart had been deployed (only honored when `--app-tests-skip-app-deploy` was also set).
 - The `versions` command no longer fails with `apptestctl: command not found` after the `apptestctl` binary was dropped from the image.
 - Errors raised while running a test scenario now preserve the original exception as the cause and no longer report every failure as an "Application deployment failed", so pre-hook, test, and post-hook failures are attributed correctly.

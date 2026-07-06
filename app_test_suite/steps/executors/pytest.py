@@ -91,7 +91,7 @@ class PytestExecutor(TestExecutor):
         pytest_dir = get_config_value_by_cmd_line_option(
             config, PytestScenariosFilteringPipeline.KEY_CONFIG_OPTION_PYTEST_DIR
         )
-        pytest_dir = os.path.join(os.path.dirname(config.chart_file), pytest_dir)
+        pytest_dir = self._resolve_test_dir(config, pytest_dir)
         if not os.path.isdir(pytest_dir):
             raise ValidationError(
                 module_name,

@@ -32,6 +32,7 @@ from app_test_suite.config import (
     KEY_CFG_UPGRADE_SAVE_METADATA,
 )
 from app_test_suite.errors import ATSTestError
+from app_test_suite.gitops import GitOpsEngine
 from app_test_suite.steps.base import (
     TestExecutor,
     CONTEXT_KEY_CHART_YAML,
@@ -74,6 +75,15 @@ class UpgradeTestScenario(SimpleTestScenario):
     @property
     def test_provided(self) -> StepType:
         return STEP_TEST_UPGRADE
+
+    def _resolve_gitops_engines(self, config: argparse.Namespace) -> List[GitOpsEngine]:
+        engines = super()._resolve_gitops_engines(config)
+        if engines:
+            logger.warning(
+                "GitOps engine testing is not supported in the upgrade scenario yet;"
+                " falling back to the plain Helm deploy."
+            )
+        return []
 
     def pre_run(self, config: argparse.Namespace) -> None:
         super().pre_run(config)
@@ -217,7 +227,9 @@ class UpgradeTestScenario(SimpleTestScenario):
                 )
 
             # deploy the stable version
-            self._helm_deploy(app_name, stable_chart_file, deploy_namespace, stable_app_cfg_file)
+            self._helm_deploy(
+                app_name, stable_chart_file, deploy_namespace, [stable_app_cfg_file] if stable_app_cfg_file else []
+            )
             context[CONTEXT_KEY_RELEASE_NAME] = app_name
 
             # run pre-upgrade tests
@@ -237,7 +249,9 @@ class UpgradeTestScenario(SimpleTestScenario):
             self._run_upgrade_hook(config, KEY_PRE_UPGRADE, app_name, stable_chart_ver, chart_version)
 
             # upgrade to the version under test
-            self._helm_deploy(app_name, config.chart_file, deploy_namespace, app_config_file_path)
+            self._helm_deploy(
+                app_name, config.chart_file, deploy_namespace, [app_config_file_path] if app_config_file_path else []
+            )
 
             # run the optional post-upgrade hook
             self._run_upgrade_hook(config, KEY_POST_UPGRADE, app_name, stable_chart_ver, chart_version)

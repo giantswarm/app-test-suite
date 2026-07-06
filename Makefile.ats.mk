@@ -8,7 +8,7 @@ export DATE ?= $(shell date '+%FT%T%:z')
 
 IMG_VER ?= ${VER}-${COMMIT}
 
-.PHONY: all release release_ver_to_code docker-build docker-build-image docker-build-ver docker-push docker-build-test test docker-test docker-test-ci update-crds
+.PHONY: all release release_ver_to_code docker-build docker-build-image docker-build-ver docker-push docker-build-test test docker-test docker-test-ci update-crds update-gitops-manifests
 
 check_defined = \
     $(strip $(foreach 1,$1, \
@@ -69,3 +69,7 @@ docker-test-ci: docker-build-test
 # Refresh the CRD bundle directly from its upstream sources.
 update-crds: ## Refresh container-crds/ from upstream sources via hack/sync-crds.sh
 	bash hack/sync-crds.sh
+
+# Refresh the GitOps engine install manifests from their pinned upstream releases.
+update-gitops-manifests: ## Refresh container-gitops/ via hack/sync-gitops-manifests.sh
+	bash hack/sync-gitops-manifests.sh

@@ -1,5 +1,6 @@
 import subprocess
 import unittest
+from pathlib import Path
 from typing import cast, Callable
 from unittest.mock import Mock
 
@@ -241,7 +242,7 @@ def test_upgrade_pytest_runner_run(
     assert_upgrade_metadata_created()
 
 
-def test_upgrade_flux_leg_runs_stable_and_upgrade_under_engine(mocker: MockerFixture, tmp_path) -> None:
+def test_upgrade_flux_leg_runs_stable_and_upgrade_under_engine(mocker: MockerFixture, tmp_path: Path) -> None:
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
     patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)

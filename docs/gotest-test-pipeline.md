@@ -2,15 +2,18 @@
 
 As well as the [pytest] testing pipeline we support `go test`. So components
 written in go can also use this in tests. Otherwise the pipelines are kept
-as similar as possible so we can reuse functionality.
+as similar as possible so we can reuse functionality. See
+[examples/apps/hello-world-app/tests/ats-gotest](../examples/apps/hello-world-app/tests/ats-gotest)
+for a complete usage example (run it with `--tests-dir tests/ats-gotest`).
 
 To make your tests automatically invocable from `ats`, you must adhere to the following rules:
 
 - you must put all the test code in the `tests/ats/` directory relative to where you run `ats` from (the
   working directory); this is decoupled from the `--chart-file` archive location, so the chart `.tgz` can
-  live anywhere. Override the location with `--app-tests-gotest-tests-dir` (relative to the working
-  directory, or an absolute path),
-- you must set `--test-executor` to `gotest`,
+  live anywhere. Override the location with `--tests-dir` (relative to the working directory, or an
+  absolute path),
+- the directory must contain a `go.mod` file. `ats` uses it to auto-detect the `gotest` executor, so you
+  normally don't need to set `--test-executor` at all (pass `--test-executor gotest` to force it),
 - in your test the kubeconfig path can be retrieved from the env var `KUBECONFIG`
 - tests must be tagged using Go build tags with one of the supported test types
 `smoke`, `functional` or `upgrade`.
@@ -61,12 +64,13 @@ file and skip it from command line.
 
    ```bash
    # command-line version
+   # the gotest executor is auto-detected from the go.mod in tests/ats;
+   # add '--test-executor gotest' if you want to force it explicitly
    ats -c my-chart --smoke-tests-cluster-type kind \
      --functional-tests-cluster-type external \
      --external-cluster-kubeconfig-path kube.config \
      --external-cluster-type EKS \
-     --external-cluster-version "1.19.0" \
-     --test-executor gotest
+     --external-cluster-version "1.19.0"
    ```
 
 2. I want to run both `smoke` and `functional` tests on the same `kind` cluster. I want the `kind` cluster to be created

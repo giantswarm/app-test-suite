@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 import sys
-from typing import List
+from typing import List, Optional
 
 import configargparse
 from step_exec_lib.errors import ConfigError
@@ -12,6 +12,8 @@ from step_exec_lib.steps import BuildStepsFilteringPipeline, BuildStep, Runner
 from step_exec_lib.types import STEP_ALL
 
 from app_test_suite.config import (
+    DEFAULT_TESTS_DIR,
+    KEY_CFG_TESTS_DIR,
     KEY_CFG_STABLE_APP_URL,
     KEY_CFG_STABLE_APP_VERSION,
     KEY_CFG_STABLE_APP_CONFIG,
@@ -19,9 +21,14 @@ from app_test_suite.config import (
     KEY_CFG_STABLE_APP_FILE,
     KEY_CFG_UPGRADE_SAVE_METADATA,
 )
+from app_test_suite.steps.base import TestExecutor
 from app_test_suite.steps.executors.gotest import GotestTestFilteringPipeline
 from app_test_suite.steps.executors.pytest import PytestScenariosFilteringPipeline
 from app_test_suite.steps.test_types import ALL_STEPS
+
+TEST_EXECUTOR_AUTO = "auto"
+TEST_EXECUTOR_PYTEST = "pytest"
+TEST_EXECUTOR_GOTEST = "gotest"
 
 ver = "v0.0.0-dev"
 app_name = "app_test_suite"
@@ -38,16 +45,62 @@ def get_version() -> str:
 
 
 def get_pipeline(test_executor: str) -> List[BuildStepsFilteringPipeline]:
-    if test_executor == "pytest":
+    if test_executor == TEST_EXECUTOR_PYTEST:
         return [
             PytestScenariosFilteringPipeline(),
         ]
-    elif test_executor == "gotest":
+    elif test_executor == TEST_EXECUTOR_GOTEST:
         return [
             GotestTestFilteringPipeline(),
         ]
     else:
         raise ConfigError("test-executor", f"Unknown executor '{test_executor}'.")
+
+
+def get_chart_file_from_argv() -> Optional[str]:
+    """Best-effort extraction of the chart file path from the raw command line.
+
+    The chart file option ('-c'/'--chart-file') is registered by the test pipeline, not on the
+    global-only parser, so it isn't available when the pipeline still has to be selected. It's read
+    straight from ``sys.argv`` instead.
+    """
+    for opt in ("-c", "--chart-file"):
+        if opt in sys.argv:
+            idx = sys.argv.index(opt)
+            if idx + 1 < len(sys.argv):
+                return sys.argv[idx + 1]
+    return None
+
+
+def detect_test_executor(tests_dir: str, chart_file: Optional[str]) -> str:
+    """Auto-detect which test executor to use based on marker files in the test directory.
+
+    A ``go.mod`` selects the ``gotest`` executor, a ``pyproject.toml`` selects ``pytest``. When the
+    detection is inconclusive (neither or both markers present) the historical default ``pytest`` is
+    used and the user is advised to set ``--test-executor`` explicitly.
+    """
+    resolved_dir = TestExecutor._resolve_test_dir(chart_file, tests_dir, warn=False)
+    has_gomod = os.path.isfile(os.path.join(resolved_dir, "go.mod"))
+    has_pyproject = os.path.isfile(os.path.join(resolved_dir, "pyproject.toml"))
+    if has_gomod and not has_pyproject:
+        logger.info(f"Auto-detected the '{TEST_EXECUTOR_GOTEST}' test executor ('go.mod' found in '{resolved_dir}').")
+        return TEST_EXECUTOR_GOTEST
+    if has_pyproject and not has_gomod:
+        logger.info(
+            f"Auto-detected the '{TEST_EXECUTOR_PYTEST}' test executor ('pyproject.toml' found in '{resolved_dir}')."
+        )
+        return TEST_EXECUTOR_PYTEST
+    if has_gomod and has_pyproject:
+        logger.warning(
+            f"Both 'go.mod' and 'pyproject.toml' were found in '{resolved_dir}', so the test executor can't be "
+            f"auto-detected; defaulting to '{TEST_EXECUTOR_PYTEST}'. Set '--test-executor' explicitly to override."
+        )
+        return TEST_EXECUTOR_PYTEST
+    logger.warning(
+        f"Couldn't auto-detect the test executor: neither 'go.mod' nor 'pyproject.toml' was found in "
+        f"'{resolved_dir}'; defaulting to '{TEST_EXECUTOR_PYTEST}'. Set '--test-executor' explicitly to override."
+    )
+    return TEST_EXECUTOR_PYTEST
 
 
 def configure_global_options(config_parser: configargparse.ArgParser) -> None:
@@ -62,8 +115,17 @@ def configure_global_options(config_parser: configargparse.ArgParser) -> None:
     config_parser.add_argument(
         "--test-executor",
         required=False,
-        default="pytest",
-        help="Type of test executor. Either pytest or gotest.",
+        default=TEST_EXECUTOR_AUTO,
+        choices=[TEST_EXECUTOR_AUTO, TEST_EXECUTOR_PYTEST, TEST_EXECUTOR_GOTEST],
+        help="Type of test executor to use: 'pytest' or 'gotest'. Defaults to 'auto', which detects it from "
+        "the test directory ('go.mod' -> gotest, 'pyproject.toml' -> pytest).",
+    )
+    config_parser.add_argument(
+        KEY_CFG_TESTS_DIR,
+        required=False,
+        default=DEFAULT_TESTS_DIR,
+        help="Directory where the test suite source code (pytest or go tests) can be found. Resolved relative "
+        "to the working directory unless an absolute path is given.",
     )
     config_parser.add_argument("--version", action="version", version=f"{app_name} {get_version()}")
     config_parser.add_argument(
@@ -149,12 +211,9 @@ def get_default_config_file_paths() -> List[str]:
     config_paths = [cwd_config_path]
     # Backward compatibility: also look for the config next to the chart file. When both files exist,
     # the chart-file-relative one is parsed last and thus takes precedence, preserving legacy behaviour.
-    short_opt = "-c"
-    long_opt = "--chart-file"
-    if short_opt in sys.argv or long_opt in sys.argv:
-        opt = short_opt if short_opt in sys.argv else long_opt
-        c_ind = sys.argv.index(opt)
-        chart_dir = os.path.dirname(sys.argv[c_ind + 1])
+    chart_file = get_chart_file_from_argv()
+    if chart_file:
+        chart_dir = os.path.dirname(chart_file)
         chart_config_path = os.path.join(base_dir, chart_dir, ".ats", "main.yaml")
         if os.path.normpath(chart_config_path) != os.path.normpath(cwd_config_path):
             config_paths.append(chart_config_path)
@@ -217,7 +276,11 @@ def main() -> None:
     if global_only_config.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    steps = get_pipeline(global_only_config.test_executor)
+    test_executor = global_only_config.test_executor
+    if test_executor == TEST_EXECUTOR_AUTO:
+        test_executor = detect_test_executor(global_only_config.tests_dir, get_chart_file_from_argv())
+
+    steps = get_pipeline(test_executor)
     config = get_config(steps)
     runner = Runner(config, steps)
     runner.run()

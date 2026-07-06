@@ -18,16 +18,14 @@ from app_test_suite.steps.base import TestExecutor
 from app_test_suite.steps.executors.gotest import GotestExecutor
 from app_test_suite.steps.executors.pytest import PytestExecutor
 
-PYTEST_TESTS_DIR_ATTR = "app_tests_pytest_tests_dir"
-GOTEST_TESTS_DIR_ATTR = "app_tests_gotest_tests_dir"
+TESTS_DIR_ATTR = "tests_dir"
 DEFAULT_TESTS_DIR = os.path.join("tests", "ats")
 
 
 def _make_config(chart_file: str, tests_dir: str = DEFAULT_TESTS_DIR) -> argparse.Namespace:
     config = argparse.Namespace()
     config.chart_file = chart_file
-    setattr(config, PYTEST_TESTS_DIR_ATTR, tests_dir)
-    setattr(config, GOTEST_TESTS_DIR_ATTR, tests_dir)
+    setattr(config, TESTS_DIR_ATTR, tests_dir)
     return config
 
 
@@ -45,7 +43,7 @@ def test_resolve_test_dir_prefers_working_directory(tmp_path: Path, monkeypatch:
     chart_file.write_text("x")
     monkeypatch.chdir(project)
 
-    resolved = TestExecutor._resolve_test_dir(_make_config(str(chart_file)), DEFAULT_TESTS_DIR)
+    resolved = TestExecutor._resolve_test_dir(str(chart_file), DEFAULT_TESTS_DIR)
 
     assert resolved == str(project / "tests" / "ats")
 
@@ -63,7 +61,7 @@ def test_resolve_test_dir_falls_back_to_chart_dir(
     import logging
 
     with caplog.at_level(logging.WARNING):
-        resolved = TestExecutor._resolve_test_dir(_make_config(str(chart_file)), DEFAULT_TESTS_DIR)
+        resolved = TestExecutor._resolve_test_dir(str(chart_file), DEFAULT_TESTS_DIR)
 
     assert resolved == str(root / "sub" / "tests" / "ats")
     assert any("deprecated" in rec.message for rec in caplog.records)
@@ -74,7 +72,7 @@ def test_resolve_test_dir_points_at_cwd_when_nothing_found(tmp_path: Path, monke
     chart_file.write_text("x")
     monkeypatch.chdir(tmp_path)
 
-    resolved = TestExecutor._resolve_test_dir(_make_config(str(chart_file)), DEFAULT_TESTS_DIR)
+    resolved = TestExecutor._resolve_test_dir(str(chart_file), DEFAULT_TESTS_DIR)
 
     # points at the recommended working-directory-relative location so the error message guides the user there
     assert resolved == str(tmp_path / "tests" / "ats")
@@ -88,7 +86,7 @@ def test_resolve_test_dir_honors_absolute_dir(tmp_path: Path, monkeypatch: pytes
     chart_file.write_text("x")
     monkeypatch.chdir(tmp_path)
 
-    resolved = TestExecutor._resolve_test_dir(_make_config(str(chart_file), str(abs_tests)), str(abs_tests))
+    resolved = TestExecutor._resolve_test_dir(str(chart_file), str(abs_tests))
 
     assert resolved == str(abs_tests)
 

@@ -4,12 +4,12 @@ import os
 import shutil
 from typing import cast, List
 
-import configargparse
 from step_exec_lib.errors import ValidationError
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 from step_exec_lib.utils.processes import run_and_log
 
 from app_test_suite.cluster_manager import ClusterManager
+from app_test_suite.config import KEY_CFG_TESTS_DIR
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import (
     BaseTestScenariosFilteringPipeline,
@@ -27,8 +27,6 @@ logger = logging.getLogger(__name__)
 
 
 class PytestScenariosFilteringPipeline(BaseTestScenariosFilteringPipeline):
-    KEY_CONFIG_OPTION_PYTEST_DIR = "--app-tests-pytest-tests-dir"
-
     def __init__(self) -> None:
         cluster_manager = ClusterManager()
         test_executor = PytestExecutor()
@@ -40,19 +38,6 @@ class PytestScenariosFilteringPipeline(BaseTestScenariosFilteringPipeline):
                 UpgradeTestScenario(cluster_manager, test_executor),
             ],
             cluster_manager,
-        )
-
-    def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
-        super().initialize_config(config_parser)
-        self._config_parser_group = cast(
-            configargparse.ArgParser,
-            config_parser.add_argument_group("Pytest specific options"),
-        )
-        self._config_parser_group.add_argument(
-            self.KEY_CONFIG_OPTION_PYTEST_DIR,
-            required=False,
-            default=os.path.join("tests", "ats"),
-            help="Directory, where pytest tests source code can be found.",
         )
 
 
@@ -88,10 +73,8 @@ class PytestExecutor(TestExecutor):
             raise ATSTestError(f"Pytest tests failed: running '{args}' in directory '{self._test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
-        pytest_dir = get_config_value_by_cmd_line_option(
-            config, PytestScenariosFilteringPipeline.KEY_CONFIG_OPTION_PYTEST_DIR
-        )
-        pytest_dir = self._resolve_test_dir(config, pytest_dir)
+        pytest_dir = get_config_value_by_cmd_line_option(config, KEY_CFG_TESTS_DIR)
+        pytest_dir = self._resolve_test_dir(config.chart_file, pytest_dir)
         if not os.path.isdir(pytest_dir):
             raise ValidationError(
                 module_name,

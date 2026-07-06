@@ -166,7 +166,7 @@ class TestExecutor(ABC):
         raise NotImplementedError()
 
     @staticmethod
-    def _resolve_test_dir(config: argparse.Namespace, configured_dir: str) -> str:
+    def _resolve_test_dir(chart_file: Optional[str], configured_dir: str, warn: bool = True) -> str:
         """Resolve the directory that holds the test source code.
 
         Tests are discovered relative to the executing directory (the current working directory),
@@ -176,20 +176,22 @@ class TestExecutor(ABC):
 
         For backward compatibility, if the directory isn't found relative to the working directory
         but does exist relative to the chart file's directory (the legacy behaviour), that location
-        is used and a deprecation warning is logged.
+        is used and a deprecation warning is logged (unless ``warn`` is ``False``).
         """
         cwd_dir = os.path.join(os.getcwd(), configured_dir)
         if os.path.isdir(cwd_dir):
             return cwd_dir
-        legacy_dir = os.path.join(os.path.dirname(os.path.abspath(config.chart_file)), configured_dir)
-        if os.path.isdir(legacy_dir):
-            logger.warning(
-                f"Test source directory '{cwd_dir}' was not found relative to the working directory, but "
-                f"'{legacy_dir}' relative to the chart file was; using the latter for backward compatibility. "
-                f"This fallback is deprecated: place your tests relative to the working directory (or pass an "
-                f"absolute test directory) instead."
-            )
-            return legacy_dir
+        if chart_file:
+            legacy_dir = os.path.join(os.path.dirname(os.path.abspath(chart_file)), configured_dir)
+            if os.path.isdir(legacy_dir):
+                if warn:
+                    logger.warning(
+                        f"Test source directory '{cwd_dir}' was not found relative to the working directory, but "
+                        f"'{legacy_dir}' relative to the chart file was; using the latter for backward compatibility. "
+                        f"This fallback is deprecated: place your tests relative to the working directory (or pass an "
+                        f"absolute test directory) instead."
+                    )
+                return legacy_dir
         return cwd_dir
 
     def prepare_test_environment(self, exec_info: TestExecInfo) -> None:

@@ -43,7 +43,7 @@ make release TAG=v0.x.x      # Full release: version bump, test, build, tag, com
 
 ### Execution Pipeline
 
-The app uses `step-exec-lib` to define a pipeline of `BuildStep`s organized into `BuildStepsFilteringPipeline`s. The entry point (`app_test_suite/__main__.py`) selects a pipeline based on `--test-executor` (pytest or gotest), parses config from CLI args / env vars (prefix `ATS_`) / config file (`.ats/main.yaml`), and runs it via `Runner`.
+The app uses `step-exec-lib` to define a pipeline of `BuildStep`s organized into `BuildStepsFilteringPipeline`s. The entry point (`app_test_suite/__main__.py`) selects a pipeline based on `--test-executor` (pytest or gotest). That option defaults to `auto`, in which case the executor is auto-detected from the `--tests-dir` directory (a `go.mod` → gotest, a `pyproject.toml` → pytest; `pytest` is the fallback). It parses config from CLI args / env vars (prefix `ATS_`) / config file (`.ats/main.yaml`), and runs it via `Runner`.
 
 ### Test Scenarios
 

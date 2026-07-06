@@ -1,3 +1,8 @@
+import os
+
+KEY_CFG_TESTS_DIR = "--tests-dir"
+DEFAULT_TESTS_DIR = os.path.join("tests", "ats")
+
 KEY_CFG_STABLE_APP_URL = "--upgrade-tests-app-catalog-url"
 KEY_CFG_STABLE_APP_FILE = "--upgrade-tests-app-file"
 KEY_CFG_STABLE_APP_VERSION = "--upgrade-tests-app-version"

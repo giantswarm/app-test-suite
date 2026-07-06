@@ -6,11 +6,9 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 OUT="container-crds"
 
-# renovate: datasource=github-tags depName=giantswarm/apiextensions-application
-APIEXTENSIONS_APPLICATION_REF="v0.6.2"
-for crd in appcatalogentries appcatalogs apps catalogs charts; do
-  curl -fsSL "https://raw.githubusercontent.com/giantswarm/apiextensions-application/${APIEXTENSIONS_APPLICATION_REF}/config/crd/application.giantswarm.io_${crd}.yaml" >"${OUT}/${crd}.yaml"
-done
+# NOTE: The Giant Swarm App Platform CRDs (App, Chart, Catalog, AppCatalog, AppCatalogEntry from
+# giantswarm/apiextensions-application) are deliberately NOT synced. ATS deploys charts directly
+# with Helm (no App CR), so those CRDs are not needed on the test cluster.
 
 # renovate: datasource=github-tags depName=cilium/cilium
 CILIUM_REF="v1.19.5"

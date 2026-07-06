@@ -11,9 +11,13 @@ Dockerfile copies this directory to `/etc/ats/crds/`.
 
 ## Provenance
 
-These manifests are downloaded verbatim, straight from their upstream projects (App platform,
-Cilium, Prometheus Operator, VPA, Kyverno, Gateway API + inference extension, KEDA), by
+These manifests are downloaded verbatim, straight from their upstream projects (Cilium,
+Prometheus Operator, VPA, Kyverno, Gateway API + inference extension, KEDA), by
 `hack/sync-crds.sh`. Version pins live in variables at the top of that script.
+
+The Giant Swarm App Platform CRDs (App, Chart, Catalog, AppCatalog, AppCatalogEntry) are
+intentionally not included: ATS deploys charts directly with Helm rather than through an `App` CR,
+so the test cluster doesn't need them.
 
 Most pins are tracked by Renovate via inline `# renovate:` comments in the script and get bumped
 automatically as PRs. Two are pinned manually and need periodic manual bumps:

@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Set, cast
+from typing import Dict, List, Optional, Set, cast
 
 import configargparse
 import yaml
@@ -18,6 +18,11 @@ from step_exec_lib.utils.processes import run_and_log
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterType, ClusterInfo
 from app_test_suite.errors import ATSTestError
+from app_test_suite.gitops import (
+    GitOpsEngine,
+    detect_engines,
+    parse_engines_option,
+)
 from app_test_suite.steps.base import (
     TestExecutor,
     BaseTestScenariosFilteringPipeline,
@@ -58,6 +63,8 @@ class SimpleTestScenario(BuildStep, ABC):
         self._cluster_info: Optional[ClusterInfo] = None
         self._skip_app_deploy = False
         self._test_executor = test_executor
+        # None means 'auto': detect engines from the rendered chart at run time
+        self._configured_gitops_engines: Optional[List[GitOpsEngine]] = None
 
     @property
     def steps_provided(self) -> Set[StepType]:
@@ -75,6 +82,17 @@ class SimpleTestScenario(BuildStep, ABC):
     @property
     def _config_cluster_config_file_attribute_name(self) -> str:
         return f"--{self.test_provided}-tests-cluster-config-file"
+
+    @property
+    def _config_gitops_engines_attribute_name(self) -> str:
+        return f"--{self.test_provided}-tests-gitops-engines"
+
+    def _config_gitops_values_attribute_name(self, engine: GitOpsEngine) -> str:
+        return f"--{self.test_provided}-tests-gitops-values-{engine.value}"
+
+    @property
+    def _config_gitops_bundle_ready_timeout_attribute_name(self) -> str:
+        return f"--{self.test_provided}-tests-gitops-bundle-ready-timeout"
 
     @property
     def _test_cluster_type(self) -> str:
@@ -164,6 +182,29 @@ class SimpleTestScenario(BuildStep, ABC):
             required=False,
             help=f"Additional configuration file for the cluster used for {self.test_provided} tests.",
         )
+        config_parser.add_argument(
+            self._config_gitops_engines_attribute_name,
+            required=False,
+            default="auto",
+            help=f"GitOps engine(s) to test the bundle chart under for {self.test_provided} tests:"
+            f" 'auto' (detect from the rendered chart), 'helm' (force plain Helm deploy),"
+            f" or a comma-separated list of engines ('flux', 'argo').",
+        )
+        for engine in GitOpsEngine:
+            config_parser.add_argument(
+                self._config_gitops_values_attribute_name(engine),
+                required=False,
+                help=f"Path to a values overlay stacked on the app config file when deploying the bundle"
+                f" chart for the '{engine.value}' engine in {self.test_provided} tests."
+                f" Defaults to 'ci/gitops-values-{engine.value}.yaml' when that file exists.",
+            )
+        config_parser.add_argument(
+            self._config_gitops_bundle_ready_timeout_attribute_name,
+            required=False,
+            default="10m",
+            help=f"How long to wait for the GitOps resources emitted by the bundle chart to become"
+            f" ready (and to drain on teardown) in {self.test_provided} tests.",
+        )
 
     def pre_run(self, config: argparse.Namespace) -> None:
         self._assert_binary_present_in_path(_HELM_BIN)
@@ -191,7 +232,29 @@ class SimpleTestScenario(BuildStep, ABC):
             )
         self._configured_cluster_type = cluster_type
         self._configured_cluster_config_file = cluster_config_file if cluster_config_file is not None else ""
+        self._validate_gitops_config(config)
         self._test_executor.validate(config, self.name)
+
+    def _validate_gitops_config(self, config: argparse.Namespace) -> None:
+        engines_option = get_config_value_by_cmd_line_option(config, self._config_gitops_engines_attribute_name)
+        try:
+            self._configured_gitops_engines = parse_engines_option(engines_option)
+        except ValueError as e:
+            raise ConfigError(self._config_gitops_engines_attribute_name, str(e))
+        if self._configured_gitops_engines and GitOpsEngine.ARGO in self._configured_gitops_engines:
+            raise ConfigError(
+                self._config_gitops_engines_attribute_name,
+                "The 'argo' engine is not implemented yet; use 'flux', 'helm' or 'auto'.",
+            )
+        for engine in GitOpsEngine:
+            overlay_path = get_config_value_by_cmd_line_option(
+                config, self._config_gitops_values_attribute_name(engine)
+            )
+            if overlay_path and not os.path.isfile(overlay_path):
+                raise ConfigError(
+                    self._config_gitops_values_attribute_name(engine),
+                    f"GitOps values overlay '{overlay_path}' for engine '{engine.value}' doesn't exist.",
+                )
 
     def run(self, config: argparse.Namespace, context: Context) -> None:
         logger.info(
@@ -215,6 +278,10 @@ class SimpleTestScenario(BuildStep, ABC):
             self._ensure_cluster_prerequisites(self._cluster_info.kube_config_path)
             self._cluster_info.app_platform_ready = True
 
+        gitops_engines = self._resolve_gitops_engines(config)
+        if gitops_engines:
+            logger.info(f"GitOps engine matrix for this scenario: {[e.value for e in gitops_engines]}.")
+
         try:
             if (
                 not get_config_value_by_cmd_line_option(
@@ -237,6 +304,16 @@ class SimpleTestScenario(BuildStep, ABC):
                 BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_SKIP_DELETE_APP,
             ):
                 self._delete_release(config, context)
+
+    def _resolve_gitops_engines(self, config: argparse.Namespace) -> List[GitOpsEngine]:
+        if self._configured_gitops_engines is not None:
+            return self._configured_gitops_engines
+        app_config_file_path = get_config_value_by_cmd_line_option(
+            config,
+            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE,
+        )
+        values_paths = [app_config_file_path] if app_config_file_path else []
+        return detect_engines(config.chart_file, values_paths)
 
     def _deploy_tested_chart_as_app(self, config: argparse.Namespace, context: Context) -> None:
         release_name = context[CONTEXT_KEY_CHART_YAML]["name"]

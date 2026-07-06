@@ -35,6 +35,11 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
     KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE = "--app-tests-app-config-file"
     KEY_CONFIG_OPTION_PRE_HOOK = "--app-tests-pre-hook"
     KEY_CONFIG_OPTION_POST_HOOK = "--app-tests-post-hook"
+    KEY_CONFIG_OPTION_GITOPS_FLUX_INSTALL_MANIFEST = "--gitops-flux-install-manifest"
+    KEY_CONFIG_OPTION_GITOPS_ARGO_INSTALL_MANIFEST = "--gitops-argo-install-manifest"
+
+    GITOPS_FLUX_INSTALL_MANIFEST_DEFAULT = "/etc/ats/gitops/flux.yaml"
+    GITOPS_ARGO_INSTALL_MANIFEST_DEFAULT = "/etc/ats/gitops/argo.yaml"
 
     def __init__(self, pipeline: List[BuildStep], cluster_manager: ClusterManager):
         super().__init__(pipeline, self.KEY_CONFIG_GROUP_NAME)
@@ -82,6 +87,20 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
             self.KEY_CONFIG_OPTION_POST_HOOK,
             required=False,
             help="Executable run after tests complete (pass or skip). ATS_* env vars and KUBECONFIG are set.",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_GITOPS_FLUX_INSTALL_MANIFEST,
+            required=False,
+            default=self.GITOPS_FLUX_INSTALL_MANIFEST_DEFAULT,
+            help="Path or URL of the manifest used to install the Flux GitOps engine on the test cluster."
+            " Defaults to the manifest vendored in the ats container image.",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_GITOPS_ARGO_INSTALL_MANIFEST,
+            required=False,
+            default=self.GITOPS_ARGO_INSTALL_MANIFEST_DEFAULT,
+            help="Path or URL of the manifest used to install the Argo CD GitOps engine on the test cluster."
+            " Defaults to the manifest vendored in the ats container image.",
         )
         self._cluster_manager.initialize_config(self._config_parser_group)
 

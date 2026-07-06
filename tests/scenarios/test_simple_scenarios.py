@@ -1,5 +1,6 @@
 import os
 import unittest.mock
+from pathlib import Path
 from typing import Callable, Type, cast
 
 import pytest
@@ -20,6 +21,9 @@ from tests.helpers import (
     assert_helm_uninstalled,
     assert_cluster_prerequisites_ready,
     assert_cluster_connection_created,
+    assert_flux_deployed,
+    assert_flux_not_deployed,
+    flux_wait_call_args,
     get_base_config,
     get_run_and_log_result_mock,
     patch_base_test_runner,
@@ -181,4 +185,86 @@ def test_pre_hook_failure_raises(mocker: MockerFixture) -> None:
     context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
 
     with pytest.raises(ATSTestError, match="Pre-hook"):
+        runner.run(config, context)
+
+
+def _write_flux_manifest(tmp_path: Path) -> str:
+    manifest = tmp_path / "install.yaml"
+    manifest.write_text("# flux install manifest")
+    return str(manifest)
+
+
+def test_flux_deployed_when_configured(mocker: MockerFixture, tmp_path: Path) -> None:
+    flux_manifest_path = _write_flux_manifest(tmp_path)
+    mocker.patch.object(SimpleTestScenario, "_FLUX_MANIFEST_PATH", flux_manifest_path)
+    runner = _make_smoke_runner(mocker)
+    config = get_base_config(mocker)
+    config.app_tests_deploy_flux = True
+    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
+
+    runner.run(config, context)
+
+    assert_flux_deployed(MOCK_KUBE_CONFIG_PATH, flux_manifest_path)
+    assert runner._cluster_info is not None and runner._cluster_info.flux_ready
+
+
+def test_flux_not_deployed_by_default(mocker: MockerFixture) -> None:
+    runner = _make_smoke_runner(mocker)
+    config = get_base_config(mocker)
+    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
+
+    runner.run(config, context)
+
+    assert_flux_not_deployed()
+    assert runner._cluster_info is not None and not runner._cluster_info.flux_ready
+
+
+def test_flux_deploy_skipped_when_cluster_already_has_flux(mocker: MockerFixture, tmp_path: Path) -> None:
+    flux_manifest_path = _write_flux_manifest(tmp_path)
+    mocker.patch.object(SimpleTestScenario, "_FLUX_MANIFEST_PATH", flux_manifest_path)
+    runner = _make_smoke_runner(mocker)
+    cast(unittest.mock.Mock, runner._cluster_manager).get_cluster_for_test_type.return_value.flux_ready = True
+    config = get_base_config(mocker)
+    config.app_tests_deploy_flux = True
+    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
+
+    runner.run(config, context)
+
+    assert_flux_not_deployed()
+
+
+def test_flux_deploy_fails_when_manifest_missing(mocker: MockerFixture, tmp_path: Path) -> None:
+    mocker.patch.object(SimpleTestScenario, "_FLUX_MANIFEST_PATH", str(tmp_path / "nonexistent.yaml"))
+    runner = _make_smoke_runner(mocker)
+    config = get_base_config(mocker)
+    config.app_tests_deploy_flux = True
+    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
+
+    with pytest.raises(ATSTestError, match="doesn't exist"):
+        runner.run(config, context)
+
+
+def test_flux_deploy_fails_when_controllers_not_available(mocker: MockerFixture, tmp_path: Path) -> None:
+    flux_manifest_path = _write_flux_manifest(tmp_path)
+    mocker.patch.object(SimpleTestScenario, "_FLUX_MANIFEST_PATH", flux_manifest_path)
+    run_and_log_res = get_run_and_log_result_mock(mocker)
+    patch_base_test_runner(mocker, run_and_log_res)
+    patch_pytest_test_runner(mocker, run_and_log_res)
+
+    fail_res = get_run_and_log_result_mock(mocker)
+    type(fail_res).returncode = mocker.PropertyMock(return_value=1)
+
+    def side_effect(args: list[str], **kwargs: object) -> unittest.mock.Mock:
+        if args == flux_wait_call_args(MOCK_KUBE_CONFIG_PATH):
+            return fail_res
+        return run_and_log_res
+
+    mocker.patch("app_test_suite.steps.scenarios.simple.run_and_log", side_effect=side_effect)
+
+    runner = SmokeTestScenario(get_mock_cluster_manager(mocker), PytestExecutor())
+    config = get_base_config(mocker)
+    config.app_tests_deploy_flux = True
+    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
+
+    with pytest.raises(ATSTestError, match="Flux controllers"):
         runner.run(config, context)

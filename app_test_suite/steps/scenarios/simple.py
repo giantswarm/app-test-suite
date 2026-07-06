@@ -35,6 +35,8 @@ CHART_YAML = "Chart.yaml"
 _HELM_BIN = "helm"
 _KUBECTL_BIN = "kubectl"
 _HELM_DEPLOY_TIMEOUT = "30m"
+_FLUX_NAMESPACE = "flux-system"
+_FLUX_DEPLOY_TIMEOUT = "5m"
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,7 @@ class SimpleTestScenario(BuildStep, ABC):
     """
 
     _CRD_DIR = "/etc/ats/crds"
+    _FLUX_MANIFEST_PATH = "/etc/ats/flux/install.yaml"
 
     def __init__(self, cluster_manager: ClusterManager, test_executor: TestExecutor):
         self._cluster_manager = cluster_manager
@@ -141,17 +144,47 @@ class SimpleTestScenario(BuildStep, ABC):
         if run_res.returncode != 0:
             raise ATSTestError(f"{stage.capitalize()}-hook '{hook_cmd}' failed with exit code {run_res.returncode}")
 
+    def _kubectl_apply(self, kube_config_path: str, target: str, error_msg: str) -> None:
+        run_res = run_and_log(
+            [_KUBECTL_BIN, f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", target],
+            capture_output=True,
+        )  # nosec
+        if run_res.returncode != 0:
+            raise ATSTestError(f"{error_msg}:\n{run_res.stderr.decode(errors='replace')}")
+
     def _ensure_cluster_prerequisites(self, kube_config_path: str) -> None:
         logger.info(f"Applying cluster CRDs from {self._CRD_DIR}")
+        self._kubectl_apply(kube_config_path, self._CRD_DIR, "Bootstrapping CRDs on the target cluster failed")
+        logger.info("Cluster CRDs bootstrapped and ready.")
+
+    def _deploy_flux(self, kube_config_path: str) -> None:
+        if not os.path.isfile(self._FLUX_MANIFEST_PATH):
+            raise ATSTestError(
+                f"Flux deployment was requested, but the Flux manifest '{self._FLUX_MANIFEST_PATH}' doesn't exist."
+                f" The manifest is bundled in the ats container image; when running ats outside the container,"
+                f" download 'install.yaml' from a fluxcd/flux2 release and place it at that path."
+            )
+        logger.info(f"Deploying Flux from {self._FLUX_MANIFEST_PATH}")
+        self._kubectl_apply(kube_config_path, self._FLUX_MANIFEST_PATH, "Deploying Flux on the target cluster failed")
         run_res = run_and_log(
-            ["kubectl", f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", self._CRD_DIR],
+            [
+                _KUBECTL_BIN,
+                f"--kubeconfig={kube_config_path}",
+                "--namespace",
+                _FLUX_NAMESPACE,
+                "wait",
+                "--for=condition=Available",
+                "deployment",
+                "--all",
+                f"--timeout={_FLUX_DEPLOY_TIMEOUT}",
+            ],
             capture_output=True,
         )  # nosec
         if run_res.returncode != 0:
             raise ATSTestError(
-                f"Bootstrapping CRDs on the target cluster failed:\n{run_res.stderr.decode(errors='replace')}"
+                f"Waiting for Flux controllers to become available failed:\n{run_res.stderr.decode(errors='replace')}"
             )
-        logger.info("Cluster CRDs bootstrapped and ready.")
+        logger.info("Flux deployed and ready.")
 
     def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
         config_parser.add_argument(
@@ -211,9 +244,19 @@ class SimpleTestScenario(BuildStep, ABC):
         except Exception:
             raise ATSTestError("Can't establish connection to the new test cluster")
 
-        if not self._cluster_info.app_platform_ready:
+        if not self._cluster_info.crds_ready:
             self._ensure_cluster_prerequisites(self._cluster_info.kube_config_path)
-            self._cluster_info.app_platform_ready = True
+            self._cluster_info.crds_ready = True
+
+        if (
+            get_config_value_by_cmd_line_option(
+                config,
+                BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_FLUX,
+            )
+            and not self._cluster_info.flux_ready
+        ):
+            self._deploy_flux(self._cluster_info.kube_config_path)
+            self._cluster_info.flux_ready = True
 
         try:
             if (

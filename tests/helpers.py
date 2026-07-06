@@ -14,7 +14,13 @@ import app_test_suite
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers import ExternalClusterProvider
 from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
-from app_test_suite.steps.scenarios.simple import _HELM_BIN, _HELM_DEPLOY_TIMEOUT
+from app_test_suite.steps.scenarios.simple import (
+    _FLUX_DEPLOY_TIMEOUT,
+    _FLUX_NAMESPACE,
+    _HELM_BIN,
+    _HELM_DEPLOY_TIMEOUT,
+    _KUBECTL_BIN,
+)
 
 MOCK_KUBE_CONFIG_PATH = "/nonexisting-flsdhge235/kube.config"
 MOCK_KUBE_VERSION = "1.19.1"
@@ -79,6 +85,35 @@ def assert_cluster_prerequisites_ready(kube_config_path: str) -> None:
     )
 
 
+def flux_deploy_call_args(kube_config_path: str, flux_manifest_path: str) -> list:
+    return [_KUBECTL_BIN, f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", flux_manifest_path]
+
+
+def flux_wait_call_args(kube_config_path: str) -> list:
+    return [
+        _KUBECTL_BIN,
+        f"--kubeconfig={kube_config_path}",
+        "--namespace",
+        _FLUX_NAMESPACE,
+        "wait",
+        "--for=condition=Available",
+        "deployment",
+        "--all",
+        f"--timeout={_FLUX_DEPLOY_TIMEOUT}",
+    ]
+
+
+def assert_flux_deployed(kube_config_path: str, flux_manifest_path: str) -> None:
+    run_and_log_mock = cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.run_and_log)
+    run_and_log_mock.assert_any_call(flux_deploy_call_args(kube_config_path, flux_manifest_path), capture_output=True)
+    run_and_log_mock.assert_any_call(flux_wait_call_args(kube_config_path), capture_output=True)
+
+
+def assert_flux_not_deployed() -> None:
+    run_and_log_mock = cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.run_and_log)
+    assert not any("wait" in c.args[0] for c in run_and_log_mock.call_args_list)
+
+
 def assert_cluster_connection_created(kube_config_path: str) -> None:
     cast(unittest.mock.Mock, pykube.KubeConfig.from_file).assert_called_once_with(kube_config_path)
     cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.HTTPClient).assert_called_once()
@@ -93,6 +128,7 @@ def get_base_config(mocker: MockerFixture) -> Namespace:
     config.app_tests_pre_deploy_script = ""
     config.app_tests_pre_hook = ""
     config.app_tests_post_hook = ""
+    config.app_tests_deploy_flux = False
     config.chart_file = MOCK_CHART_FILE_NAME
     config.debug = False
     return config

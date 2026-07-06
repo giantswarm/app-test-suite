@@ -10,9 +10,12 @@ ARG DOCKER_VER=v28.5.2
 ARG KIND_VER=v0.32.0
 # renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VER=v4.2.2
+# renovate: datasource=github-releases depName=fluxcd/flux2
+ARG FLUX_VER=v2.9.0
 
 RUN apk add --no-cache ca-certificates curl \
-    && mkdir -p /binaries \
+    && mkdir -p /binaries /manifests \
+    && curl --silent --show-error --fail --location https://github.com/fluxcd/flux2/releases/download/${FLUX_VER}/install.yaml --output /manifests/flux-install.yaml \
     && DOCKER_ARCH=$([ "${TARGETARCH}" = "arm64" ] && echo "aarch64" || echo "x86_64") \
     && curl --silent --show-error --fail --location https://dl.k8s.io/release/${KUBECTL_VER}/bin/linux/${TARGETARCH}/kubectl --output /binaries/kubectl \
     && curl --silent --show-error --fail --location https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_VER##v}.tgz | \
@@ -89,6 +92,7 @@ COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv
 
 COPY --from=binaries /binaries/* /usr/local/bin/
 COPY container-crds/*.yaml /etc/ats/crds/
+COPY --from=binaries /manifests/flux-install.yaml /etc/ats/flux/install.yaml
 
 # we assume the user will be using UID==1000 and GID=1000; if that's not true, we'll run `chown`
 # in the container's startup script

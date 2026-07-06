@@ -167,6 +167,12 @@ Each run consist of two stages: bootstrapping and test execution.
 - if you configured your run with `*-tests-cluster-type kind`, a cluster is created with `kind` tool
 - `ats` connects to the target test cluster and applies the bundled CRDs with
   `kubectl apply --server-side -f /etc/ats/crds` (the CRDs vendored in `container-crds/`; no operators are installed)
+- if you pass the `--app-tests-deploy-flux` option, `ats` deploys [Flux](https://fluxcd.io) (CRDs and controllers)
+  to the test cluster and waits until the controllers are available. Enable this when your chart is a bundle that
+  includes Flux resources like `Kustomization` or `HelmRelease`, so the resources are actually reconciled during
+  the test. The Flux manifest (`install.yaml` from the pinned [fluxcd/flux2](https://github.com/fluxcd/flux2)
+  release) is bundled in the container image at `/etc/ats/flux/install.yaml`; when running `ats` outside the
+  container, download it from a flux2 release and place it at that path.
 - `ats` deploys your chart under test directly with Helm (`helm upgrade --install`); your application defined in the
   chart is deployed to the test cluster (you can disable this with the `app-tests-skip-app-deploy` option; this might
   be needed if you need more control over your test, like setting up additional CRDs or installing additional apps).

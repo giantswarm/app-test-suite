@@ -150,7 +150,7 @@ class SimpleTestScenario(BuildStep, ABC):
             capture_output=True,
         )  # nosec
         if run_res.returncode != 0:
-            raise ATSTestError(f"{error_msg}:\n{run_res.stderr.decode(errors='replace')}")
+            raise ATSTestError(f"{error_msg}:\n{run_res.stderr}")
 
     def _ensure_cluster_prerequisites(self, kube_config_path: str) -> None:
         logger.info(f"Applying cluster CRDs from {self._CRD_DIR}")
@@ -181,9 +181,7 @@ class SimpleTestScenario(BuildStep, ABC):
             capture_output=True,
         )  # nosec
         if run_res.returncode != 0:
-            raise ATSTestError(
-                f"Waiting for Flux controllers to become available failed:\n{run_res.stderr.decode(errors='replace')}"
-            )
+            raise ATSTestError(f"Waiting for Flux controllers to become available failed:\n{run_res.stderr}")
         logger.info("Flux deployed and ready.")
 
     def initialize_config(self, config_parser: configargparse.ArgParser) -> None:

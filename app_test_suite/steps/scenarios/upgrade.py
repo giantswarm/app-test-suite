@@ -6,7 +6,8 @@ import re
 import shutil
 import subprocess
 from tempfile import TemporaryDirectory
-from typing import Tuple, cast, List, Match, Optional, Dict
+from typing import Tuple, cast, List, Match, Optional, Dict, Set
+from urllib.parse import urljoin
 
 import requests
 import yaml
@@ -318,23 +319,32 @@ class UpgradeTestScenario(SimpleTestScenario):
 
     @staticmethod
     def _list_oci_tags(registry_host: str, repository: str) -> List[str]:
-        tags_url = f"https://{registry_host}/v2/{repository}/tags/list"
+        next_url: Optional[str] = f"https://{registry_host}/v2/{repository}/tags/list"
+        request_headers: Dict[str, str] = {}
+        seen_urls: Set[str] = set()
+        tags: List[str] = []
         try:
-            response = requests.get(tags_url, timeout=_HTTP_TIMEOUT_SEC)
-            if response.status_code == 401:
-                token = UpgradeTestScenario._get_oci_pull_token(response, repository)
-                response = requests.get(
-                    tags_url, headers={"Authorization": f"Bearer {token}"}, timeout=_HTTP_TIMEOUT_SEC
-                )
-            if not response.ok:
-                raise ATSTestError(
-                    f"Couldn't list tags for '{repository}' from '{tags_url}'. "
-                    f"Reason: [{response.status_code}] {response.reason}."
-                )
-            tags = response.json().get("tags") or []
-            response.close()
+            while next_url and next_url not in seen_urls:
+                seen_urls.add(next_url)
+                response = requests.get(next_url, headers=request_headers, timeout=_HTTP_TIMEOUT_SEC)
+                if response.status_code == 401 and "Authorization" not in request_headers:
+                    token = UpgradeTestScenario._get_oci_pull_token(response, repository)
+                    request_headers["Authorization"] = f"Bearer {token}"
+                    response = requests.get(next_url, headers=request_headers, timeout=_HTTP_TIMEOUT_SEC)
+                if not response.ok:
+                    raise ATSTestError(
+                        f"Couldn't list tags for '{repository}' from '{next_url}'. "
+                        f"Reason: [{response.status_code}] {response.reason}."
+                    )
+                tags.extend(response.json().get("tags") or [])
+                next_link = response.links.get("next", {}).get("url")
+                next_url = urljoin(next_url, next_link) if next_link else None
+                response.close()
         except RequestException as e:
-            logger.error(f"Error when trying to list tags for '{repository}' from '{tags_url}': '{e}'.")
+            logger.error(
+                f"Error when trying to list tags for '{repository}' from"
+                f" 'https://{registry_host}/v2/{repository}/tags/list': '{e}'."
+            )
             raise
         return tags
 

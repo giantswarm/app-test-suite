@@ -365,6 +365,7 @@ def _mock_tags_response(mocker: MockerFixture, status_code: int, tags: list) -> 
     response.ok = 300 > status_code >= 200
     response.reason = "OK" if response.ok else "Unauthorized"
     response.headers = {}
+    response.links = {}
     response.json.return_value = {"name": "repo", "tags": tags}
     return response
 
@@ -428,7 +429,9 @@ def test_get_latest_stable_oci_version_skips_prereleases_and_unparseable(mocker:
 
     assert runner._get_latest_stable_oci_version(MOCK_OCI_CATALOG_URL, MOCK_APP_NAME) == "1.1.0"
     cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(
-        f"https://giantswarmpublic.azurecr.io/v2/giantswarm-catalog/{MOCK_APP_NAME}/tags/list", timeout=10
+        f"https://giantswarmpublic.azurecr.io/v2/giantswarm-catalog/{MOCK_APP_NAME}/tags/list",
+        headers={},
+        timeout=10,
     )
 
 
@@ -466,3 +469,23 @@ def test_get_latest_stable_oci_version_handles_token_auth(mocker: MockerFixture)
     assert get_mock.call_args_list[1].args[0] == "https://auth.example.com/token"
     # authenticated retry carries the bearer token
     assert get_mock.call_args_list[2].kwargs["headers"] == {"Authorization": "Bearer secret-token"}
+
+
+def test_get_latest_stable_oci_version_follows_link_pagination(mocker: MockerFixture) -> None:
+    base = f"https://giantswarmpublic.azurecr.io/v2/giantswarm-catalog/{MOCK_APP_NAME}/tags/list"
+    page1 = _mock_tags_response(mocker, 200, ["1.0.0", "1.1.0"])
+    page1.links = {"next": {"url": f"/v2/giantswarm-catalog/{MOCK_APP_NAME}/tags/list?last=1.1.0&n=2"}}
+    # the newest stable tag lives only on the second page
+    page2 = _mock_tags_response(mocker, 200, ["1.2.0", "2.0.0-rc.1"])
+
+    get_mock = mocker.patch(
+        "app_test_suite.steps.scenarios.upgrade.requests.get",
+        side_effect=[page1, page2],
+    )
+    runner = _make_remote_upgrade_runner(mocker)
+
+    assert runner._get_latest_stable_oci_version(MOCK_OCI_CATALOG_URL, MOCK_APP_NAME) == "1.2.0"
+    assert get_mock.call_count == 2
+    assert get_mock.call_args_list[0].args[0] == base
+    # the relative rel="next" link is resolved against the current page URL
+    assert get_mock.call_args_list[1].args[0] == f"{base}?last=1.1.0&n=2"

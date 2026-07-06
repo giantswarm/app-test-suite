@@ -141,27 +141,33 @@ def configure_test_specific_options(config_parser: configargparse.ArgParser) -> 
     )
 
 
-def get_default_config_file_path() -> str:
+def get_default_config_file_paths() -> List[str]:
     base_dir = os.getcwd()
+    # The config file is looked up relative to the executing directory (the current working directory),
+    # so it can be provided independently of where the chart archive lives (see issue #196).
+    cwd_config_path = os.path.join(base_dir, ".ats", "main.yaml")
+    config_paths = [cwd_config_path]
+    # Backward compatibility: also look for the config next to the chart file. When both files exist,
+    # the chart-file-relative one is parsed last and thus takes precedence, preserving legacy behaviour.
     short_opt = "-c"
     long_opt = "--chart-file"
     if short_opt in sys.argv or long_opt in sys.argv:
         opt = short_opt if short_opt in sys.argv else long_opt
         c_ind = sys.argv.index(opt)
         chart_dir = os.path.dirname(sys.argv[c_ind + 1])
-        config_path = os.path.join(base_dir, chart_dir, ".ats", "main.yaml")
-    else:
-        config_path = os.path.join(base_dir, ".ats", "main.yaml")
-    logger.debug(f"Using {config_path} as configuration file path.")
-    return config_path
+        chart_config_path = os.path.join(base_dir, chart_dir, ".ats", "main.yaml")
+        if os.path.normpath(chart_config_path) != os.path.normpath(cwd_config_path):
+            config_paths.append(chart_config_path)
+    logger.debug(f"Using {config_paths} as configuration file path candidates.")
+    return config_paths
 
 
 def get_global_config_parser(add_help: bool = True) -> configargparse.ArgParser:
-    config_file_path = get_default_config_file_path()
+    config_file_paths = get_default_config_file_paths()
     config_parser = configargparse.ArgParser(
         prog=app_name,
         add_config_file_help=True,
-        default_config_files=[config_file_path],
+        default_config_files=config_file_paths,
         description="Test Giant Swarm App Platform app.",
         add_env_var_help=True,
         auto_env_var_prefix="ATS_",

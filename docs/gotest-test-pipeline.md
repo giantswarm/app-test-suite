@@ -6,7 +6,10 @@ as similar as possible so we can reuse functionality.
 
 To make your tests automatically invocable from `ats`, you must adhere to the following rules:
 
-- you must put all the test code in `[CHART_TOP_DIR]/tests/ats/` directory,
+- you must put all the test code in the `tests/ats/` directory relative to where you run `ats` from (the
+  working directory); this is decoupled from the `--chart-file` archive location, so the chart `.tgz` can
+  live anywhere. Override the location with `--app-tests-gotest-tests-dir` (relative to the working
+  directory, or an absolute path),
 - you must set `--test-executor` to `gotest`,
 - in your test the kubeconfig path can be retrieved from the env var `KUBECONFIG`
 - tests must be tagged using Go build tags with one of the supported test types

@@ -165,6 +165,33 @@ class TestExecutor(ABC):
         """Validate any configuration related to the test executor."""
         raise NotImplementedError()
 
+    @staticmethod
+    def _resolve_test_dir(config: argparse.Namespace, configured_dir: str) -> str:
+        """Resolve the directory that holds the test source code.
+
+        Tests are discovered relative to the executing directory (the current working directory),
+        which decouples test discovery from the location of the chart archive under test, so the
+        chart file can live anywhere (see issue #196). An absolute ``configured_dir`` is honored
+        verbatim.
+
+        For backward compatibility, if the directory isn't found relative to the working directory
+        but does exist relative to the chart file's directory (the legacy behaviour), that location
+        is used and a deprecation warning is logged.
+        """
+        cwd_dir = os.path.join(os.getcwd(), configured_dir)
+        if os.path.isdir(cwd_dir):
+            return cwd_dir
+        legacy_dir = os.path.join(os.path.dirname(os.path.abspath(config.chart_file)), configured_dir)
+        if os.path.isdir(legacy_dir):
+            logger.warning(
+                f"Test source directory '{cwd_dir}' was not found relative to the working directory, but "
+                f"'{legacy_dir}' relative to the chart file was; using the latter for backward compatibility. "
+                f"This fallback is deprecated: place your tests relative to the working directory (or pass an "
+                f"absolute test directory) instead."
+            )
+            return legacy_dir
+        return cwd_dir
+
     def prepare_test_environment(self, exec_info: TestExecInfo) -> None:
         """Optional step to prepare environment where your tests are executed (ie. installing dependencies)."""
         raise NotImplementedError()

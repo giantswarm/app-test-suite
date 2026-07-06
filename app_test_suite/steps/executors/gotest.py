@@ -108,7 +108,7 @@ class GotestExecutor(TestExecutor):
         gotest_dir = get_config_value_by_cmd_line_option(
             config, GotestTestFilteringPipeline.KEY_CONFIG_OPTION_GOTEST_DIR
         )
-        gotest_dir = os.path.join(os.path.dirname(config.chart_file), gotest_dir)
+        gotest_dir = self._resolve_test_dir(config, gotest_dir)
         if not os.path.isdir(gotest_dir):
             raise ValidationError(
                 module_name,

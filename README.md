@@ -138,15 +138,17 @@ As an example, we have included a chart
 in this repository in
 [`examples/apps/hello-world-app`](examples/apps/hello-world-app). Its configuration file for
 `ats` is in the [.ats/main.yaml](examples/apps/hello-world-app/.ats/main.yaml) file.
-To test the chart using `ats`
-and the provided config file, run:
+`ats` discovers tests and its `.ats/main.yaml` config relative to the directory you run it from (the working
+directory), independently of where the `-c` chart archive lives. To test the chart using `ats` and the
+provided config file, run it from the chart's directory:
 
 ```bash
-ats -c examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz
+cd examples/apps/hello-world-app
+ats -c hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz
 ```
 
-To run it, you need to have an existing Kubernetes cluster. `kube.config` file needed to authorize with it
-needs to be saved in the root directory of this repository. If you have `kind`, you can create the cluster
+To run it, you need to have an existing Kubernetes cluster. The bundled `.ats/main.yaml` points `ats` at a
+`kube.config` file in the working directory. If you have `kind`, you can create the cluster
 and its config file like this:
 
 ```bash
@@ -180,7 +182,8 @@ After bootstrapping, `ats` starts executing test scenarios. Currently, we have 3
 look at what happens when you execute:
 
 ```bash
-ats -c examples/apps/hello-world-app/hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz \
+# run from the chart's directory (examples/apps/hello-world-app), where tests/ats lives
+ats -c hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz \
   --functional-tests-cluster-type external \
   --smoke-tests-cluster-type external \
   --skip-steps upgrade \

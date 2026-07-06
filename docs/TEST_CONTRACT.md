@@ -15,8 +15,10 @@ pre-hook  →  label-filtered tests  →  post-hook
 3. **post-hook** (`--app-tests-post-hook`): optional executable run after tests complete (pass or "no tests matched"). Use it to export metrics, clean up external resources, etc.
 
 The upgrade scenario wraps the full stable → upgrade flow with the scenario-level hooks and additionally fires two finer-grained hooks **around the `helm upgrade`** step:
-- `--upgrade-tests-upgrade-hook <cmd> pre_upgrade ...` — after stable tests, before `helm upgrade`.
-- `--upgrade-tests-upgrade-hook <cmd> post_upgrade ...` — after `helm upgrade`, before post-upgrade tests.
+- `pre_upgrade` (`ATS_HOOK_STAGE=pre_upgrade`): runs after stable tests, before `helm upgrade`.
+- `post_upgrade` (`ATS_HOOK_STAGE=post_upgrade`): runs after `helm upgrade`, before post-upgrade tests.
+
+Both stages run the executable given by `--upgrade-tests-upgrade-hook`.
 
 ## Test labels
 
@@ -44,7 +46,7 @@ ATS sets these variables for both test code and hooks:
 | `ATS_TEST_TYPE` | Active label (`smoke`, `functional`, `upgrade`). |
 | `ATS_TEST_DIR` | Directory where the test source lives. |
 | `ATS_RELEASE_NAME` | Helm release name (set when a release was deployed). |
-| `ATS_DEPLOY_NAMESPACE` | Kubernetes namespace the release was deployed into. |
+| `ATS_RELEASE_NAMESPACE` | Kubernetes namespace the release was deployed into. |
 | `ATS_APP_CONFIG_FILE_PATH` | Values file path (set when `--app-tests-app-config-file` is provided). |
 
 Hooks additionally receive:
@@ -53,9 +55,12 @@ Hooks additionally receive:
 |---|---|
 | `ATS_HOOK_STAGE` | `pre` or `post`. |
 
-The upgrade-stage hook receives context via **positional arguments** (not env vars):
-`<cmd> <stage_name> <app_name> <from_version> <to_version> <kube_config_path> <deploy_namespace>`
-where `stage_name` is `pre_upgrade` or `post_upgrade`.
+The upgrade-stage hook receives context via environment variables, the same way the pre/post hooks do. In addition to the variables above (`ATS_HOOK_STAGE` is `pre_upgrade` or `post_upgrade`), it receives:
+
+| Variable | Value |
+|---|---|
+| `ATS_UPGRADE_FROM_VERSION` | Chart version the release is upgraded from (the stable version). |
+| `ATS_UPGRADE_TO_VERSION` | Chart version the release is upgraded to (the version under test). |
 
 ## pytest marker registration
 

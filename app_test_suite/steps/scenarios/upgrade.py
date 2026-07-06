@@ -397,16 +397,17 @@ class UpgradeTestScenario(SimpleTestScenario):
             config,
             BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
         )
+        env = os.environ.copy()
+        env["KUBECONFIG"] = cast(ClusterInfo, self._cluster_info).kube_config_path
+        env["ATS_HOOK_STAGE"] = stage_name
+        env["ATS_TEST_TYPE"] = str(self.test_provided)
+        env["ATS_RELEASE_NAME"] = app_name
+        env["ATS_UPGRADE_FROM_VERSION"] = from_version
+        env["ATS_UPGRADE_TO_VERSION"] = to_version
+        if deploy_namespace:
+            env["ATS_RELEASE_NAMESPACE"] = deploy_namespace
         args = upgrade_hook_exe.split(" ")
-        args += [
-            stage_name,
-            app_name,
-            from_version,
-            to_version,
-            cast(ClusterInfo, self._cluster_info).kube_config_path,
-            deploy_namespace,
-        ]
-        run_res = run_and_log(args)  # nosec, user configurable input, but we have to accept it here
+        run_res = run_and_log(args, env=env)  # nosec, user configurable input, but we have to accept it here
         if run_res.returncode != 0:
             raise ATSTestError(
                 f"Upgrade hook for stage '{stage_name}' returned non-zero exit code: '{run_res.returncode}'."

@@ -120,10 +120,10 @@ def configure_test_specific_options(config_parser: configargparse.ArgParser) -> 
     config_parser_group.add_argument(
         KEY_CFG_STABLE_APP_VERSION,
         required=False,
-        default="latest",
-        help=f"Version of the app to test the upgrade from. If not given, the default value of 'latest' is used, which "
-        "means latest version available will be detected and used. The version configured must be present "
-        f"in the catalog configured with '{KEY_CFG_STABLE_APP_URL}'. "
+        default="stable",
+        help=f"Version of the app to test the upgrade from. If not given, the default value of 'stable' is used, which "
+        "means the latest stable (non-prerelease) version available is detected and used. Any explicit version "
+        f"configured instead must be present in the catalog configured with '{KEY_CFG_STABLE_APP_URL}'. "
         f"Used only if '{KEY_CFG_STABLE_APP_URL} is used.'",
     )
     config_parser_group.add_argument(

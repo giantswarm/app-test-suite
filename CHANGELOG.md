@@ -7,6 +7,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Added
 
+- OCI catalog URLs (`oci://...`) are now supported for `--upgrade-tests-app-catalog-url`; `helm pull oci://<url>/<chart>` is used automatically.
+- `--upgrade-tests-app-version stable` (the new default) discovers the latest stable (non-prerelease) version to upgrade from, for both HTTP(S) chart repositories (via `index.yaml`) and OCI registries (via the registry tags API).
 - Test suites receive `ATS_RELEASE_NAME` and `ATS_RELEASE_NAMESPACE` environment variables identifying the deployed Helm release and the namespace it was installed into.
 - `helm` is now bundled in the ATS Docker image (renovate-pinned).
 - `--app-tests-pre-hook`: executable run after chart install but before the label-filtered tests; `KUBECONFIG`, `ATS_*`, and `ATS_HOOK_STAGE=pre` are set in the environment.
@@ -18,6 +20,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 ### Changed
 
 - **BREAKING:** The upgrade-stage hook (`--upgrade-tests-upgrade-hook`) now receives its context through environment variables instead of positional arguments, matching the `pre`/`post` scenario hooks. It gets `ATS_HOOK_STAGE` (`pre_upgrade` or `post_upgrade`), `ATS_RELEASE_NAME`, `ATS_RELEASE_NAMESPACE`, `ATS_UPGRADE_FROM_VERSION`, `ATS_UPGRADE_TO_VERSION`, and `KUBECONFIG`. Hook scripts reading positional `$1`..`$6` must read these variables instead.
+- **BREAKING:** The `--upgrade-tests-app-version` magic value `latest` is renamed to `stable` and now resolves to the latest stable (non-prerelease) version instead of the latest version overall. The default changed from `latest` to `stable`. Pass an explicit version to pin one.
 - **BREAKING:** Smoke, functional, and upgrade scenarios now deploy the chart under test directly with Helm (`helm upgrade --install`, `helm uninstall`) instead of creating an `App` CR. The upgrade scenario installs the stable chart, runs `helm upgrade` to the version under test, and uninstalls with Helm. Test suites that read the `App` CR must instead assert against the deployed workloads via the kube client, using `ATS_RELEASE_NAME` / `ATS_RELEASE_NAMESPACE`. Values files continue to be passed through `--app-tests-app-config-file` (forwarded to `helm --values`).
 - **BREAKING:** During the pre-upgrade test phase, `ATS_CHART_PATH` is now the local path of the stable chart `.tgz` instead of a remote chartmuseum URL. Test suites that fetched it as a URL must read it as a filesystem path.
 - **BREAKING:** `PytestExecutor` now uses `uv sync` / `uv run pytest` instead of `pipenv install --deploy` /
@@ -35,6 +38,11 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
   Commit `pyproject.toml` and `uv.lock`. See [docs/pytest-test-pipeline.md](docs/pytest-test-pipeline.md)
   for full instructions.
 
+- The bundled `container-crds/` are now synced directly from their upstream projects by
+  `hack/sync-crds.sh` (run via `make update-crds`) instead of being vendored from `giantswarm/apptestctl`'s
+  `pkg/crds/`. Every source is pinned to an explicit version; most pins are kept up to date automatically by
+  Renovate. This drops the last dependency on `apptestctl`.
+
 ### Fixed
 
 - `--app-tests-skip-app-delete` now prevents teardown of the deployed chart. It was previously ignored whenever the chart had been deployed (only honored when `--app-tests-skip-app-deploy` was also set).
@@ -44,6 +52,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 - App CR deployment path, app-operator, chart-operator, and chartmuseum support removed.
 - `apptestctl` binary dropped from the Docker image. CRDs are now bundled in `container-crds/` and applied via `kubectl apply --server-side` during cluster bootstrap.
+- Giant Swarm App Platform CRDs (App, Chart, Catalog, AppCatalog, AppCatalogEntry) are no longer bundled in `container-crds/`. Since charts are deployed directly with Helm instead of via an `App` CR, the test cluster no longer needs them.
 - **BREAKING:** `dats.sh` is no longer published as a release asset. Run the image directly: `docker run --rm -it -v "$(pwd):/ats/workdir" -v /var/run/docker.sock:/var/run/docker.sock --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>`. CI consumers must move to `architect/run-tests-with-ats` v10+, which runs the container directly instead of downloading `dats.sh`.
 
 ## [0.15.0] - 2026-04-02

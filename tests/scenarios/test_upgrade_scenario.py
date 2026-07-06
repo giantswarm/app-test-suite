@@ -142,7 +142,7 @@ def test_find_latest_version(
     caught_error = None
     ver = ""
     try:
-        ver = runner._get_latest_app_version(catalog_url, app_name)
+        ver = runner._get_latest_stable_version(catalog_url, app_name)
     except Exception as e:
         caught_error = e
 
@@ -307,3 +307,162 @@ def test_resolve_stable_chart_remote_pull_fails(mocker: MockerFixture) -> None:
 
     with pytest.raises(ATSTestError, match="failed"):
         runner._resolve_stable_chart(_remote_upgrade_config(mocker), {}, MOCK_APP_NAME, "/tmp/ats-dl")
+
+
+MOCK_OCI_CATALOG_URL = "oci://giantswarmpublic.azurecr.io/giantswarm-catalog"
+
+
+def _oci_upgrade_config(mocker: MockerFixture) -> Mock:
+    config = mocker.Mock(name="OciConfigMock")
+    config.upgrade_tests_app_catalog_url = MOCK_OCI_CATALOG_URL
+    config.upgrade_tests_app_version = MOCK_UPGRADE_APP_VERSION
+    return config
+
+
+def _oci_upgrade_config_stable(mocker: MockerFixture) -> Mock:
+    config = mocker.Mock(name="OciConfigMockStable")
+    config.upgrade_tests_app_catalog_url = MOCK_OCI_CATALOG_URL
+    config.upgrade_tests_app_version = "stable"
+    return config
+
+
+def _http_upgrade_config_stable(mocker: MockerFixture) -> Mock:
+    config = mocker.Mock(name="HttpConfigMockStable")
+    config.upgrade_tests_app_catalog_url = MOCK_UPGRADE_CATALOG_URL
+    config.upgrade_tests_app_version = "stable"
+    return config
+
+
+def test_resolve_stable_chart_oci_pulls_with_helm(mocker: MockerFixture) -> None:
+    mocker.patch(
+        "app_test_suite.steps.scenarios.upgrade.run_and_log",
+        return_value=get_run_and_log_result_mock(mocker),
+    )
+    mocker.patch("app_test_suite.steps.scenarios.upgrade.TestInfoProvider")
+    runner = _make_remote_upgrade_runner(mocker)
+
+    chart_file, chart_ver = runner._resolve_stable_chart(_oci_upgrade_config(mocker), {}, MOCK_APP_NAME, "/tmp/ats-dl")
+
+    assert chart_ver == MOCK_UPGRADE_APP_VERSION
+    assert chart_file == f"/tmp/ats-dl/{MOCK_APP_NAME}-{MOCK_UPGRADE_APP_VERSION}.tgz"
+    run_and_log_mock = cast(Mock, app_test_suite.steps.scenarios.upgrade.run_and_log)
+    run_and_log_mock.assert_called_once()
+    assert run_and_log_mock.call_args.args[0] == [
+        _HELM_BIN,
+        "pull",
+        f"{MOCK_OCI_CATALOG_URL}/{MOCK_APP_NAME}",
+        "--version",
+        MOCK_UPGRADE_APP_VERSION,
+        "--destination",
+        "/tmp/ats-dl",
+    ]
+    assert run_and_log_mock.call_args.kwargs["timeout"] == _HELM_PULL_TIMEOUT_SEC
+
+
+def _mock_tags_response(mocker: MockerFixture, status_code: int, tags: list) -> Mock:
+    response = mocker.MagicMock(spec=Response, name="tags response")
+    response.status_code = status_code
+    response.ok = 300 > status_code >= 200
+    response.reason = "OK" if response.ok else "Unauthorized"
+    response.headers = {}
+    response.json.return_value = {"name": "repo", "tags": tags}
+    return response
+
+
+def test_resolve_stable_chart_oci_stable_discovers_and_pulls(mocker: MockerFixture) -> None:
+    mocker.patch(
+        "app_test_suite.steps.scenarios.upgrade.run_and_log",
+        return_value=get_run_and_log_result_mock(mocker),
+    )
+    mocker.patch("app_test_suite.steps.scenarios.upgrade.TestInfoProvider")
+    mocker.patch(
+        "app_test_suite.steps.scenarios.upgrade.requests.get",
+        return_value=_mock_tags_response(mocker, 200, ["0.1.0", "0.3.0-rc1", "0.2.0", "not-semver"]),
+    )
+    runner = _make_remote_upgrade_runner(mocker)
+
+    chart_file, chart_ver = runner._resolve_stable_chart(
+        _oci_upgrade_config_stable(mocker), {}, MOCK_APP_NAME, "/tmp/ats-dl"
+    )
+
+    assert chart_ver == "0.2.0"
+    assert chart_file == f"/tmp/ats-dl/{MOCK_APP_NAME}-0.2.0.tgz"
+    run_and_log_mock = cast(Mock, app_test_suite.steps.scenarios.upgrade.run_and_log)
+    assert run_and_log_mock.call_args.args[0] == [
+        _HELM_BIN,
+        "pull",
+        f"{MOCK_OCI_CATALOG_URL}/{MOCK_APP_NAME}",
+        "--version",
+        "0.2.0",
+        "--destination",
+        "/tmp/ats-dl",
+    ]
+
+
+def test_resolve_stable_chart_http_stable_discovers_and_pulls(mocker: MockerFixture) -> None:
+    mocker.patch(
+        "app_test_suite.steps.scenarios.upgrade.run_and_log",
+        return_value=get_run_and_log_result_mock(mocker),
+    )
+    mocker.patch("app_test_suite.steps.scenarios.upgrade.TestInfoProvider")
+    mocker.patch.object(UpgradeTestScenario, "_get_latest_stable_version", return_value="0.2.4")
+    runner = _make_remote_upgrade_runner(mocker)
+
+    chart_file, chart_ver = runner._resolve_stable_chart(
+        _http_upgrade_config_stable(mocker), {}, MOCK_APP_NAME, "/tmp/ats-dl"
+    )
+
+    assert chart_ver == "0.2.4"
+    assert chart_file == f"/tmp/ats-dl/{MOCK_APP_NAME}-0.2.4.tgz"
+    cast(Mock, UpgradeTestScenario._get_latest_stable_version).assert_called_once_with(
+        MOCK_UPGRADE_CATALOG_URL, MOCK_APP_NAME
+    )
+
+
+def test_get_latest_stable_oci_version_skips_prereleases_and_unparseable(mocker: MockerFixture) -> None:
+    mocker.patch(
+        "app_test_suite.steps.scenarios.upgrade.requests.get",
+        return_value=_mock_tags_response(mocker, 200, ["1.0.0", "1.2.0-rc.1", "1.1.0", "latest"]),
+    )
+    runner = _make_remote_upgrade_runner(mocker)
+
+    assert runner._get_latest_stable_oci_version(MOCK_OCI_CATALOG_URL, MOCK_APP_NAME) == "1.1.0"
+    cast(Mock, app_test_suite.steps.scenarios.upgrade.requests.get).assert_called_once_with(
+        f"https://giantswarmpublic.azurecr.io/v2/giantswarm-catalog/{MOCK_APP_NAME}/tags/list", timeout=10
+    )
+
+
+def test_get_latest_stable_oci_version_no_stable_raises(mocker: MockerFixture) -> None:
+    mocker.patch(
+        "app_test_suite.steps.scenarios.upgrade.requests.get",
+        return_value=_mock_tags_response(mocker, 200, ["1.0.0-rc.1", "not-semver"]),
+    )
+    runner = _make_remote_upgrade_runner(mocker)
+
+    with pytest.raises(ATSTestError, match="No stable version"):
+        runner._get_latest_stable_oci_version(MOCK_OCI_CATALOG_URL, MOCK_APP_NAME)
+
+
+def test_get_latest_stable_oci_version_handles_token_auth(mocker: MockerFixture) -> None:
+    challenge = _mock_tags_response(mocker, 401, [])
+    challenge.headers = {
+        "WWW-Authenticate": 'Bearer realm="https://auth.example.com/token",'
+        'service="registry.example.com",scope="repository:giantswarm-catalog/app:pull"'
+    }
+    token_response = mocker.MagicMock(spec=Response, name="token response")
+    token_response.ok = True
+    token_response.json.return_value = {"access_token": "secret-token"}
+    tags_response = _mock_tags_response(mocker, 200, ["2.0.0", "1.0.0"])
+
+    get_mock = mocker.patch(
+        "app_test_suite.steps.scenarios.upgrade.requests.get",
+        side_effect=[challenge, token_response, tags_response],
+    )
+    runner = _make_remote_upgrade_runner(mocker)
+
+    assert runner._get_latest_stable_oci_version(MOCK_OCI_CATALOG_URL, MOCK_APP_NAME) == "2.0.0"
+    assert get_mock.call_count == 3
+    # token is fetched from the advertised realm
+    assert get_mock.call_args_list[1].args[0] == "https://auth.example.com/token"
+    # authenticated retry carries the bearer token
+    assert get_mock.call_args_list[2].kwargs["headers"] == {"Authorization": "Bearer secret-token"}

@@ -46,6 +46,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 - `--app-tests-skip-app-delete` now prevents teardown of the deployed chart. It was previously ignored whenever the chart had been deployed (only honored when `--app-tests-skip-app-deploy` was also set).
 - The `versions` command no longer fails with `apptestctl: command not found` after the `apptestctl` binary was dropped from the image.
+- Errors raised while running a test scenario now preserve the original exception as the cause and no longer report every failure as an "Application deployment failed", so pre-hook, test, and post-hook failures are attributed correctly.
 
 ### Removed
 

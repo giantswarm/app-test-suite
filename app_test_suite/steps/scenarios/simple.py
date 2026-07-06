@@ -229,7 +229,7 @@ class SimpleTestScenario(BuildStep, ABC):
             self._run_hook(config, context, "post")
         except Exception as e:
             self._collect_failure_diagnostics(config, context)
-            raise ATSTestError(f"Application deployment failed: {e}")
+            raise ATSTestError(f"Application test run failed: {e}") from e
         finally:
             # honor --app-tests-skip-app-delete; both delete helpers no-op when nothing was deployed
             if not get_config_value_by_cmd_line_option(

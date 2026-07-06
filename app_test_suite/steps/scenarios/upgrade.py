@@ -125,7 +125,6 @@ class UpgradeTestScenario(SimpleTestScenario):
                     KEY_CFG_UPGRADE_HOOK,
                     f"Upgrade hook was configured, but '{cmd}' was not found to be a valid executable.",
                 )
-        self._test_executor.validate(config, self.name)
 
     def _resolve_stable_chart(
         self,

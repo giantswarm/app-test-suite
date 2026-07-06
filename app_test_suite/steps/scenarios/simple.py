@@ -312,7 +312,6 @@ class SimpleTestScenario(BuildStep, ABC):
                 self._current_gitops_engine = None
 
     def _run_test_iteration(self, config: argparse.Namespace, context: Context) -> None:
-        deployed_this_iteration = False
         iteration_failed = False
         try:
             if (
@@ -323,13 +322,7 @@ class SimpleTestScenario(BuildStep, ABC):
                 and not self._skip_app_deploy
             ):
                 self._deploy_tested_chart_as_app(config, context)
-                deployed_this_iteration = True
-                if self._current_gitops_engine:
-                    wait_for_bundle_ready(
-                        cast(ClusterInfo, self._cluster_info).kube_config_path,
-                        self._current_gitops_engine,
-                        self._gitops_bundle_ready_timeout_sec,
-                    )
+                self._wait_for_bundle_ready_on_engine()
             self._run_hook(config, context, "pre")
             self.run_tests(config, context)
             self._run_hook(config, context, "post")
@@ -343,8 +336,9 @@ class SimpleTestScenario(BuildStep, ABC):
                 config,
                 BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_SKIP_DELETE_APP,
             ):
+                release_deployed = context.get(CONTEXT_KEY_RELEASE_NAME) is not None
                 self._delete_release(config, context)
-                if self._current_gitops_engine and deployed_this_iteration:
+                if self._current_gitops_engine and release_deployed:
                     try:
                         wait_for_bundle_drained(
                             cast(ClusterInfo, self._cluster_info).kube_config_path,
@@ -363,6 +357,28 @@ class SimpleTestScenario(BuildStep, ABC):
                             " iteration; keeping the original failure as the reported error.",
                             exc_info=True,
                         )
+
+    def _wait_for_bundle_ready_on_engine(self) -> None:
+        if not self._current_gitops_engine:
+            return
+        wait_for_bundle_ready(
+            cast(ClusterInfo, self._cluster_info).kube_config_path,
+            self._current_gitops_engine,
+            self._gitops_bundle_ready_timeout_sec,
+        )
+
+    def _stack_engine_overlay(self, config: argparse.Namespace, values_files: List[str]) -> List[str]:
+        if not self._current_gitops_engine:
+            return values_files
+        overlay_path = resolve_engine_overlay(
+            self._current_gitops_engine,
+            get_config_value_by_cmd_line_option(
+                config, self._config_gitops_values_attribute_name(self._current_gitops_engine)
+            ),
+        )
+        if overlay_path:
+            return values_files + [overlay_path]
+        return values_files
 
     def _ensure_gitops_engine_installed(self, engine: GitOpsEngine, config: argparse.Namespace) -> None:
         cluster_info = cast(ClusterInfo, self._cluster_info)
@@ -403,16 +419,7 @@ class SimpleTestScenario(BuildStep, ABC):
             config,
             BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE,
         )
-        values_files = [app_config_file_path] if app_config_file_path else []
-        if self._current_gitops_engine:
-            overlay_path = resolve_engine_overlay(
-                self._current_gitops_engine,
-                get_config_value_by_cmd_line_option(
-                    config, self._config_gitops_values_attribute_name(self._current_gitops_engine)
-                ),
-            )
-            if overlay_path:
-                values_files.append(overlay_path)
+        values_files = self._stack_engine_overlay(config, [app_config_file_path] if app_config_file_path else [])
         self._helm_deploy(release_name, config.chart_file, deploy_namespace, values_files)
         context[CONTEXT_KEY_RELEASE_NAME] = release_name
 

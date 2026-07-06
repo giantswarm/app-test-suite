@@ -32,7 +32,6 @@ from app_test_suite.config import (
     KEY_CFG_UPGRADE_SAVE_METADATA,
 )
 from app_test_suite.errors import ATSTestError
-from app_test_suite.gitops import GitOpsEngine
 from app_test_suite.steps.base import (
     TestExecutor,
     CONTEXT_KEY_CHART_YAML,
@@ -75,15 +74,6 @@ class UpgradeTestScenario(SimpleTestScenario):
     @property
     def test_provided(self) -> StepType:
         return STEP_TEST_UPGRADE
-
-    def _resolve_gitops_engines(self, config: argparse.Namespace) -> List[GitOpsEngine]:
-        engines = super()._resolve_gitops_engines(config)
-        if engines:
-            logger.warning(
-                "GitOps engine testing is not supported in the upgrade scenario yet;"
-                " falling back to the plain Helm deploy."
-            )
-        return []
 
     def pre_run(self, config: argparse.Namespace) -> None:
         super().pre_run(config)
@@ -207,10 +197,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         app_name = context[CONTEXT_KEY_CHART_YAML]["name"]
         chart_version = context[CONTEXT_KEY_CHART_YAML]["version"]
 
-        deploy_namespace = get_config_value_by_cmd_line_option(
-            config,
-            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
-        )
+        deploy_namespace = self._effective_deploy_namespace(config)
         stable_app_cfg_file = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_CONFIG)
         app_config_file_path = get_config_value_by_cmd_line_option(
             config,
@@ -228,9 +215,13 @@ class UpgradeTestScenario(SimpleTestScenario):
 
             # deploy the stable version
             self._helm_deploy(
-                app_name, stable_chart_file, deploy_namespace, [stable_app_cfg_file] if stable_app_cfg_file else []
+                app_name,
+                stable_chart_file,
+                deploy_namespace,
+                self._stack_engine_overlay(config, [stable_app_cfg_file] if stable_app_cfg_file else []),
             )
             context[CONTEXT_KEY_RELEASE_NAME] = app_name
+            self._wait_for_bundle_ready_on_engine()
 
             # run pre-upgrade tests
             exec_info = self._get_test_exec_info(
@@ -240,7 +231,7 @@ class UpgradeTestScenario(SimpleTestScenario):
                 config,
                 release_name=app_name,
                 deploy_namespace=deploy_namespace,
-                test_extra_info={KEY_UPGRADE_TEST_STAGE_EXTRA_INFO: KEY_PRE_UPGRADE},
+                test_extra_info=self._upgrade_stage_extra_info(KEY_PRE_UPGRADE),
             )
             self._test_executor.prepare_test_environment(exec_info)
             self._test_executor.execute_test(exec_info)
@@ -250,8 +241,12 @@ class UpgradeTestScenario(SimpleTestScenario):
 
             # upgrade to the version under test
             self._helm_deploy(
-                app_name, config.chart_file, deploy_namespace, [app_config_file_path] if app_config_file_path else []
+                app_name,
+                config.chart_file,
+                deploy_namespace,
+                self._stack_engine_overlay(config, [app_config_file_path] if app_config_file_path else []),
             )
+            self._wait_for_bundle_ready_on_engine()
 
             # run the optional post-upgrade hook
             self._run_upgrade_hook(config, KEY_POST_UPGRADE, app_name, stable_chart_ver, chart_version)
@@ -417,10 +412,7 @@ class UpgradeTestScenario(SimpleTestScenario):
             return
 
         logger.info(f"Executing upgrade hook: '{upgrade_hook_exe}' with stage '{stage_name}'.")
-        deploy_namespace = get_config_value_by_cmd_line_option(
-            config,
-            BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_DEPLOY_NAMESPACE,
-        )
+        deploy_namespace = self._effective_deploy_namespace(config)
         env = os.environ.copy()
         env["KUBECONFIG"] = cast(ClusterInfo, self._cluster_info).kube_config_path
         env["ATS_HOOK_STAGE"] = stage_name
@@ -436,6 +428,12 @@ class UpgradeTestScenario(SimpleTestScenario):
             raise ATSTestError(
                 f"Upgrade hook for stage '{stage_name}' returned non-zero exit code: '{run_res.returncode}'."
             )
+
+    def _upgrade_stage_extra_info(self, stage: str) -> Dict[str, str]:
+        extra_info = {KEY_UPGRADE_TEST_STAGE_EXTRA_INFO: stage}
+        if self._current_gitops_engine:
+            extra_info["gitops_engine"] = self._current_gitops_engine.value
+        return extra_info
 
     def _get_test_exec_info(
         self,

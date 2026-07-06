@@ -31,7 +31,7 @@ release: release_ver_to_code docker-test docker-build-image
 
 release_ver_to_code:
 	$(call check_defined, TAG)
-	sed -i 's/version = ".*"/version = "'${TAG}'"/' pyproject.toml
+	sed -i "s/version = \".*\"/version = \"$${TAG#v}\"/" pyproject.toml
 	uv lock
 	echo "build_ver = \"${TAG}\"" > app_test_suite/version.py
 	$(eval IMG_VER := ${TAG})

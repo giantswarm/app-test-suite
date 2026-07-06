@@ -37,7 +37,49 @@ To build the Chart, please consider the companion [app-build-suite](https://gith
 
 ### Installation
 
-`ats` is distributed as a docker image, so you run it directly with `docker run`. The interactive run command is:
+#### With uv
+
+You can install `app-test-suite` as a command line tool invoked with the `ats` command. In this mode you're
+responsible for installing all the binary dependencies that `ats` needs to work.
+
+This mode doesn't need docker to run `ats` itself, so it's a good match for all the systems built with isolation
+and sandboxing in mind, like CI/CD or AI agents running in isolated jails/sandboxes.
+
+The main tool you need is [uv](https://github.com/astral-sh/uv). Please refer to the
+[uv installation documentation](https://docs.astral.sh/uv/getting-started/installation/) for instructions on how
+to install it.
+
+Depending on the test scenarios and cluster provider you use, you also need some of the following binaries
+installed and available on your `PATH`:
+
+- [helm](https://helm.sh/docs/intro/install/) (always required)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) (always required)
+- [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) and a working
+  [docker](https://docs.docker.com/get-docker/) daemon (only when using the built-in `kind` cluster provider)
+- [go](https://go.dev/doc/install) (only when using the `gotest` test executor)
+
+Then, to install `ats`, just run:
+
+```bash
+uv tool install app-test-suite
+```
+
+Check the installation:
+
+```bash
+ats --version
+```
+
+To upgrade:
+
+```bash
+uv tool upgrade app-test-suite
+```
+
+#### With docker
+
+`ats` is also distributed as a docker image, so you can run it directly with `docker run`. This bundles all the
+binary dependencies for you, but requires access to the docker socket. The interactive run command is:
 
 ```bash
 docker run --rm -it \

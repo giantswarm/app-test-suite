@@ -3,4 +3,13 @@
     "github>giantswarm/renovate-presets:default.json5",
     "github>giantswarm/renovate-presets:lang-python.json5",
   ],
+  "regexManagers": [
+    {
+      "fileMatch": ["^hack/sync-crds\\.sh$"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\n]+)\\n\\w+=\"(?<currentValue>[^\"]+)\"",
+      ],
+      "versioningTemplate": "semver",
+    },
+  ],
 }

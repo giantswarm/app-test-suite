@@ -37,6 +37,11 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
   Commit `pyproject.toml` and `uv.lock`. See [docs/pytest-test-pipeline.md](docs/pytest-test-pipeline.md)
   for full instructions.
 
+- The bundled `container-crds/` are now synced directly from their upstream projects by
+  `hack/sync-crds.sh` (run via `make update-crds`) instead of being vendored from `giantswarm/apptestctl`'s
+  `pkg/crds/`. Every source is pinned to an explicit version; most pins are kept up to date automatically by
+  Renovate. This drops the last dependency on `apptestctl`.
+
 ### Fixed
 
 - `--app-tests-skip-app-delete` now prevents teardown of the deployed chart. It was previously ignored whenever the chart had been deployed (only honored when `--app-tests-skip-app-deploy` was also set).
@@ -46,6 +51,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 - App CR deployment path, app-operator, chart-operator, and chartmuseum support removed.
 - `apptestctl` binary dropped from the Docker image. CRDs are now bundled in `container-crds/` and applied via `kubectl apply --server-side` during cluster bootstrap.
+- Giant Swarm App Platform CRDs (App, Chart, Catalog, AppCatalog, AppCatalogEntry) are no longer bundled in `container-crds/`. Since charts are deployed directly with Helm instead of via an `App` CR, the test cluster no longer needs them.
 - **BREAKING:** `dats.sh` is no longer published as a release asset. Run the image directly: `docker run --rm -it -v "$(pwd):/ats/workdir" -v /var/run/docker.sock:/var/run/docker.sock --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>`. CI consumers must move to `architect/run-tests-with-ats` v10+, which runs the container directly instead of downloading `dats.sh`.
 
 ## [0.15.0] - 2026-04-02

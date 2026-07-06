@@ -48,12 +48,11 @@ class SimpleTestScenario(BuildStep, ABC):
     test scenario.
     """
 
-    _CRD_DIR = "/etc/ats/crds"
-
     def __init__(self, cluster_manager: ClusterManager, test_executor: TestExecutor):
         self._cluster_manager = cluster_manager
         self._configured_cluster_type: ClusterType = ClusterType("")
         self._configured_cluster_config_file = ""
+        self._configured_crd_dir = BaseTestScenariosFilteringPipeline.DEFAULT_CLUSTER_CRDS_DIR
         self._kube_client: Optional[HTTPClient] = None
         self._cluster_info: Optional[ClusterInfo] = None
         self._skip_app_deploy = False
@@ -142,9 +141,9 @@ class SimpleTestScenario(BuildStep, ABC):
             raise ATSTestError(f"{stage.capitalize()}-hook '{hook_cmd}' failed with exit code {run_res.returncode}")
 
     def _ensure_cluster_prerequisites(self, kube_config_path: str) -> None:
-        logger.info(f"Applying cluster CRDs from {self._CRD_DIR}")
+        logger.info(f"Applying cluster CRDs from {self._configured_crd_dir}")
         run_res = run_and_log(
-            ["kubectl", f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", self._CRD_DIR],
+            ["kubectl", f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", self._configured_crd_dir],
             capture_output=True,
         )  # nosec
         if run_res.returncode != 0:
@@ -191,6 +190,9 @@ class SimpleTestScenario(BuildStep, ABC):
             )
         self._configured_cluster_type = cluster_type
         self._configured_cluster_config_file = cluster_config_file if cluster_config_file is not None else ""
+        self._configured_crd_dir = get_config_value_by_cmd_line_option(
+            config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_CLUSTER_CRDS
+        )
         self._test_executor.validate(config, self.name)
 
     def run(self, config: argparse.Namespace, context: Context) -> None:

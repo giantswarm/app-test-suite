@@ -35,6 +35,8 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
     KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE = "--app-tests-app-config-file"
     KEY_CONFIG_OPTION_PRE_HOOK = "--app-tests-pre-hook"
     KEY_CONFIG_OPTION_POST_HOOK = "--app-tests-post-hook"
+    KEY_CONFIG_OPTION_CLUSTER_CRDS = "--cluster-crds"
+    DEFAULT_CLUSTER_CRDS_DIR = "/etc/ats/crds"
 
     def __init__(self, pipeline: List[BuildStep], cluster_manager: ClusterManager):
         super().__init__(pipeline, self.KEY_CONFIG_GROUP_NAME)
@@ -82,6 +84,13 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
             self.KEY_CONFIG_OPTION_POST_HOOK,
             required=False,
             help="Executable run after tests complete (pass or skip). ATS_* env vars and KUBECONFIG are set.",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_CLUSTER_CRDS,
+            required=False,
+            default=self.DEFAULT_CLUSTER_CRDS_DIR,
+            help="Path or URL passed to 'kubectl apply --server-side -f' to bootstrap CRDs on the test cluster"
+            f" before running tests. (default: {self.DEFAULT_CLUSTER_CRDS_DIR})",
         )
         self._cluster_manager.initialize_config(self._config_parser_group)
 

@@ -96,7 +96,7 @@ COPY --from=builder --chown=1000:1000 $ATS_DIR $ATS_DIR
 
 WORKDIR $ATS_DIR/workdir
 
-RUN mkdir -p ${ATS_DIR}/.cache/go-build
+RUN mkdir -p ${ATS_DIR}/.cache/go-build && chown -R 1000:1000 ${ATS_DIR}/.cache
 
 ENTRYPOINT ["container-entrypoint.sh"]
 

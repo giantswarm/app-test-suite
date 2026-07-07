@@ -140,8 +140,6 @@ class SimpleTestScenario(BuildStep, ABC):
     def run(self, config: argparse.Namespace, context: Context) -> None:
         logger.info("Using the configured test cluster.")
         self._cluster_info = self._cluster_manager.get_cluster()
-        if not self._cluster_info:
-            raise ATSTestError("Didn't get cluster info from cluster manager")
 
         logger.info("Establishing connection to the test cluster.")
         try:

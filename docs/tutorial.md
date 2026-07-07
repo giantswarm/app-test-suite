@@ -148,7 +148,7 @@ INFO: Running pre-run step for SmokeTestScenario
 ...
 INFO: Using the configured test cluster.
 INFO: Applying cluster CRDs from /etc/ats/crds
-INFO: Running command: kubectl --kubeconfig=kube.config apply --server-side -f /etc/ats/crds
+INFO: Running command: kubectl --kubeconfig=./kube.config apply --server-side -f /etc/ats/crds
 INFO: Cluster CRDs bootstrapped and ready.
 INFO: Ensuring namespace 'policy-exceptions'.
 INFO: Installing chart as Helm release 'hello-world-app' into namespace 'default'.

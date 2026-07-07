@@ -195,18 +195,26 @@ class TestExecutor(ABC):
         raise NotImplementedError()
 
     def get_test_info_env_variables(self, exec_info: TestExecInfo, append_to_sys_env: bool = True) -> Dict[str, str]:
-        env_vars = {
-            "ATS_CHART_PATH": exec_info.chart_path,
-            "ATS_CHART_VERSION": exec_info.chart_ver,
-            "ATS_CLUSTER_TYPE": exec_info.cluster_type,
-            "ATS_CLUSTER_VERSION": exec_info.cluster_version,
-            "ATS_TEST_TYPE": exec_info.test_type,
-            "ATS_TEST_DIR": self._test_dir,
-        }
+        env_vars: Dict[str, str] = {}
         if append_to_sys_env:
             env_vars.update(os.environ)
 
-        env_vars["KUBECONFIG"] = exec_info.kube_config_path
+        # ATS-derived values are layered on top of the ambient environment so they always win, even
+        # when the ambient env already carries a colliding ATS_* variable. This matters for
+        # ATS_CLUSTER_TYPE / ATS_CLUSTER_VERSION, which double as input-option env vars
+        # ('--cluster-type' / '--cluster-version', via the 'ATS_' auto-env-var prefix) and as output
+        # vars exported to the tests here; a stale ambient value must not shadow the resolved one.
+        env_vars.update(
+            {
+                "ATS_CHART_PATH": exec_info.chart_path,
+                "ATS_CHART_VERSION": exec_info.chart_ver,
+                "ATS_CLUSTER_TYPE": exec_info.cluster_type,
+                "ATS_CLUSTER_VERSION": exec_info.cluster_version,
+                "ATS_TEST_TYPE": exec_info.test_type,
+                "ATS_TEST_DIR": self._test_dir,
+                "KUBECONFIG": exec_info.kube_config_path,
+            }
+        )
 
         if exec_info.app_config_file_path is not None:
             env_vars["ATS_APP_CONFIG_FILE_PATH"] = exec_info.app_config_file_path

@@ -236,6 +236,12 @@ def test_install_engine_argo_waits_for_controller_and_seeds_config(mocker: Mocke
         ],
         capture_output=True,
     )
+    health_call = next(
+        c for c in run_and_log_mock.call_args_list if c.args[0][4:7] == ["patch", "configmap", "argocd-cm"]
+    )
+    health_data = json.loads(health_call.args[0][-1])["data"]
+    assert "resource.customizations.health.gateway.networking.k8s.io_HTTPRoute" in health_data
+    assert "resource.customizations.health.gateway.networking.k8s.io_Gateway" in health_data
     run_and_log_mock.assert_any_call(
         [
             "kubectl",

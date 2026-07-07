@@ -142,6 +142,57 @@ _ARGO_DEFAULT_APP_PROJECT = "default"
 # Giant Swarm's public chart catalog. Argo needs OCI Helm repositories declared up front (unlike
 # git or classic Helm repos), so bundle Applications sourcing from the catalog can resolve.
 _GS_CATALOG_OCI_REPO = "giantswarmpublic.azurecr.io/giantswarm-catalog"
+
+# Argo's built-in health for Gateway API resources stays Progressing until a gateway controller
+# accepts them, but a bundle test cluster has no such controller, so those resources would never go
+# Healthy and the bundle-ready wait would always time out (Flux, which only tracks that the object
+# was applied, doesn't hit this). These overrides treat a route/gateway with no controller-written
+# status as applied, while still honoring an explicit rejection when a controller IS present (an
+# external test cluster), so a genuinely bad route on such a cluster still surfaces as Degraded.
+_ARGO_ROUTE_HEALTH_LUA = """hs = {}
+if obj.status == nil or obj.status.parents == nil then
+  hs.status = "Healthy"
+  hs.message = "no Gateway API controller in the test cluster; route treated as applied"
+  return hs
+end
+for _, parent in ipairs(obj.status.parents) do
+  if parent.conditions ~= nil then
+    for _, condition in ipairs(parent.conditions) do
+      if (condition.type == "Accepted" or condition.type == "ResolvedRefs") and condition.status == "False" then
+        hs.status = "Degraded"
+        hs.message = condition.message
+        return hs
+      end
+    end
+  end
+end
+hs.status = "Healthy"
+return hs
+"""
+_ARGO_GATEWAY_HEALTH_LUA = """hs = {}
+if obj.status == nil or obj.status.conditions == nil then
+  hs.status = "Healthy"
+  hs.message = "no Gateway API controller in the test cluster; gateway treated as applied"
+  return hs
+end
+for _, condition in ipairs(obj.status.conditions) do
+  if (condition.type == "Accepted" or condition.type == "Programmed") and condition.status == "False" then
+    hs.status = "Degraded"
+    hs.message = condition.message
+    return hs
+  end
+end
+hs.status = "Healthy"
+return hs
+"""
+_ARGO_HEALTH_CUSTOMIZATIONS = {
+    "gateway.networking.k8s.io_HTTPRoute": _ARGO_ROUTE_HEALTH_LUA,
+    "gateway.networking.k8s.io_GRPCRoute": _ARGO_ROUTE_HEALTH_LUA,
+    "gateway.networking.k8s.io_TCPRoute": _ARGO_ROUTE_HEALTH_LUA,
+    "gateway.networking.k8s.io_TLSRoute": _ARGO_ROUTE_HEALTH_LUA,
+    "gateway.networking.k8s.io_UDPRoute": _ARGO_ROUTE_HEALTH_LUA,
+    "gateway.networking.k8s.io_Gateway": _ARGO_GATEWAY_HEALTH_LUA,
+}
 _ENGINE_CR_RESOURCES = {
     GitOpsEngine.FLUX: [
         "helmreleases.helm.toolkit.fluxcd.io",
@@ -211,14 +262,15 @@ def install_engine(engine: GitOpsEngine, kube_config_path: str, manifest_source:
 def _configure_argo(kube_config_path: str, namespace: str) -> None:
     """Finish an Argo CD Core install: seed cluster config and wait for the application-controller.
 
-    Three things Core doesn't give us but a bundle needs. It only reconciles Applications in its own
+    Four things Core doesn't give us but a bundle needs. It only reconciles Applications in its own
     namespace, but ats deploys each bundle into a per-engine namespace (like Flux, which watches all
-    namespaces), so applications-in-any-namespace is switched on. It ships without the 'default'
-    AppProject (created by the API server, which Core omits) and an Application referencing a missing
-    project never syncs, so a permissive project is applied. And OCI Helm repositories must be declared
-    up front, so the Giant Swarm catalog is registered. The application-controller is a StatefulSet, so
-    the deployment-wide readiness wait misses it; it's restarted to pick up the namespace setting and
-    then waited on explicitly.
+    namespaces), so applications-in-any-namespace is switched on. Gateway API resources would stall
+    the bundle-ready wait on a controller-less test cluster, so health overrides are registered. It
+    ships without the 'default' AppProject (created by the API server, which Core omits) and an
+    Application referencing a missing project never syncs, so a permissive project is applied. And OCI
+    Helm repositories must be declared up front, so the Giant Swarm catalog is registered. The
+    application-controller is a StatefulSet, so the deployment-wide readiness wait misses it; it's
+    restarted to pick up the config-map settings and then waited on explicitly.
     """
     run_res = run_and_log(
         [
@@ -237,6 +289,26 @@ def _configure_argo(kube_config_path: str, namespace: str) -> None:
     )  # nosec
     if run_res.returncode != 0:
         raise ATSTestError(f"Enabling Argo CD applications-in-any-namespace failed:\n{run_res.stderr}")
+    health_data = {
+        f"resource.customizations.health.{resource}": lua for resource, lua in _ARGO_HEALTH_CUSTOMIZATIONS.items()
+    }
+    run_res = run_and_log(
+        [
+            _KUBECTL_BIN,
+            f"--kubeconfig={kube_config_path}",
+            "--namespace",
+            namespace,
+            "patch",
+            "configmap",
+            "argocd-cm",
+            "--type=merge",
+            "--patch",
+            json.dumps({"data": health_data}),
+        ],
+        capture_output=True,
+    )  # nosec
+    if run_res.returncode != 0:
+        raise ATSTestError(f"Registering Argo CD Gateway API health overrides failed:\n{run_res.stderr}")
     run_res = run_and_log(
         [
             _KUBECTL_BIN,

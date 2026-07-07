@@ -210,6 +210,7 @@ def test_gitops_values_overlay_must_exist_when_configured(mocker: MockerFixture)
 
 def test_pre_run_resolves_engines_before_any_cluster(mocker: MockerFixture) -> None:
     runner = _make_smoke_runner(mocker)
+    mocker.patch.object(runner, "_assert_binary_present_in_path")
     mocker.patch.object(runner._test_executor, "validate")
     cluster_manager = cast(unittest.mock.Mock, runner._cluster_manager)
     cluster_manager.get_registered_cluster_types.return_value = [ClusterType("mock")]

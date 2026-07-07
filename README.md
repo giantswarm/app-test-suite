@@ -293,7 +293,15 @@ ones and steps they provide.
 `app-test-suite` supports multiple test execution engines that can be used to run the same set of test scenarios.
 Currently, the following are supported:
 
-- `pytest` - the first test executor, allows you to run any tests written in `python` and `pytest`.
+- `pytest` - run tests written in `python`; see [docs/pytest-test-pipeline.md](docs/pytest-test-pipeline.md).
+- `gotest` - run tests with `go test`; see [docs/gotest-test-pipeline.md](docs/gotest-test-pipeline.md).
+
+Both executors look for the test suite in the same directory, configured with a single `--tests-dir` option
+(default `tests/ats`, resolved relative to the working directory). The executor is auto-detected from that
+directory: a `go.mod` selects `gotest` and a `pyproject.toml` selects `pytest`. Set `--test-executor`
+explicitly to override the detection (for example when the directory is empty or contains both markers).
+The example app carries both suites in separate directories — `tests/ats` (pytest) and `tests/ats-gotest`
+(gotest) — so you can switch between them with `--tests-dir`.
 
 ### Test pipelines
 

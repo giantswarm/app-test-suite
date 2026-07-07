@@ -3,12 +3,12 @@ import logging
 import os
 from typing import cast, List
 
-import configargparse
 from step_exec_lib.errors import ValidationError
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 from step_exec_lib.utils.processes import run_and_handle_error
 
 from app_test_suite.cluster_manager import ClusterManager
+from app_test_suite.config import KEY_CFG_TESTS_DIR
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import (
     TestInfoProvider,
@@ -26,8 +26,6 @@ logger = logging.getLogger(__name__)
 
 
 class GotestTestFilteringPipeline(BaseTestScenariosFilteringPipeline):
-    KEY_CONFIG_OPTION_GOTEST_DIR = "--app-tests-gotest-tests-dir"
-
     def __init__(self) -> None:
         cluster_manager = ClusterManager()
         test_executor = GotestExecutor()
@@ -39,19 +37,6 @@ class GotestTestFilteringPipeline(BaseTestScenariosFilteringPipeline):
                 UpgradeTestScenario(cluster_manager, test_executor),
             ],
             cluster_manager,
-        )
-
-    def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
-        super().initialize_config(config_parser)
-        self._config_parser_group = cast(
-            configargparse.ArgParser,
-            config_parser.add_argument_group("Gotest specific options"),
-        )
-        self._config_parser_group.add_argument(
-            self.KEY_CONFIG_OPTION_GOTEST_DIR,
-            required=False,
-            default=os.path.join("tests", "ats"),
-            help="Directory, where go tests source code can be found.",
         )
 
 
@@ -105,10 +90,8 @@ class GotestExecutor(TestExecutor):
             raise ATSTestError(f"Gotest tests failed: running '{args}' in directory '{self._test_dir}' failed.")
 
     def validate(self, config: argparse.Namespace, module_name: str) -> None:
-        gotest_dir = get_config_value_by_cmd_line_option(
-            config, GotestTestFilteringPipeline.KEY_CONFIG_OPTION_GOTEST_DIR
-        )
-        gotest_dir = self._resolve_test_dir(config, gotest_dir)
+        gotest_dir = get_config_value_by_cmd_line_option(config, KEY_CFG_TESTS_DIR)
+        gotest_dir = self._resolve_test_dir(config.chart_file, gotest_dir)
         if not os.path.isdir(gotest_dir):
             raise ValidationError(
                 module_name,

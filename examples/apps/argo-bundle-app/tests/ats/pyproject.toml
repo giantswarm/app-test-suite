@@ -1,0 +1,14 @@
+[project]
+name = "argo-bundle-app-tests"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pytest-helm-charts>=0.5",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "smoke: fast sanity checks run first",
+    "functional: full feature tests",
+    "upgrade: run during upgrade scenario (before and after helm upgrade)",
+]

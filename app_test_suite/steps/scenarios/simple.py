@@ -246,11 +246,6 @@ class SimpleTestScenario(BuildStep, ABC):
             self._configured_gitops_engines = parse_engines_option(engines_option)
         except ValueError as e:
             raise ConfigError(self._config_gitops_engines_attribute_name, str(e))
-        if self._configured_gitops_engines and GitOpsEngine.ARGO in self._configured_gitops_engines:
-            raise ConfigError(
-                self._config_gitops_engines_attribute_name,
-                "The 'argo' engine is not implemented yet; use 'flux', 'helm' or 'auto'.",
-            )
         for engine in GitOpsEngine:
             overlay_path = get_config_value_by_cmd_line_option(
                 config, self._config_gitops_values_attribute_name(engine)
@@ -298,11 +293,6 @@ class SimpleTestScenario(BuildStep, ABC):
 
         logger.info(f"GitOps engine matrix for this scenario: {[e.value for e in gitops_engines]}.")
         for engine in gitops_engines:
-            if engine is not GitOpsEngine.FLUX:
-                raise ATSTestError(
-                    f"GitOps engine '{engine.value}' was detected in the rendered chart but is not implemented"
-                    f" yet; set {self._config_gitops_engines_attribute_name} to 'flux' or 'helm' explicitly."
-                )
             self._ensure_gitops_engine_installed(engine, config)
             logger.info(f"Running {self.test_provided} tests for the '{engine.value}' GitOps engine iteration.")
             self._current_gitops_engine = engine

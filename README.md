@@ -355,8 +355,7 @@ This applies to all three scenarios. In the upgrade scenario both the stable rel
 the version under test deploy under the live engine, so the stable-to-candidate resource-set transition
 (renames, removals, orphaned resources) is exercised the way production hits it.
 
-> **Note:** only the Flux engine is implemented today. `argo` is accepted as a valid value so charts can
-> declare it, but selecting it currently fails the run. Argo support lands in a follow-up.
+Both the Flux and Argo CD engines are supported.
 
 ### Selecting the engine
 
@@ -438,18 +437,25 @@ live in a private registry needs its pull credentials injected via the `--app-te
 On an engine iteration, the test suite runs against the per-engine namespace and receives the usual
 `ATS_RELEASE_NAME` / `ATS_RELEASE_NAMESPACE` variables plus `ATS_EXTRA_GITOPS_ENGINE` (`flux` or `argo`),
 so a test can assert engine-specific behaviour or wait on the reconciled workloads. See
-[`examples/apps/flux-bundle-app/tests/ats`](examples/apps/flux-bundle-app/tests/ats) for a worked example.
+[`examples/apps/flux-bundle-app/tests/ats`](examples/apps/flux-bundle-app/tests/ats) and
+[`examples/apps/argo-bundle-app/tests/ats`](examples/apps/argo-bundle-app/tests/ats) for worked examples.
 
 ### Pinning the engine install manifest
 
-The engine is installed from a manifest vendored in the `ats` container image (a trimmed Flux install with
-the source, kustomize and helm controllers). To use a different build, or when running `ats` outside the
-container, point it at a path or URL:
+The engine is installed from a manifest vendored in the `ats` container image: a trimmed Flux install with
+the source, kustomize and helm controllers, or Argo CD Core (the application-controller, repo-server and
+redis, without the API server, UI, dex or notifications). On an Argo leg `ats` also switches on
+applications-in-any-namespace so the bundle reconciles from its per-engine namespace, applies a permissive
+`default` `AppProject`, and registers the Giant Swarm catalog as an OCI Helm repository. To use a different
+build, or when running `ats` outside the container, point it at a path or URL:
 
 ```bash
 --gitops-flux-install-manifest <path|url>
 --gitops-argo-install-manifest <path|url>
 ```
+
+The vendored manifests are refreshed by `hack/sync-gitops-manifests.sh`, which pins the Flux and Argo CD
+versions.
 
 ## How to contribute
 

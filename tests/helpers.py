@@ -95,6 +95,11 @@ def get_base_config(mocker: MockerFixture) -> Namespace:
     config.app_tests_post_hook = ""
     config.chart_file = MOCK_CHART_FILE_NAME
     config.debug = False
+    config.gitops_engine = "helm"
+    config.gitops_values = ""
+    config.gitops_bundle_ready_timeout = "10m"
+    config.gitops_flux_install_manifest = "/etc/ats/gitops/flux.yaml"
+    config.gitops_argo_install_manifest = "/etc/ats/gitops/argo.yaml"
     return config
 
 

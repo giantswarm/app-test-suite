@@ -18,6 +18,10 @@ from step_exec_lib.utils.processes import run_and_log
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterType, ClusterInfo
 from app_test_suite.errors import ATSTestError
+from app_test_suite.gitops import (
+    GitOpsEngine,
+    parse_engine_option,
+)
 from app_test_suite.steps.base import (
     TestExecutor,
     BaseTestScenariosFilteringPipeline,
@@ -58,6 +62,8 @@ class SimpleTestScenario(BuildStep, ABC):
         self._cluster_info: Optional[ClusterInfo] = None
         self._skip_app_deploy = False
         self._test_executor = test_executor
+        # None means plain Helm; a GitOpsEngine selects the GitOps deploy path
+        self._gitops_engine: Optional[GitOpsEngine] = None
 
     @property
     def steps_provided(self) -> Set[StepType]:
@@ -191,7 +197,30 @@ class SimpleTestScenario(BuildStep, ABC):
             )
         self._configured_cluster_type = cluster_type
         self._configured_cluster_config_file = cluster_config_file if cluster_config_file is not None else ""
+        self._validate_gitops_config(config)
         self._test_executor.validate(config, self.name)
+
+    def _validate_gitops_config(self, config: argparse.Namespace) -> None:
+        engine_option = get_config_value_by_cmd_line_option(
+            config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_GITOPS_ENGINE
+        )
+        try:
+            self._gitops_engine = parse_engine_option(engine_option)
+        except ValueError as e:
+            raise ConfigError(BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_GITOPS_ENGINE, str(e))
+        if self._gitops_engine is GitOpsEngine.ARGO:
+            raise ConfigError(
+                BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_GITOPS_ENGINE,
+                "The 'argo' engine is not implemented yet; use 'flux' or 'helm'.",
+            )
+        overlay_path = get_config_value_by_cmd_line_option(
+            config, BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_GITOPS_VALUES
+        )
+        if overlay_path and not os.path.isfile(overlay_path):
+            raise ConfigError(
+                BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_GITOPS_VALUES,
+                f"GitOps values overlay '{overlay_path}' doesn't exist.",
+            )
 
     def run(self, config: argparse.Namespace, context: Context) -> None:
         logger.info(
@@ -214,6 +243,9 @@ class SimpleTestScenario(BuildStep, ABC):
         if not self._cluster_info.app_platform_ready:
             self._ensure_cluster_prerequisites(self._cluster_info.kube_config_path)
             self._cluster_info.app_platform_ready = True
+
+        if self._gitops_engine is not None:
+            logger.info(f"Deploying the bundle chart under the '{self._gitops_engine.value}' GitOps engine.")
 
         try:
             if (

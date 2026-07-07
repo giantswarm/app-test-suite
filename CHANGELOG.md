@@ -7,6 +7,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Added
 
+- GitOps bundle chart testing config surface: `--gitops-engine` (`helm` by default for the plain Helm deploy, or `flux`/`argo` to run the whole suite under a GitOps engine), `--gitops-values` overlay (with the `ci/gitops-values-<engine>.yaml` convention), `--gitops-bundle-ready-timeout`, and global `--gitops-flux-install-manifest` / `--gitops-argo-install-manifest` install-source pins. `argo` is reserved and rejected until implemented. Engine-aware deployment lands in a follow-up.
 - `ats` can now be installed directly as a Python CLI tool with `uv tool install app-test-suite` (published to PyPI on every `v*` tag via OIDC trusted publishing). In this mode you provide the required binaries (`helm`, `kubectl`, and `kind`/`docker` or `go` as needed) yourself, without pulling the Docker image. See the README "With uv" section.
 - OCI catalog URLs (`oci://...`) are now supported for `--upgrade-tests-app-catalog-url`; `helm pull oci://<url>/<chart>` is used automatically.
 - `--upgrade-tests-app-version stable` (the new default) discovers the latest stable (non-prerelease) version to upgrade from, for both HTTP(S) chart repositories (via `index.yaml`) and OCI registries (via the registry tags API).

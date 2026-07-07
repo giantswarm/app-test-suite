@@ -4,6 +4,7 @@ from typing import Callable, Type, cast
 
 import pytest
 from pytest_mock import MockerFixture
+from step_exec_lib.errors import ConfigError
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML, TestExecutor
 from step_exec_lib.types import StepType
@@ -182,3 +183,30 @@ def test_pre_hook_failure_raises(mocker: MockerFixture) -> None:
 
     with pytest.raises(ATSTestError, match="Pre-hook"):
         runner.run(config, context)
+
+
+@pytest.mark.parametrize(
+    "engine_value,expected_error",
+    [
+        ("bogus", "Unknown GitOps engine 'bogus'"),
+        ("argo", "'argo' engine is not implemented yet"),
+    ],
+    ids=["unknown-engine", "argo-explicit"],
+)
+def test_gitops_engine_config_validation_rejects(mocker: MockerFixture, engine_value: str, expected_error: str) -> None:
+    runner = _make_smoke_runner(mocker)
+    config = get_base_config(mocker)
+    config.gitops_engine = engine_value
+
+    with pytest.raises(ConfigError, match=expected_error):
+        runner._validate_gitops_config(config)
+
+
+def test_gitops_values_overlay_must_exist_when_configured(mocker: MockerFixture) -> None:
+    runner = _make_smoke_runner(mocker)
+    config = get_base_config(mocker)
+    config.gitops_engine = "flux"
+    config.gitops_values = "nonexistent-overlay.yaml"
+
+    with pytest.raises(ConfigError, match="doesn't exist"):
+        runner._validate_gitops_config(config)

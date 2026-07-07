@@ -6,7 +6,7 @@ from pytest_helm_charts.fixtures import Cluster
 
 
 @pytest.mark.smoke
-def test_gitops_engine_leg(kube_cluster: Cluster) -> None:
+def test_gitops_engine_iteration(kube_cluster: Cluster) -> None:
     assert os.environ.get("ATS_EXTRA_GITOPS_ENGINE") == "argo"
 
 

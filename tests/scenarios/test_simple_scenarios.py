@@ -253,7 +253,7 @@ def test_run_skips_gitops_detection_when_engines_explicit(mocker: MockerFixture)
     cast(unittest.mock.Mock, app_test_suite.gitops.run_and_log).assert_not_called()
 
 
-def _patch_gitops_leg(mocker: MockerFixture) -> dict:
+def _patch_gitops_iteration(mocker: MockerFixture) -> dict:
     return {
         "install_engine": mocker.patch("app_test_suite.steps.scenarios.simple.install_engine"),
         "wait_for_bundle_ready": mocker.patch("app_test_suite.steps.scenarios.simple.wait_for_bundle_ready"),
@@ -269,11 +269,11 @@ def _patch_gitops_leg(mocker: MockerFixture) -> dict:
     ],
     ids=["flux", "argo"],
 )
-def test_engine_leg_installs_engine_and_waits_for_bundle(
+def test_engine_iteration_installs_engine_and_waits_for_bundle(
     mocker: MockerFixture, tmp_path: Path, engine: str, manifest_default: str
 ) -> None:
     runner = _make_smoke_runner(mocker)
-    gitops_mocks = _patch_gitops_leg(mocker)
+    gitops_mocks = _patch_gitops_iteration(mocker)
     overlay = tmp_path / f"gitops-values-{engine}.yaml"
     overlay.write_text(f"gitops:\n  engine: {engine}\n")
     config = get_base_config(mocker)
@@ -299,9 +299,9 @@ def test_engine_leg_installs_engine_and_waits_for_bundle(
 
 
 @pytest.mark.parametrize("engine", ["flux", "argo"])
-def test_engine_leg_skips_engine_install_when_cluster_has_it(mocker: MockerFixture, engine: str) -> None:
+def test_engine_iteration_skips_engine_install_when_cluster_has_it(mocker: MockerFixture, engine: str) -> None:
     runner = _make_smoke_runner(mocker)
-    gitops_mocks = _patch_gitops_leg(mocker)
+    gitops_mocks = _patch_gitops_iteration(mocker)
     cluster_info = cast(unittest.mock.Mock, runner._cluster_manager).get_cluster_for_test_type.return_value
     cluster_info.gitops_engines_ready.add(engine)
     config = get_base_config(mocker)
@@ -315,9 +315,9 @@ def test_engine_leg_skips_engine_install_when_cluster_has_it(mocker: MockerFixtu
     gitops_mocks["wait_for_bundle_ready"].assert_called_once()
 
 
-def test_detected_argo_engine_runs_a_leg(mocker: MockerFixture) -> None:
+def test_detected_argo_engine_runs_an_iteration(mocker: MockerFixture) -> None:
     runner = _make_smoke_runner(mocker)
-    gitops_mocks = _patch_gitops_leg(mocker)
+    gitops_mocks = _patch_gitops_iteration(mocker)
     mocker.patch(
         "app_test_suite.steps.scenarios.simple.detect_engines",
         return_value=[app_test_suite.gitops.GitOpsEngine.ARGO],
@@ -334,7 +334,7 @@ def test_detected_argo_engine_runs_a_leg(mocker: MockerFixture) -> None:
 
 def test_plain_path_untouched_by_gitops_machinery(mocker: MockerFixture) -> None:
     runner = _make_smoke_runner(mocker)
-    gitops_mocks = _patch_gitops_leg(mocker)
+    gitops_mocks = _patch_gitops_iteration(mocker)
     config = get_base_config(mocker)
     config.smoke_tests_gitops_engines = "helm"
     runner._validate_gitops_config(config)
@@ -348,7 +348,7 @@ def test_plain_path_untouched_by_gitops_machinery(mocker: MockerFixture) -> None
     assert_helm_uninstalled(MOCK_APP_NAME, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
 
 
-def test_flux_leg_drains_after_a_failed_run(mocker: MockerFixture) -> None:
+def test_flux_iteration_drains_after_a_failed_run(mocker: MockerFixture) -> None:
     run_and_log_res = get_run_and_log_result_mock(mocker)
     patch_base_test_runner(mocker, run_and_log_res)
     patch_pytest_test_runner(mocker, run_and_log_res)
@@ -362,7 +362,7 @@ def test_flux_leg_drains_after_a_failed_run(mocker: MockerFixture) -> None:
         return run_and_log_res
 
     mocker.patch("app_test_suite.steps.scenarios.simple.run_and_log", side_effect=side_effect)
-    gitops_mocks = _patch_gitops_leg(mocker)
+    gitops_mocks = _patch_gitops_iteration(mocker)
 
     runner = SmokeTestScenario(get_mock_cluster_manager(mocker), PytestExecutor())
     config = get_base_config(mocker)
@@ -374,9 +374,27 @@ def test_flux_leg_drains_after_a_failed_run(mocker: MockerFixture) -> None:
     with pytest.raises(ATSTestError, match="Pre-hook"):
         runner.run(config, context)
 
-    # the leg deployed the release before failing, so teardown must still drain the engine namespace
+    # the iteration deployed the release before failing, so teardown must still drain the engine namespace
     gitops_mocks["wait_for_bundle_ready"].assert_called_once()
     assert_helm_uninstalled(MOCK_APP_NAME, f"{MOCK_APP_DEPLOY_NS}-flux", MOCK_KUBE_CONFIG_PATH)
+    gitops_mocks["wait_for_bundle_drained"].assert_called_once()
+
+
+def test_failed_iteration_drain_timeout_does_not_mask_the_test_failure(mocker: MockerFixture) -> None:
+    runner = _make_smoke_runner(mocker)
+    gitops_mocks = _patch_gitops_iteration(mocker)
+    # a failed iteration leaves the same stuck CRs the drain waits on, so the drain times out too
+    gitops_mocks["wait_for_bundle_drained"].side_effect = ATSTestError("Timed out waiting for resources to drain")
+    mocker.patch.object(runner, "_collect_failure_diagnostics")
+    mocker.patch.object(runner, "run_tests", side_effect=Exception("tests exploded"))
+    config = get_base_config(mocker)
+    config.smoke_tests_gitops_engines = "flux"
+    runner._validate_gitops_config(config)
+    context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_CHART_VERSION}}
+
+    with pytest.raises(ATSTestError, match="tests exploded"):
+        runner.run(config, context)
+
     gitops_mocks["wait_for_bundle_drained"].assert_called_once()
 
 

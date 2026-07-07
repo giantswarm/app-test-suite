@@ -444,7 +444,7 @@ so a test can assert engine-specific behaviour or wait on the reconciled workloa
 
 The engine is installed from a manifest vendored in the `ats` container image: a trimmed Flux install with
 the source, kustomize and helm controllers, or Argo CD Core (the application-controller, repo-server and
-redis, without the API server, UI, dex or notifications). On an Argo leg `ats` also switches on
+redis, without the API server, UI, dex or notifications). On an Argo iteration `ats` also switches on
 applications-in-any-namespace so the bundle reconciles from its per-engine namespace, applies a permissive
 `default` `AppProject`, and registers the Giant Swarm catalog as an OCI Helm repository. To use a different
 build, or when running `ats` outside the container, point it at a path or URL:

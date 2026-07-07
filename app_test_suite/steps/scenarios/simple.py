@@ -71,7 +71,7 @@ class SimpleTestScenario(BuildStep, ABC):
         # None means 'auto': detect engines from the rendered chart at run time
         self._configured_gitops_engines: Optional[List[GitOpsEngine]] = None
         self._gitops_bundle_ready_timeout_sec = 600
-        # engine of the matrix leg currently being executed; None on the plain Helm path
+        # engine of the matrix iteration currently being executed; None on the plain Helm path
         self._current_gitops_engine: Optional[GitOpsEngine] = None
 
     @property
@@ -293,7 +293,7 @@ class SimpleTestScenario(BuildStep, ABC):
 
         gitops_engines = self._resolve_gitops_engines(config)
         if not gitops_engines:
-            self._run_test_leg(config, context)
+            self._run_test_iteration(config, context)
             return
 
         logger.info(f"GitOps engine matrix for this scenario: {[e.value for e in gitops_engines]}.")
@@ -304,15 +304,16 @@ class SimpleTestScenario(BuildStep, ABC):
                     f" yet; set {self._config_gitops_engines_attribute_name} to 'flux' or 'helm' explicitly."
                 )
             self._ensure_gitops_engine_installed(engine, config)
-            logger.info(f"Running {self.test_provided} tests for the '{engine.value}' GitOps engine leg.")
+            logger.info(f"Running {self.test_provided} tests for the '{engine.value}' GitOps engine iteration.")
             self._current_gitops_engine = engine
             try:
-                self._run_test_leg(config, context)
+                self._run_test_iteration(config, context)
             finally:
                 self._current_gitops_engine = None
 
-    def _run_test_leg(self, config: argparse.Namespace, context: Context) -> None:
-        deployed_by_leg = False
+    def _run_test_iteration(self, config: argparse.Namespace, context: Context) -> None:
+        deployed_this_iteration = False
+        iteration_failed = False
         try:
             if (
                 not get_config_value_by_cmd_line_option(
@@ -322,7 +323,7 @@ class SimpleTestScenario(BuildStep, ABC):
                 and not self._skip_app_deploy
             ):
                 self._deploy_tested_chart_as_app(config, context)
-                deployed_by_leg = True
+                deployed_this_iteration = True
                 if self._current_gitops_engine:
                     wait_for_bundle_ready(
                         cast(ClusterInfo, self._cluster_info).kube_config_path,
@@ -333,6 +334,7 @@ class SimpleTestScenario(BuildStep, ABC):
             self.run_tests(config, context)
             self._run_hook(config, context, "post")
         except Exception as e:
+            iteration_failed = True
             self._collect_failure_diagnostics(config, context)
             raise ATSTestError(f"Application test run failed: {e}") from e
         finally:
@@ -342,13 +344,25 @@ class SimpleTestScenario(BuildStep, ABC):
                 BaseTestScenariosFilteringPipeline.KEY_CONFIG_OPTION_SKIP_DELETE_APP,
             ):
                 self._delete_release(config, context)
-                if self._current_gitops_engine and deployed_by_leg:
-                    wait_for_bundle_drained(
-                        cast(ClusterInfo, self._cluster_info).kube_config_path,
-                        self._current_gitops_engine,
-                        self._effective_deploy_namespace(config),
-                        self._gitops_bundle_ready_timeout_sec,
-                    )
+                if self._current_gitops_engine and deployed_this_iteration:
+                    try:
+                        wait_for_bundle_drained(
+                            cast(ClusterInfo, self._cluster_info).kube_config_path,
+                            self._current_gitops_engine,
+                            self._effective_deploy_namespace(config),
+                            self._gitops_bundle_ready_timeout_sec,
+                        )
+                    except ATSTestError:
+                        # An iteration that already failed leaves the same stuck CRs the drain waits on, so
+                        # the drain times out too. Re-raising here would replace the iteration's diagnostics
+                        # with the less useful drain timeout, so keep the original failure as reported.
+                        if not iteration_failed:
+                            raise
+                        logger.error(
+                            "GitOps bundle failed to drain during cleanup of an already-failed test"
+                            " iteration; keeping the original failure as the reported error.",
+                            exc_info=True,
+                        )
 
     def _ensure_gitops_engine_installed(self, engine: GitOpsEngine, config: argparse.Namespace) -> None:
         cluster_info = cast(ClusterInfo, self._cluster_info)

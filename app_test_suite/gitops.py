@@ -101,7 +101,7 @@ def detect_engines(chart_path: str, values_paths: List[str]) -> List[GitOpsEngin
 
 
 def resolve_engine_overlay(engine: GitOpsEngine, configured_path: Optional[str]) -> Optional[str]:
-    """Resolve the values overlay for an engine leg.
+    """Resolve the values overlay for an engine iteration.
 
     An explicitly configured path wins; otherwise the conventional
     `ci/gitops-values-<engine>.yaml` is used when it exists (relative to the

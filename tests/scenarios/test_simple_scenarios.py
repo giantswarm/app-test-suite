@@ -242,7 +242,7 @@ def test_run_skips_gitops_detection_when_engines_explicit(mocker: MockerFixture)
     cast(unittest.mock.Mock, app_test_suite.gitops.run_and_log).assert_not_called()
 
 
-def _patch_gitops_leg(mocker: MockerFixture) -> dict:
+def _patch_gitops_iteration(mocker: MockerFixture) -> dict:
     return {
         "install_engine": mocker.patch("app_test_suite.steps.scenarios.simple.install_engine"),
         "wait_for_bundle_ready": mocker.patch("app_test_suite.steps.scenarios.simple.wait_for_bundle_ready"),
@@ -250,9 +250,9 @@ def _patch_gitops_leg(mocker: MockerFixture) -> dict:
     }
 
 
-def test_flux_leg_installs_engine_and_waits_for_bundle(mocker: MockerFixture, tmp_path: Path) -> None:
+def test_flux_iteration_installs_engine_and_waits_for_bundle(mocker: MockerFixture, tmp_path: Path) -> None:
     runner = _make_smoke_runner(mocker)
-    gitops_mocks = _patch_gitops_leg(mocker)
+    gitops_mocks = _patch_gitops_iteration(mocker)
     overlay = tmp_path / "gitops-values-flux.yaml"
     overlay.write_text("gitops:\n  engine: flux\n")
     config = get_base_config(mocker)
@@ -276,9 +276,27 @@ def test_flux_leg_installs_engine_and_waits_for_bundle(mocker: MockerFixture, tm
     )
 
 
-def test_flux_leg_skips_engine_install_when_cluster_has_it(mocker: MockerFixture) -> None:
+def test_failed_iteration_drain_timeout_does_not_mask_the_test_failure(mocker: MockerFixture) -> None:
     runner = _make_smoke_runner(mocker)
-    gitops_mocks = _patch_gitops_leg(mocker)
+    gitops_mocks = _patch_gitops_iteration(mocker)
+    # a failed iteration leaves the same stuck CRs the drain waits on, so the drain times out too
+    gitops_mocks["wait_for_bundle_drained"].side_effect = ATSTestError("Timed out waiting for resources to drain")
+    mocker.patch.object(runner, "_collect_failure_diagnostics")
+    mocker.patch.object(runner, "run_tests", side_effect=Exception("tests exploded"))
+    config = get_base_config(mocker)
+    config.smoke_tests_gitops_engines = "flux"
+    runner._validate_gitops_config(config)
+    context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_CHART_VERSION}}
+
+    with pytest.raises(ATSTestError, match="tests exploded"):
+        runner.run(config, context)
+
+    gitops_mocks["wait_for_bundle_drained"].assert_called_once()
+
+
+def test_flux_iteration_skips_engine_install_when_cluster_has_it(mocker: MockerFixture) -> None:
+    runner = _make_smoke_runner(mocker)
+    gitops_mocks = _patch_gitops_iteration(mocker)
     cluster_info = cast(unittest.mock.Mock, runner._cluster_manager).get_cluster_for_test_type.return_value
     cluster_info.gitops_engines_ready.add("flux")
     config = get_base_config(mocker)
@@ -294,7 +312,7 @@ def test_flux_leg_skips_engine_install_when_cluster_has_it(mocker: MockerFixture
 
 def test_detected_argo_engine_fails_the_run(mocker: MockerFixture) -> None:
     runner = _make_smoke_runner(mocker)
-    _patch_gitops_leg(mocker)
+    _patch_gitops_iteration(mocker)
     mocker.patch(
         "app_test_suite.steps.scenarios.simple.detect_engines",
         return_value=[app_test_suite.gitops.GitOpsEngine.ARGO],
@@ -308,7 +326,7 @@ def test_detected_argo_engine_fails_the_run(mocker: MockerFixture) -> None:
 
 def test_plain_path_untouched_by_gitops_machinery(mocker: MockerFixture) -> None:
     runner = _make_smoke_runner(mocker)
-    gitops_mocks = _patch_gitops_leg(mocker)
+    gitops_mocks = _patch_gitops_iteration(mocker)
     config = get_base_config(mocker)
     config.smoke_tests_gitops_engines = "helm"
     runner._validate_gitops_config(config)

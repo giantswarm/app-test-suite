@@ -9,7 +9,7 @@ def test_flux_bundle_app(monkeypatch: MonkeyPatch) -> None:
     """Run from examples/apps/flux-bundle-app with a kind cluster's kubeconfig in ./kube.config.
 
     The chart renders Flux HelmRepository + HelmRelease resources; 'auto' detection turns the
-    smoke scenario into a Flux engine leg that installs Flux, waits for the bundle to converge
+    smoke scenario into a Flux engine iteration that installs Flux, waits for the bundle to converge
     and runs the tests from tests/ats.
     """
     monkeypatch.setattr(

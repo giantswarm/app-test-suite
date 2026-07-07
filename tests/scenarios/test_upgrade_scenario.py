@@ -1,5 +1,6 @@
 import subprocess
 import unittest
+from pathlib import Path
 from typing import cast, Callable
 from unittest.mock import Mock
 
@@ -14,6 +15,7 @@ import app_test_suite
 import app_test_suite.steps.scenarios.upgrade
 from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.errors import ATSTestError
+from app_test_suite.gitops import GitOpsEngine
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML
 from app_test_suite.steps.base import TestExecutor
 from app_test_suite.steps.executors.gotest import GotestExecutor
@@ -238,6 +240,135 @@ def test_upgrade_pytest_runner_run(
     )
     assert_helm_uninstalled(MOCK_APP_NAME, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
     assert_upgrade_metadata_created()
+
+
+def test_upgrade_flux_iteration_runs_stable_and_upgrade_under_engine(mocker: MockerFixture, tmp_path: Path) -> None:
+    mock_cluster_manager = get_mock_cluster_manager(mocker)
+    run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
+    patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
+    patch_pytest_test_runner(mocker, run_and_log_call_result_mock)
+    patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
+    gitops_mocks = {
+        "install_engine": mocker.patch("app_test_suite.steps.scenarios.simple.install_engine"),
+        "wait_for_bundle_ready": mocker.patch("app_test_suite.steps.scenarios.simple.wait_for_bundle_ready"),
+        "wait_for_bundle_drained": mocker.patch("app_test_suite.steps.scenarios.simple.wait_for_bundle_drained"),
+    }
+    overlay = tmp_path / "gitops-values-flux.yaml"
+    overlay.write_text("gitops:\n  engine: flux\n")
+
+    config = get_base_config(mocker)
+    configure_for_upgrade_test(config)
+    config.upgrade_tests_gitops_engines = "flux"
+    config.upgrade_tests_gitops_values_flux = str(overlay)
+
+    runner = UpgradeTestScenario(mock_cluster_manager, PytestExecutor())
+    runner._validate_gitops_config(config)
+    runner._stable_from_local_file = True
+    context = {
+        CONTEXT_KEY_CHART_YAML: {
+            "name": MOCK_APP_NAME,
+            "version": MOCK_CHART_VERSION,
+            "appVersion": MOCK_APP_VERSION,
+        }
+    }
+
+    runner.run(config, context)
+
+    engine_namespace = f"{MOCK_APP_DEPLOY_NS}-flux"
+    gitops_mocks["install_engine"].assert_called_once()
+    assert gitops_mocks["install_engine"].call_args.args[2] == "/etc/ats/gitops/flux.yaml"
+    # both the stable deploy and the upgrade land in the per-engine namespace with the overlay stacked
+    assert_helm_deployed(
+        MOCK_APP_NAME, MOCK_STABLE_APP_FILE, engine_namespace, MOCK_KUBE_CONFIG_PATH, values_file=str(overlay)
+    )
+    assert_helm_deployed(
+        MOCK_APP_NAME, MOCK_CHART_FILE_NAME, engine_namespace, MOCK_KUBE_CONFIG_PATH, values_file=str(overlay)
+    )
+    # readiness wait fires after both the stable deploy and the upgrade
+    assert gitops_mocks["wait_for_bundle_ready"].call_count == 2
+    gitops_mocks["wait_for_bundle_ready"].assert_called_with(MOCK_KUBE_CONFIG_PATH, mocker.ANY, 600)
+    # upgrade-stage hooks run against the per-engine namespace
+    assert_upgrade_tester_exec_hook(
+        KEY_PRE_UPGRADE,
+        MOCK_APP_NAME,
+        MOCK_UPGRADE_APP_VERSION,
+        MOCK_CHART_VERSION,
+        MOCK_KUBE_CONFIG_PATH,
+        engine_namespace,
+    )
+    assert_helm_uninstalled(MOCK_APP_NAME, engine_namespace, MOCK_KUBE_CONFIG_PATH)
+    gitops_mocks["wait_for_bundle_drained"].assert_called_once_with(
+        MOCK_KUBE_CONFIG_PATH, mocker.ANY, engine_namespace, 600
+    )
+    assert_upgrade_metadata_created()
+
+
+def test_upgrade_auto_detects_flux_and_runs_iteration(mocker: MockerFixture) -> None:
+    mock_cluster_manager = get_mock_cluster_manager(mocker)
+    run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
+    patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
+    patch_pytest_test_runner(mocker, run_and_log_call_result_mock)
+    patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
+    gitops_mocks = {
+        "install_engine": mocker.patch("app_test_suite.steps.scenarios.simple.install_engine"),
+        "wait_for_bundle_ready": mocker.patch("app_test_suite.steps.scenarios.simple.wait_for_bundle_ready"),
+        "wait_for_bundle_drained": mocker.patch("app_test_suite.steps.scenarios.simple.wait_for_bundle_drained"),
+    }
+    # 'auto' renders the chart under test and detects the engine; the override that used to
+    # force the plain Helm path for upgrades is gone
+    mocker.patch("app_test_suite.steps.scenarios.simple.detect_engines", return_value=[GitOpsEngine.FLUX])
+
+    config = get_base_config(mocker)
+    configure_for_upgrade_test(config)
+    runner = UpgradeTestScenario(mock_cluster_manager, PytestExecutor())
+    runner._validate_gitops_config(config)
+    runner._stable_from_local_file = True
+    context = {
+        CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_CHART_VERSION, "appVersion": MOCK_APP_VERSION}
+    }
+
+    runner.run(config, context)
+
+    engine_namespace = f"{MOCK_APP_DEPLOY_NS}-flux"
+    gitops_mocks["install_engine"].assert_called_once()
+    assert_helm_deployed(MOCK_APP_NAME, MOCK_STABLE_APP_FILE, engine_namespace, MOCK_KUBE_CONFIG_PATH)
+    assert_helm_deployed(MOCK_APP_NAME, MOCK_CHART_FILE_NAME, engine_namespace, MOCK_KUBE_CONFIG_PATH)
+    assert gitops_mocks["wait_for_bundle_ready"].call_count == 2
+    gitops_mocks["wait_for_bundle_drained"].assert_called_once()
+
+
+def test_upgrade_helm_engine_keeps_plain_path(mocker: MockerFixture) -> None:
+    mock_cluster_manager = get_mock_cluster_manager(mocker)
+    run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
+    patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
+    patch_pytest_test_runner(mocker, run_and_log_call_result_mock)
+    patch_upgrade_test_runner(mocker, run_and_log_call_result_mock)
+    gitops_mocks = {
+        "install_engine": mocker.patch("app_test_suite.steps.scenarios.simple.install_engine"),
+        "wait_for_bundle_ready": mocker.patch("app_test_suite.steps.scenarios.simple.wait_for_bundle_ready"),
+        "wait_for_bundle_drained": mocker.patch("app_test_suite.steps.scenarios.simple.wait_for_bundle_drained"),
+    }
+    detect = mocker.patch("app_test_suite.steps.scenarios.simple.detect_engines")
+
+    config = get_base_config(mocker)
+    configure_for_upgrade_test(config)
+    config.upgrade_tests_gitops_engines = "helm"
+    runner = UpgradeTestScenario(mock_cluster_manager, PytestExecutor())
+    runner._validate_gitops_config(config)
+    runner._stable_from_local_file = True
+    context = {
+        CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_CHART_VERSION, "appVersion": MOCK_APP_VERSION}
+    }
+
+    runner.run(config, context)
+
+    # 'helm' forces the plain deploy: no detection, no engine machinery, base deploy namespace
+    detect.assert_not_called()
+    for mock in gitops_mocks.values():
+        mock.assert_not_called()
+    assert_helm_deployed(MOCK_APP_NAME, MOCK_STABLE_APP_FILE, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
+    assert_helm_deployed(MOCK_APP_NAME, MOCK_CHART_FILE_NAME, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
+    assert_helm_uninstalled(MOCK_APP_NAME, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
 
 
 def _make_remote_upgrade_runner(mocker: MockerFixture) -> UpgradeTestScenario:

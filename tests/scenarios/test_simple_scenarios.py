@@ -340,6 +340,38 @@ def test_plain_path_untouched_by_gitops_machinery(mocker: MockerFixture) -> None
     assert_helm_uninstalled(MOCK_APP_NAME, MOCK_APP_DEPLOY_NS, MOCK_KUBE_CONFIG_PATH)
 
 
+def test_flux_iteration_drains_after_a_failed_run(mocker: MockerFixture) -> None:
+    run_and_log_res = get_run_and_log_result_mock(mocker)
+    patch_base_test_runner(mocker, run_and_log_res)
+    patch_pytest_test_runner(mocker, run_and_log_res)
+
+    fail_res = mocker.Mock()
+    type(fail_res).returncode = mocker.PropertyMock(return_value=1)
+
+    def side_effect(args: list[str], **kwargs: object) -> unittest.mock.Mock:
+        if args[0] == "fail-hook.sh":
+            return fail_res
+        return run_and_log_res
+
+    mocker.patch("app_test_suite.steps.scenarios.simple.run_and_log", side_effect=side_effect)
+    gitops_mocks = _patch_gitops_iteration(mocker)
+
+    runner = SmokeTestScenario(get_mock_cluster_manager(mocker), PytestExecutor())
+    config = get_base_config(mocker)
+    config.smoke_tests_gitops_engines = "flux"
+    config.app_tests_pre_hook = "fail-hook.sh"
+    runner._validate_gitops_config(config)
+    context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_CHART_VERSION}}
+
+    with pytest.raises(ATSTestError, match="Pre-hook"):
+        runner.run(config, context)
+
+    # the iteration deployed the release before failing, so teardown must still drain the engine namespace
+    gitops_mocks["wait_for_bundle_ready"].assert_called_once()
+    assert_helm_uninstalled(MOCK_APP_NAME, f"{MOCK_APP_DEPLOY_NS}-flux", MOCK_KUBE_CONFIG_PATH)
+    gitops_mocks["wait_for_bundle_drained"].assert_called_once()
+
+
 def test_bundle_ready_timeout_option_is_parsed(mocker: MockerFixture) -> None:
     runner = _make_smoke_runner(mocker)
     config = get_base_config(mocker)

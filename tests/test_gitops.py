@@ -3,6 +3,7 @@ import unittest.mock
 from pathlib import Path
 
 import pytest
+import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockerFixture
 
@@ -195,11 +196,103 @@ def test_install_engine_rejects_missing_manifest(mocker: MockerFixture, tmp_path
     run_and_log_mock.assert_not_called()
 
 
-def test_install_engine_rejects_unimplemented_engine(mocker: MockerFixture) -> None:
-    mocker.patch("app_test_suite.gitops.run_and_log")
+def test_install_engine_argo_waits_for_controller_and_seeds_config(mocker: MockerFixture, tmp_path: Path) -> None:
+    manifest = tmp_path / "argo.yaml"
+    manifest.write_text("# argo install manifest")
+    run_and_log_mock = mocker.patch("app_test_suite.gitops.run_and_log", return_value=_kubectl_result(mocker))
 
-    with pytest.raises(ATSTestError, match="not implemented yet"):
-        install_engine(GitOpsEngine.ARGO, KUBE_CONFIG, "https://example.com/argo.yaml")
+    install_engine(GitOpsEngine.ARGO, KUBE_CONFIG, str(manifest))
+
+    run_and_log_mock.assert_any_call(
+        ["kubectl", f"--kubeconfig={KUBE_CONFIG}", "apply", "--server-side", "-f", str(manifest)],
+        capture_output=True,
+    )
+    run_and_log_mock.assert_any_call(
+        [
+            "kubectl",
+            f"--kubeconfig={KUBE_CONFIG}",
+            "--namespace",
+            "argocd",
+            "wait",
+            "--for=condition=Available",
+            "deployment",
+            "--all",
+            "--timeout=5m",
+        ],
+        capture_output=True,
+    )
+    run_and_log_mock.assert_any_call(
+        [
+            "kubectl",
+            f"--kubeconfig={KUBE_CONFIG}",
+            "--namespace",
+            "argocd",
+            "patch",
+            "configmap",
+            "argocd-cmd-params-cm",
+            "--type=merge",
+            "--patch",
+            json.dumps({"data": {"application.namespaces": "*"}}),
+        ],
+        capture_output=True,
+    )
+    health_call = next(
+        c for c in run_and_log_mock.call_args_list if c.args[0][4:7] == ["patch", "configmap", "argocd-cm"]
+    )
+    health_data = json.loads(health_call.args[0][-1])["data"]
+    assert "resource.customizations.health.gateway.networking.k8s.io_HTTPRoute" in health_data
+    assert "resource.customizations.health.gateway.networking.k8s.io_Gateway" in health_data
+    run_and_log_mock.assert_any_call(
+        [
+            "kubectl",
+            f"--kubeconfig={KUBE_CONFIG}",
+            "--namespace",
+            "argocd",
+            "rollout",
+            "restart",
+            "statefulset/argocd-application-controller",
+        ],
+        capture_output=True,
+    )
+    run_and_log_mock.assert_any_call(
+        [
+            "kubectl",
+            f"--kubeconfig={KUBE_CONFIG}",
+            "--namespace",
+            "argocd",
+            "rollout",
+            "status",
+            "statefulset/argocd-application-controller",
+            "--timeout=5m",
+        ],
+        capture_output=True,
+    )
+    config_call = next(c for c in run_and_log_mock.call_args_list if c.args[0][-1] == "-")
+    assert config_call.args[0][:4] == ["kubectl", f"--kubeconfig={KUBE_CONFIG}", "apply", "--server-side"]
+    seeded = list(yaml.safe_load_all(config_call.kwargs["input"]))
+    project = next(d for d in seeded if d["kind"] == "AppProject")
+    assert project["metadata"] == {"name": "default", "namespace": "argocd"}
+    assert project["spec"]["sourceRepos"] == ["*"]
+    assert project["spec"]["sourceNamespaces"] == ["*"]
+    repo = next(d for d in seeded if d["kind"] == "Secret")
+    assert repo["metadata"]["labels"]["argocd.argoproj.io/secret-type"] == "repository"
+    assert repo["stringData"]["url"] == "giantswarmpublic.azurecr.io/giantswarm-catalog"
+    assert repo["stringData"]["enableOCI"] == "true"
+
+
+def test_install_engine_argo_raises_when_controller_rollout_fails(mocker: MockerFixture, tmp_path: Path) -> None:
+    manifest = tmp_path / "argo.yaml"
+    manifest.write_text("# argo install manifest")
+
+    def side_effect(args: list, **kwargs: object) -> unittest.mock.Mock:
+        if args[4:6] == ["rollout", "status"]:
+            return _kubectl_result(mocker, returncode=1)
+        return _kubectl_result(mocker)
+
+    mocker.patch("app_test_suite.gitops.run_and_log", side_effect=side_effect)
+
+    with pytest.raises(ATSTestError, match="application-controller to roll out"):
+        install_engine(GitOpsEngine.ARGO, KUBE_CONFIG, str(manifest))
 
 
 def _flux_cr(uid: str, ready: bool, name: str = "child", namespace: str = "default") -> dict:

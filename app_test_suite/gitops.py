@@ -39,6 +39,9 @@ _ENGINE_RENDERED_KINDS = {
         ("helm.toolkit.fluxcd.io", "HelmRelease"),
         ("kustomize.toolkit.fluxcd.io", "Kustomization"),
         ("source.toolkit.fluxcd.io", "OCIRepository"),
+        ("source.toolkit.fluxcd.io", "GitRepository"),
+        ("source.toolkit.fluxcd.io", "HelmRepository"),
+        ("source.toolkit.fluxcd.io", "Bucket"),
     },
     GitOpsEngine.ARGO: {
         ("argoproj.io", "Application"),
@@ -73,7 +76,13 @@ def parse_engines_option(value: Optional[str]) -> Optional[List[GitOpsEngine]]:
 
 
 def detect_engines(chart_path: str, values_paths: List[str]) -> List[GitOpsEngine]:
-    """Render the chart with `helm template` and detect GitOps engines from the emitted kinds."""
+    """Render the chart with `helm template` and detect GitOps engines from the emitted kinds.
+
+    Detection is values-driven: the app config values are stacked into the render, which is how a
+    chart picks its engine. `helm template` runs without cluster capabilities or `--api-versions`,
+    so a chart that gates its GitOps CRs on `.Capabilities.APIVersions` won't render them here and
+    won't be detected; drive the engine from values instead.
+    """
     args = ["helm", "template", chart_path]
     for values_path in values_paths:
         args += ["--values", values_path]
@@ -120,6 +129,69 @@ _KUBECTL_BIN = "kubectl"
 _ENGINE_INSTALL_WAIT_TIMEOUT = "5m"
 _ENGINE_NAMESPACES = {
     GitOpsEngine.FLUX: "flux-system",
+    GitOpsEngine.ARGO: "argocd",
+}
+
+# The application-controller ships as a StatefulSet, so the deployment-wide "wait for Available"
+# doesn't cover it; it's the controller that reconciles Applications, so it's waited on explicitly.
+_ARGO_APP_CONTROLLER_STATEFULSET = "argocd-application-controller"
+# Argo CD Core doesn't create the 'default' AppProject (that's done by the API server, which Core
+# omits), and an Application referencing a missing project never syncs. This one permits everything,
+# matching the built-in 'default' project a full Argo install would provide.
+_ARGO_DEFAULT_APP_PROJECT = "default"
+# Giant Swarm's public chart catalog. Argo needs OCI Helm repositories declared up front (unlike
+# git or classic Helm repos), so bundle Applications sourcing from the catalog can resolve.
+_GS_CATALOG_OCI_REPO = "giantswarmpublic.azurecr.io/giantswarm-catalog"
+
+# Argo's built-in health for Gateway API resources stays Progressing until a gateway controller
+# accepts them, but a bundle test cluster has no such controller, so those resources would never go
+# Healthy and the bundle-ready wait would always time out (Flux, which only tracks that the object
+# was applied, doesn't hit this). These overrides treat a route/gateway with no controller-written
+# status as applied, while still honoring an explicit rejection when a controller IS present (an
+# external test cluster), so a genuinely bad route on such a cluster still surfaces as Degraded.
+_ARGO_ROUTE_HEALTH_LUA = """hs = {}
+if obj.status == nil or obj.status.parents == nil then
+  hs.status = "Healthy"
+  hs.message = "no Gateway API controller in the test cluster; route treated as applied"
+  return hs
+end
+for _, parent in ipairs(obj.status.parents) do
+  if parent.conditions ~= nil then
+    for _, condition in ipairs(parent.conditions) do
+      if (condition.type == "Accepted" or condition.type == "ResolvedRefs") and condition.status == "False" then
+        hs.status = "Degraded"
+        hs.message = condition.message
+        return hs
+      end
+    end
+  end
+end
+hs.status = "Healthy"
+return hs
+"""
+_ARGO_GATEWAY_HEALTH_LUA = """hs = {}
+if obj.status == nil or obj.status.conditions == nil then
+  hs.status = "Healthy"
+  hs.message = "no Gateway API controller in the test cluster; gateway treated as applied"
+  return hs
+end
+for _, condition in ipairs(obj.status.conditions) do
+  if (condition.type == "Accepted" or condition.type == "Programmed") and condition.status == "False" then
+    hs.status = "Degraded"
+    hs.message = condition.message
+    return hs
+  end
+end
+hs.status = "Healthy"
+return hs
+"""
+_ARGO_HEALTH_CUSTOMIZATIONS = {
+    "gateway.networking.k8s.io_HTTPRoute": _ARGO_ROUTE_HEALTH_LUA,
+    "gateway.networking.k8s.io_GRPCRoute": _ARGO_ROUTE_HEALTH_LUA,
+    "gateway.networking.k8s.io_TCPRoute": _ARGO_ROUTE_HEALTH_LUA,
+    "gateway.networking.k8s.io_TLSRoute": _ARGO_ROUTE_HEALTH_LUA,
+    "gateway.networking.k8s.io_UDPRoute": _ARGO_ROUTE_HEALTH_LUA,
+    "gateway.networking.k8s.io_Gateway": _ARGO_GATEWAY_HEALTH_LUA,
 }
 _ENGINE_CR_RESOURCES = {
     GitOpsEngine.FLUX: [
@@ -182,7 +254,128 @@ def install_engine(engine: GitOpsEngine, kube_config_path: str, manifest_source:
         raise ATSTestError(
             f"Waiting for GitOps engine '{engine.value}' controllers to become available failed:\n{run_res.stderr}"
         )
+    if engine is GitOpsEngine.ARGO:
+        _configure_argo(kube_config_path, namespace)
     logger.info(f"GitOps engine '{engine.value}' installed and ready.")
+
+
+def _configure_argo(kube_config_path: str, namespace: str) -> None:
+    """Finish an Argo CD Core install: seed cluster config and wait for the application-controller.
+
+    Four things Core doesn't give us but a bundle needs. It only reconciles Applications in its own
+    namespace, but ats deploys each bundle into a per-engine namespace (like Flux, which watches all
+    namespaces), so applications-in-any-namespace is switched on. Gateway API resources would stall
+    the bundle-ready wait on a controller-less test cluster, so health overrides are registered. It
+    ships without the 'default' AppProject (created by the API server, which Core omits) and an
+    Application referencing a missing project never syncs, so a permissive project is applied. And OCI
+    Helm repositories must be declared up front, so the Giant Swarm catalog is registered. The
+    application-controller is a StatefulSet, so the deployment-wide readiness wait misses it; it's
+    restarted to pick up the config-map settings and then waited on explicitly.
+    """
+    run_res = run_and_log(
+        [
+            _KUBECTL_BIN,
+            f"--kubeconfig={kube_config_path}",
+            "--namespace",
+            namespace,
+            "patch",
+            "configmap",
+            "argocd-cmd-params-cm",
+            "--type=merge",
+            "--patch",
+            json.dumps({"data": {"application.namespaces": "*"}}),
+        ],
+        capture_output=True,
+    )  # nosec
+    if run_res.returncode != 0:
+        raise ATSTestError(f"Enabling Argo CD applications-in-any-namespace failed:\n{run_res.stderr}")
+    health_data = {
+        f"resource.customizations.health.{resource}": lua for resource, lua in _ARGO_HEALTH_CUSTOMIZATIONS.items()
+    }
+    run_res = run_and_log(
+        [
+            _KUBECTL_BIN,
+            f"--kubeconfig={kube_config_path}",
+            "--namespace",
+            namespace,
+            "patch",
+            "configmap",
+            "argocd-cm",
+            "--type=merge",
+            "--patch",
+            json.dumps({"data": health_data}),
+        ],
+        capture_output=True,
+    )  # nosec
+    if run_res.returncode != 0:
+        raise ATSTestError(f"Registering Argo CD Gateway API health overrides failed:\n{run_res.stderr}")
+    run_res = run_and_log(
+        [
+            _KUBECTL_BIN,
+            f"--kubeconfig={kube_config_path}",
+            "--namespace",
+            namespace,
+            "rollout",
+            "restart",
+            f"statefulset/{_ARGO_APP_CONTROLLER_STATEFULSET}",
+        ],
+        capture_output=True,
+    )  # nosec
+    if run_res.returncode != 0:
+        raise ATSTestError(f"Restarting the Argo CD application-controller failed:\n{run_res.stderr}")
+    run_res = run_and_log(
+        [
+            _KUBECTL_BIN,
+            f"--kubeconfig={kube_config_path}",
+            "--namespace",
+            namespace,
+            "rollout",
+            "status",
+            f"statefulset/{_ARGO_APP_CONTROLLER_STATEFULSET}",
+            f"--timeout={_ENGINE_INSTALL_WAIT_TIMEOUT}",
+        ],
+        capture_output=True,
+    )  # nosec
+    if run_res.returncode != 0:
+        raise ATSTestError(f"Waiting for the Argo CD application-controller to roll out failed:\n{run_res.stderr}")
+    config = yaml.safe_dump_all(
+        [
+            {
+                "apiVersion": "argoproj.io/v1alpha1",
+                "kind": "AppProject",
+                "metadata": {"name": _ARGO_DEFAULT_APP_PROJECT, "namespace": namespace},
+                "spec": {
+                    "sourceRepos": ["*"],
+                    "sourceNamespaces": ["*"],
+                    "destinations": [{"server": "*", "namespace": "*"}],
+                    "clusterResourceWhitelist": [{"group": "*", "kind": "*"}],
+                    "namespaceResourceWhitelist": [{"group": "*", "kind": "*"}],
+                },
+            },
+            {
+                "apiVersion": "v1",
+                "kind": "Secret",
+                "metadata": {
+                    "name": "giantswarm-catalog",
+                    "namespace": namespace,
+                    "labels": {"argocd.argoproj.io/secret-type": "repository"},
+                },
+                "stringData": {
+                    "type": "helm",
+                    "name": "giantswarm-catalog",
+                    "url": _GS_CATALOG_OCI_REPO,
+                    "enableOCI": "true",
+                },
+            },
+        ]
+    )
+    run_res = run_and_log(
+        [_KUBECTL_BIN, f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", "-"],
+        input=config,
+        capture_output=True,
+    )  # nosec
+    if run_res.returncode != 0:
+        raise ATSTestError(f"Seeding Argo CD project and repository config failed:\n{run_res.stderr}")
 
 
 def _list_engine_crs(kube_config_path: str, engine: GitOpsEngine, namespace: Optional[str] = None) -> List[dict]:

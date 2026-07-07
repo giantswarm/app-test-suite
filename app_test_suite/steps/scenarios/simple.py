@@ -4,19 +4,16 @@ import os
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Set, cast
 
-import configargparse
 import yaml
 import pykube
 from pykube import HTTPClient, KubeConfig
 from pytest_helm_charts.k8s.namespace import ensure_namespace_exists
-from step_exec_lib.errors import ConfigError
 from step_exec_lib.steps import BuildStep
 from step_exec_lib.types import StepType, STEP_ALL, Context
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
 from step_exec_lib.utils.processes import run_and_log
 
-from app_test_suite.cluster_manager import ClusterManager
-from app_test_suite.cluster_providers.cluster_provider import ClusterType, ClusterInfo
+from app_test_suite.cluster_manager import ClusterManager, ClusterInfo
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import (
     TestExecutor,
@@ -25,7 +22,6 @@ from app_test_suite.steps.base import (
     CONTEXT_KEY_CHART_YAML,
 )
 from app_test_suite.steps.test_types import (
-    config_option_cluster_type_for_test_type,
     STEP_TEST_FUNCTIONAL,
     STEP_TEST_SMOKE,
 )
@@ -52,8 +48,6 @@ class SimpleTestScenario(BuildStep, ABC):
 
     def __init__(self, cluster_manager: ClusterManager, test_executor: TestExecutor):
         self._cluster_manager = cluster_manager
-        self._configured_cluster_type: ClusterType = ClusterType("")
-        self._configured_cluster_config_file = ""
         self._kube_client: Optional[HTTPClient] = None
         self._cluster_info: Optional[ClusterInfo] = None
         self._skip_app_deploy = False
@@ -69,23 +63,10 @@ class SimpleTestScenario(BuildStep, ABC):
         raise NotImplementedError()
 
     @property
-    def _config_cluster_type_attribute_name(self) -> str:
-        return config_option_cluster_type_for_test_type(self.test_provided)
-
-    @property
-    def _config_cluster_config_file_attribute_name(self) -> str:
-        return f"--{self.test_provided}-tests-cluster-config-file"
-
-    @property
     def _test_cluster_type(self) -> str:
         if self._cluster_info is None:
             raise ValueError("_cluster_info can't be None")
-        cluster_type = (
-            self._cluster_info.overridden_cluster_type
-            if self._cluster_info.overridden_cluster_type
-            else self._cluster_info.cluster_type
-        )
-        return cluster_type
+        return self._cluster_info.cluster_type
 
     def run_tests(self, config: argparse.Namespace, context: Context) -> None:
         app_config_file_path = get_config_value_by_cmd_line_option(
@@ -151,63 +132,23 @@ class SimpleTestScenario(BuildStep, ABC):
             raise ATSTestError(f"Bootstrapping CRDs on the target cluster failed:\n{run_res.stderr}")
         logger.info("Cluster CRDs bootstrapped and ready.")
 
-    def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
-        config_parser.add_argument(
-            self._config_cluster_type_attribute_name,
-            required=False,
-            help=f"Cluster type to use for {self.test_provided} tests.",
-        )
-        config_parser.add_argument(
-            self._config_cluster_config_file_attribute_name,
-            required=False,
-            help=f"Additional configuration file for the cluster used for {self.test_provided} tests.",
-        )
-
     def pre_run(self, config: argparse.Namespace) -> None:
         self._assert_binary_present_in_path(_HELM_BIN)
         self._assert_binary_present_in_path(_KUBECTL_BIN)
-
-        cluster_type = ClusterType(
-            get_config_value_by_cmd_line_option(config, self._config_cluster_type_attribute_name)
-        )
-        cluster_config_file: str = get_config_value_by_cmd_line_option(
-            config, self._config_cluster_config_file_attribute_name
-        )
-        known_cluster_types = self._cluster_manager.get_registered_cluster_types()
-        if cluster_type not in known_cluster_types:
-            raise ConfigError(
-                f"--{self.test_provided}-tests-cluster-type",
-                f"Unknown cluster type '{cluster_type}' requested for tests of type"
-                f" '{self.test_provided}'. Known cluster types are: '{known_cluster_types}'.",
-            )
-        if cluster_config_file and not os.path.isfile(cluster_config_file):
-            raise ConfigError(
-                f"--{self.test_provided}-tests-cluster-config-file",
-                f"Cluster config file '{cluster_config_file}' for cluster type"
-                f" '{cluster_type}' requested for tests of type"
-                f" '{self.test_provided}' doesn't exist.",
-            )
-        self._configured_cluster_type = cluster_type
-        self._configured_cluster_config_file = cluster_config_file if cluster_config_file is not None else ""
         self._test_executor.validate(config, self.name)
 
     def run(self, config: argparse.Namespace, context: Context) -> None:
-        logger.info(
-            f"Requesting new cluster of type '{self._configured_cluster_type}' using config file"
-            f" '{self._configured_cluster_config_file}'."
-        )
-        self._cluster_info = self._cluster_manager.get_cluster_for_test_type(
-            self._configured_cluster_type, self._configured_cluster_config_file, config
-        )
+        logger.info("Using the configured test cluster.")
+        self._cluster_info = self._cluster_manager.get_cluster()
         if not self._cluster_info:
             raise ATSTestError("Didn't get cluster info from cluster manager")
 
-        logger.info("Establishing connection to the new cluster.")
+        logger.info("Establishing connection to the test cluster.")
         try:
             kube_config = KubeConfig.from_file(self._cluster_info.kube_config_path)
             self._kube_client = HTTPClient(kube_config)
         except Exception:
-            raise ATSTestError("Can't establish connection to the new test cluster")
+            raise ATSTestError("Can't establish connection to the test cluster")
 
         if not self._cluster_info.app_platform_ready:
             self._ensure_cluster_prerequisites(self._cluster_info.kube_config_path)
@@ -369,7 +310,7 @@ class SimpleTestScenario(BuildStep, ABC):
                 for deployment in deployments:
                     logger.error(f"  {deployment.name}: {yaml.dump(deployment.obj.get('status', {}))}")
 
-            # Node status (useful for Kind clusters with resource issues)
+            # Node status (useful for spotting clusters with resource issues)
             nodes = list(pykube.Node.objects(self._kube_client).all())
             if nodes:
                 logger.error("--- Cluster nodes ---")

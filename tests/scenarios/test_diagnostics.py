@@ -5,8 +5,7 @@ import pytest
 import pykube
 from pytest_mock import MockerFixture
 
-from app_test_suite.cluster_providers import ExternalClusterProvider
-from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
+from app_test_suite.cluster_manager import ClusterInfo
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML
 from app_test_suite.steps.executors.pytest import PytestExecutor
 from app_test_suite.steps.scenarios.simple import SmokeTestScenario, CONTEXT_KEY_RELEASE_NAME
@@ -114,13 +113,9 @@ def _make_scenario(mocker: MockerFixture) -> SmokeTestScenario:
     scenario = SmokeTestScenario(get_mock_cluster_manager(mocker), PytestExecutor())
     scenario._kube_client = mocker.MagicMock(name="kube_client")
     scenario._cluster_info = ClusterInfo(
-        ClusterType("mock"),
-        None,
-        MOCK_KUBE_VERSION,
-        "mock_cluster_id",
-        MOCK_KUBE_CONFIG_PATH,
-        ExternalClusterProvider(),
-        "",
+        kube_config_path=MOCK_KUBE_CONFIG_PATH,
+        cluster_type="mock",
+        version=MOCK_KUBE_VERSION,
     )
     return scenario
 

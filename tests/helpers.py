@@ -11,9 +11,7 @@ from configargparse import Namespace
 from pytest_mock import MockerFixture
 
 import app_test_suite
-from app_test_suite.cluster_manager import ClusterManager
-from app_test_suite.cluster_providers import ExternalClusterProvider
-from app_test_suite.cluster_providers.cluster_provider import ClusterInfo, ClusterType
+from app_test_suite.cluster_manager import ClusterManager, ClusterInfo
 from app_test_suite.steps.scenarios.simple import _HELM_BIN, _HELM_DEPLOY_TIMEOUT
 
 MOCK_KUBE_CONFIG_PATH = "/nonexisting-flsdhge235/kube.config"
@@ -124,14 +122,10 @@ def patch_base_test_runner(
 
 def get_mock_cluster_manager(mocker: MockerFixture) -> ClusterManager:
     mock_cluster_manager = mocker.MagicMock(spec=ClusterManager, name="MockClusterManager")
-    mock_cluster_manager.get_cluster_for_test_type.return_value = ClusterInfo(
-        ClusterType("mock"),
-        None,
-        MOCK_KUBE_VERSION,
-        "mock_cluster_id",
-        MOCK_KUBE_CONFIG_PATH,
-        ExternalClusterProvider(),
-        "",
+    mock_cluster_manager.get_cluster.return_value = ClusterInfo(
+        kube_config_path=MOCK_KUBE_CONFIG_PATH,
+        cluster_type="mock",
+        version=MOCK_KUBE_VERSION,
     )
     return mock_cluster_manager
 

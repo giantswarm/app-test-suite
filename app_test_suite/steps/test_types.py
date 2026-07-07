@@ -9,7 +9,3 @@ TEST_TYPE_ALL = {STEP_TEST_SMOKE, STEP_TEST_FUNCTIONAL, STEP_TEST_UPGRADE}
 ALL_STEPS = {
     STEP_ALL,
 } | TEST_TYPE_ALL
-
-
-def config_option_cluster_type_for_test_type(test_type: StepType) -> str:
-    return f"--{test_type}-tests-cluster-type"

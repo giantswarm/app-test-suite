@@ -42,7 +42,6 @@ uv ...
 -> binary versions:
 helm: ...
 kubectl: ...
-kind: ...
 ```
 
 ### Writing the tests
@@ -125,24 +124,31 @@ You can read more about [how `ats` executes tests](./pytest-test-pipeline.md) an
 
 We are now ready to build our test chart again, but this time running tests we've implemented. To do that, we
 need to have a cluster where we can deploy our chart and then execute our tests against a running application.
-Do make this time efficient, we'll use [kind](https://kind.sigs.k8s.io/docs/user/quick-start/). We're going to
-use embedded `ats` ability to create `kind` clusters, but remember that you can use any existing cluster you
-like - you just need to pass a `kube.config` file to `ats`. Run `ats` from the `examples/tutorial` directory,
-so it discovers the tests in `tests/ats` relative to it (the chart archive passed with `-c` can live
-anywhere). `ats` can run different types of tests on different clusters, so we have to pass cluster type
-option twice, but our cluster will be reused for both kinds of tests:
+`ats` does not create clusters for you — you provide it a `kubeconfig` for an existing cluster. To make this
+efficient, we'll spin up a quick local cluster with [kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
+ourselves and write its `kubeconfig` to a file, but you can use any cluster you like:
+
+```bash
+cd examples/tutorial
+kind create cluster
+kind get kubeconfig > ./kube.config
+```
+
+Now run `ats` from the `examples/tutorial` directory, so it discovers the tests in `tests/ats` relative to it
+(the chart archive passed with `-c` can live anywhere), and point it at the `kubeconfig` we just created. All
+test scenarios run against that single cluster:
 
 ```bash
 # log truncated to key steps
-cd examples/tutorial
 ats -c hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz \
-    --smoke-tests-cluster-type kind --functional-tests-cluster-type kind
+    --cluster-kubeconfig ./kube.config --cluster-type kind
 ...
 INFO: Running pre-run step for TestInfoProvider
 INFO: Running pre-run step for SmokeTestScenario
 ...
+INFO: Using the configured test cluster.
 INFO: Applying cluster CRDs from /etc/ats/crds
-INFO: Running command: kubectl --kubeconfig=<uuid>.kube.config apply --server-side -f /etc/ats/crds
+INFO: Running command: kubectl --kubeconfig=kube.config apply --server-side -f /etc/ats/crds
 INFO: Cluster CRDs bootstrapped and ready.
 INFO: Ensuring namespace 'policy-exceptions'.
 INFO: Installing chart as Helm release 'hello-world-app' into namespace 'default'.
@@ -170,8 +176,8 @@ test_example.py::test_hello_working PASSED                                      
 ================= 1 passed, 1 deselected in 0.09s =================
 
 INFO: Uninstalling Helm release 'hello-world-app' from namespace 'default'.
-INFO: Deleting KinD cluster...
 ```
 
 That's it. When our tests have passed, you know that the Chart was really deployed to the cluster and
-responded to your requests!
+responded to your requests! Since `ats` didn't create the cluster, it also doesn't delete it — clean up your
+local `kind` cluster yourself with `kind delete cluster` when you're done.

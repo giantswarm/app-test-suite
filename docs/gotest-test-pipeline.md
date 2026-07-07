@@ -34,52 +34,42 @@ The `gotest` pipeline invokes following series of steps:
     your app is upgraded to the version under the test, post-upgrade hook is executed and then again test are invoked
     using `upgrade` test type.
 
-## Configuring test scenarios
+## Configuring the test cluster
 
-Each test type ("smoke", "functional") can have its own type and configuration of a Kubernetes cluster it runs on. That
-way you can create test scenarios like: "please run my 'smoke' tests on a `kind` cluster; if they succeed, run '
-functional' tests on an external cluster I give you `kube.config` for".
+`ats` does not create or destroy clusters. You always run tests against an existing cluster whose `kubeconfig`
+you provide with `--cluster-kubeconfig`; all test scenarios (`smoke`, `functional`, `upgrade`) run against
+that single cluster. How you obtain the cluster (a local `kind` cluster, a managed cluster, etc.) is entirely
+up to you and outside the scope of `ats`.
 
-The type of cluster used for each type of tests is selected using the `--[TEST_TYPE]-tests-cluster-type`
-config option. Additionally, if the cluster provider of given type supports some config files that allow you to tune how
-the cluster is created, you can pass a path to that config file using the
-`--[TEST_TYPE]-tests-cluster-config-file`.
+The cluster is configured with these options:
 
-Currently, the supported cluster types are:
-
-1. `external` - it means the cluster is created out of the scope of control of `ats`. The user must pass a path to
-   the `kube.config` file and cluster type and Kubernetes version as command line arguments.
-1. `kind` - `ats` automatically create a [`kind`](https://kind.sigs.k8s.io/docs/user/quick-start/)
-   cluster for that type of tests. You can additionally pass
-   [kind config file](https://kind.sigs.k8s.io/docs/user/quick-start/#configuring-your-kind-cluster)
-   to configure the cluster that will be created by `ats`.
+- `--cluster-kubeconfig` (required) - path to the `kubeconfig` file of the cluster to run the tests on. In
+  your Go tests, the kubeconfig path is available via the `KUBECONFIG` environment variable.
+- `--cluster-type` (optional) - a free-text label identifying the cluster type. It's exported to your tests
+  as the `ATS_CLUSTER_TYPE` environment variable and saved in upgrade test metadata.
+- `--cluster-version` (optional) - a free-text label identifying the cluster/Kubernetes version. It's
+  exported to your tests as the `ATS_CLUSTER_VERSION` environment variable and saved in upgrade test metadata.
 
 ### Test scenario example
 
 **Info:** Please remember you can save any command line option you use constantly in the `.ats/main.yaml`
 file and skip it from command line.
 
-1. I want to run 'smoke' tests on a kind cluster and 'functional' tests on an external K8s 1.19.0 cluster created on
-   EKS:
+I want to run my tests on an existing K8s 1.19.0 cluster created on EKS:
 
-   ```bash
-   # command-line version
-   # the gotest executor is auto-detected from the go.mod in tests/ats;
-   # add '--test-executor gotest' if you want to force it explicitly
-   ats -c my-chart --smoke-tests-cluster-type kind \
-     --functional-tests-cluster-type external \
-     --external-cluster-kubeconfig-path kube.config \
-     --external-cluster-type EKS \
-     --external-cluster-version "1.19.0"
-   ```
+```bash
+# command-line version
+# the gotest executor is auto-detected from the go.mod in tests/ats;
+# add '--test-executor gotest' if you want to force it explicitly
+ats -c my-chart \
+  --cluster-kubeconfig kube.config \
+  --cluster-type EKS \
+  --cluster-version "1.19.0"
+```
 
-2. I want to run both `smoke` and `functional` tests on the same `kind` cluster. I want the `kind` cluster to be created
-   according to my config file:
-
-   ```yaml
-   # config file version - content of `.ats/main.yaml`
-   functional-tests-cluster-type: kind
-   smoke-tests-cluster-type: kind
-   smoke-tests-cluster-config-file: my-chart/kind_config.yaml
-   functional-tests-cluster-config-file: my-chart/kind_config.yaml
-   ```
+```yaml
+# config file version - content of `.ats/main.yaml`
+cluster-kubeconfig: kube.config
+cluster-type: EKS
+cluster-version: "1.19.0"
+```

@@ -4,22 +4,14 @@ ARG TARGETARCH=amd64
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VER=v1.36.2
-# renovate: datasource=github-releases depName=moby/moby
-ARG DOCKER_VER=v28.5.2
-# renovate: datasource=github-releases depName=kubernetes-sigs/kind
-ARG KIND_VER=v0.32.0
 # renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VER=v4.2.2
 
 RUN apk add --no-cache ca-certificates curl \
     && mkdir -p /binaries \
-    && DOCKER_ARCH=$([ "${TARGETARCH}" = "arm64" ] && echo "aarch64" || echo "x86_64") \
     && curl --silent --show-error --fail --location https://dl.k8s.io/release/${KUBECTL_VER}/bin/linux/${TARGETARCH}/kubectl --output /binaries/kubectl \
-    && curl --silent --show-error --fail --location https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_VER##v}.tgz | \
-    tar --extract --gzip --directory /binaries --strip-components 1 docker/docker \
     && curl --silent --show-error --fail --location https://get.helm.sh/helm-${HELM_VER}-linux-${TARGETARCH}.tar.gz | \
-    tar --extract --gzip --directory /binaries --strip-components 1 linux-${TARGETARCH}/helm \
-    && curl --silent --show-error --fail --location https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VER}/kind-linux-${TARGETARCH} --output /binaries/kind
+    tar --extract --gzip --directory /binaries --strip-components 1 linux-${TARGETARCH}/helm
 
 COPY container-entrypoint.sh /binaries
 

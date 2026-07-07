@@ -21,8 +21,7 @@ from validators import url as validator_url
 from yaml import YAMLError
 from yaml.parser import ParserError
 
-from app_test_suite.cluster_manager import ClusterManager
-from app_test_suite.cluster_providers.cluster_provider import ClusterInfo
+from app_test_suite.cluster_manager import ClusterManager, ClusterInfo
 from app_test_suite.config import (
     KEY_CFG_STABLE_APP_URL,
     KEY_CFG_STABLE_APP_FILE,

@@ -109,14 +109,6 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
                     f"Application config file '{app_config_file}' found, but can't be loaded as a correct YAML document."
                 )
 
-    def cleanup(
-        self,
-        config: argparse.Namespace,
-        context: Context,
-        has_build_failed: bool,
-    ) -> None:
-        self._cluster_manager.cleanup()
-
 
 @dataclass
 class TestExecInfo:

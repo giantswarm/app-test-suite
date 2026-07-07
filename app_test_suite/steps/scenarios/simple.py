@@ -147,9 +147,7 @@ class SimpleTestScenario(BuildStep, ABC):
             capture_output=True,
         )  # nosec
         if run_res.returncode != 0:
-            raise ATSTestError(
-                f"Bootstrapping CRDs on the target cluster failed:\n{run_res.stderr.decode(errors='replace')}"
-            )
+            raise ATSTestError(f"Bootstrapping CRDs on the target cluster failed:\n{run_res.stderr}")
         logger.info("Cluster CRDs bootstrapped and ready.")
 
     def initialize_config(self, config_parser: configargparse.ArgParser) -> None:

@@ -43,7 +43,7 @@ docker-build-image:
 	docker build . -t ${IMG}:latest -t ${IMG}:${IMG_VER}
 
 docker-build-ver:
-	echo "build_ver = \"${VER}-${COMMIT}\"" > app_test_suite/version.py
+	echo "build_ver = \"${IMG_VER}\"" > app_test_suite/version.py
 
 # Push the docker image
 docker-push: docker-build

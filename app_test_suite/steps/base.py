@@ -35,9 +35,13 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
     KEY_CONFIG_OPTION_DEPLOY_CONFIG_FILE = "--app-tests-app-config-file"
     KEY_CONFIG_OPTION_PRE_HOOK = "--app-tests-pre-hook"
     KEY_CONFIG_OPTION_POST_HOOK = "--app-tests-post-hook"
+    KEY_CONFIG_OPTION_GITOPS_ENGINE = "--gitops-engine"
+    KEY_CONFIG_OPTION_GITOPS_VALUES = "--gitops-values"
+    KEY_CONFIG_OPTION_GITOPS_BUNDLE_READY_TIMEOUT = "--gitops-bundle-ready-timeout"
     KEY_CONFIG_OPTION_GITOPS_FLUX_INSTALL_MANIFEST = "--gitops-flux-install-manifest"
     KEY_CONFIG_OPTION_GITOPS_ARGO_INSTALL_MANIFEST = "--gitops-argo-install-manifest"
 
+    GITOPS_BUNDLE_READY_TIMEOUT_DEFAULT = "10m"
     GITOPS_FLUX_INSTALL_MANIFEST_DEFAULT = "/etc/ats/gitops/flux.yaml"
     GITOPS_ARGO_INSTALL_MANIFEST_DEFAULT = "/etc/ats/gitops/argo.yaml"
 
@@ -87,6 +91,26 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
             self.KEY_CONFIG_OPTION_POST_HOOK,
             required=False,
             help="Executable run after tests complete (pass or skip). ATS_* env vars and KUBECONFIG are set.",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_GITOPS_ENGINE,
+            required=False,
+            default="helm",
+            help="GitOps engine to deploy the bundle chart under for the whole run: 'helm' (default; plain"
+            " 'helm upgrade --install'), 'flux', or 'argo'. The suite is run once against the selected engine.",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_GITOPS_VALUES,
+            required=False,
+            help="Path to a values overlay stacked on the app config file when deploying the bundle chart"
+            " under a GitOps engine. Defaults to 'ci/gitops-values-<engine>.yaml' when that file exists.",
+        )
+        self._config_parser_group.add_argument(
+            self.KEY_CONFIG_OPTION_GITOPS_BUNDLE_READY_TIMEOUT,
+            required=False,
+            default=self.GITOPS_BUNDLE_READY_TIMEOUT_DEFAULT,
+            help="How long to wait for the GitOps resources emitted by the bundle chart to become ready"
+            " (and to drain on teardown).",
         )
         self._config_parser_group.add_argument(
             self.KEY_CONFIG_OPTION_GITOPS_FLUX_INSTALL_MANIFEST,

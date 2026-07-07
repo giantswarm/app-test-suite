@@ -2,8 +2,6 @@ import os
 import unittest.mock
 from typing import Callable, Type, cast
 
-import app_test_suite.gitops
-
 import pytest
 from pytest_mock import MockerFixture
 from step_exec_lib.errors import ConfigError
@@ -188,20 +186,17 @@ def test_pre_hook_failure_raises(mocker: MockerFixture) -> None:
 
 
 @pytest.mark.parametrize(
-    "engines_value,expected_error",
+    "engine_value,expected_error",
     [
         ("bogus", "Unknown GitOps engine 'bogus'"),
         ("argo", "'argo' engine is not implemented yet"),
-        ("flux,argo", "'argo' engine is not implemented yet"),
     ],
-    ids=["unknown-engine", "argo-explicit", "argo-in-list"],
+    ids=["unknown-engine", "argo-explicit"],
 )
-def test_gitops_engines_config_validation_rejects(
-    mocker: MockerFixture, engines_value: str, expected_error: str
-) -> None:
+def test_gitops_engine_config_validation_rejects(mocker: MockerFixture, engine_value: str, expected_error: str) -> None:
     runner = _make_smoke_runner(mocker)
     config = get_base_config(mocker)
-    config.smoke_tests_gitops_engines = engines_value
+    config.gitops_engine = engine_value
 
     with pytest.raises(ConfigError, match=expected_error):
         runner._validate_gitops_config(config)
@@ -210,32 +205,8 @@ def test_gitops_engines_config_validation_rejects(
 def test_gitops_values_overlay_must_exist_when_configured(mocker: MockerFixture) -> None:
     runner = _make_smoke_runner(mocker)
     config = get_base_config(mocker)
-    config.smoke_tests_gitops_engines = "flux"
-    config.smoke_tests_gitops_values_flux = "nonexistent-overlay.yaml"
+    config.gitops_engine = "flux"
+    config.gitops_values = "nonexistent-overlay.yaml"
 
     with pytest.raises(ConfigError, match="doesn't exist"):
         runner._validate_gitops_config(config)
-
-
-def test_run_detects_gitops_engines_when_auto(mocker: MockerFixture) -> None:
-    runner = _make_smoke_runner(mocker)
-    config = get_base_config(mocker)
-    context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_CHART_VERSION}}
-
-    runner.run(config, context)
-
-    cast(unittest.mock.Mock, app_test_suite.gitops.run_and_log).assert_any_call(
-        ["helm", "template", MOCK_CHART_FILE_NAME], capture_output=True
-    )
-
-
-def test_run_skips_gitops_detection_when_engines_explicit(mocker: MockerFixture) -> None:
-    runner = _make_smoke_runner(mocker)
-    config = get_base_config(mocker)
-    config.smoke_tests_gitops_engines = "helm"
-    runner._validate_gitops_config(config)
-    context = {CONTEXT_KEY_CHART_YAML: {"name": MOCK_APP_NAME, "version": MOCK_CHART_VERSION}}
-
-    runner.run(config, context)
-
-    cast(unittest.mock.Mock, app_test_suite.gitops.run_and_log).assert_not_called()

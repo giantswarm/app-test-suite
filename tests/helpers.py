@@ -95,13 +95,11 @@ def get_base_config(mocker: MockerFixture) -> Namespace:
     config.app_tests_post_hook = ""
     config.chart_file = MOCK_CHART_FILE_NAME
     config.debug = False
+    config.gitops_engine = "helm"
+    config.gitops_values = ""
+    config.gitops_bundle_ready_timeout = "10m"
     config.gitops_flux_install_manifest = "/etc/ats/gitops/flux.yaml"
     config.gitops_argo_install_manifest = "/etc/ats/gitops/argo.yaml"
-    for test_type in ("smoke", "functional", "upgrade"):
-        setattr(config, f"{test_type}_tests_gitops_engines", "auto")
-        setattr(config, f"{test_type}_tests_gitops_values_flux", "")
-        setattr(config, f"{test_type}_tests_gitops_values_argo", "")
-        setattr(config, f"{test_type}_tests_gitops_bundle_ready_timeout", "10m")
     return config
 
 
@@ -124,10 +122,6 @@ def patch_base_test_runner(
     mocker.patch("app_test_suite.steps.scenarios.simple.HTTPClient")
     mocker.patch(
         "app_test_suite.steps.scenarios.simple.run_and_log",
-        return_value=run_and_log_res,
-    )
-    mocker.patch(
-        "app_test_suite.gitops.run_and_log",
         return_value=run_and_log_res,
     )
     mocker.patch("app_test_suite.steps.scenarios.simple.ensure_namespace_exists")

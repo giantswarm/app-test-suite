@@ -349,7 +349,7 @@ single workload came up.
    value overlay on your app config,
 3. waits until the bundle is *ready* (see [Bundle readiness](#bundle-readiness)),
 4. runs the test suite against the converged deployment,
-5. tears the release down and waits for the emitted resources to drain before the next leg.
+5. tears the release down and waits for the emitted resources to drain before the next iteration.
 
 This applies to all three scenarios. In the upgrade scenario both the stable release and the upgrade to
 the version under test deploy under the live engine, so the stable-to-candidate resource-set transition
@@ -367,10 +367,10 @@ Engine selection is per test type, alongside the existing `--<test>-tests-cluste
 ```
 
 - `auto` (default): render the chart with your app config and detect the engine from the emitted
-  resource kinds. Flux kinds produce a Flux leg, `Application` produces an Argo leg, neither falls
+  resource kinds. Flux kinds produce a Flux iteration, `Application` produces an Argo iteration, neither falls
   through to a plain Helm deploy.
 - `helm`: force today's plain Helm deploy; skip detection and all engine machinery.
-- `flux`, `argo`: explicit comma-separated list, one leg per engine. Overrides detection.
+- `flux`, `argo`: explicit comma-separated list, one iteration per engine. Overrides detection.
 
 Because `auto` is the default, every run renders the chart once to detect engines, and charts that
 already emit GitOps resources start getting real readiness checks instead of a false-green
@@ -407,6 +407,10 @@ exists, so a conforming repo needs no extra configuration. To point elsewhere, u
 A chart that renders the same resources regardless of engine (the [`flux-bundle-app`
 example](examples/apps/flux-bundle-app) does this) needs no overlay at all.
 
+`auto` detection renders with your app config only, not the engine overlay. A chart that emits its
+GitOps resources only when the overlay sets the engine (rather than by default) is invisible to
+`auto` and should be tested with an explicit `flux`/`argo` selection instead.
+
 ### Bundle readiness
 
 A bundle can create more resources that create yet more resources (nested bundles), so "ready" is a
@@ -431,7 +435,7 @@ live in a private registry needs its pull credentials injected via the `--app-te
 
 ### What the tests see
 
-On an engine leg, the test suite runs against the per-engine namespace and receives the usual
+On an engine iteration, the test suite runs against the per-engine namespace and receives the usual
 `ATS_RELEASE_NAME` / `ATS_RELEASE_NAMESPACE` variables plus `ATS_EXTRA_GITOPS_ENGINE` (`flux` or `argo`),
 so a test can assert engine-specific behaviour or wait on the reconciled workloads. See
 [`examples/apps/flux-bundle-app/tests/ats`](examples/apps/flux-bundle-app/tests/ats) for a worked example.

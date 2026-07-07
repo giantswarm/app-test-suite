@@ -31,6 +31,12 @@ To build the Chart, please consider the companion [app-build-suite](https://gith
 - [Execution steps details and configuration](#execution-steps-details-and-configuration)
   - [Test executors](#test-executors)
   - [Test pipelines](#test-pipelines)
+- [Testing GitOps bundle charts](#testing-gitops-bundle-charts)
+  - [Selecting the engine](#selecting-the-engine)
+  - [The engine value overlay](#the-engine-value-overlay)
+  - [Bundle readiness](#bundle-readiness)
+  - [What the tests see](#what-the-tests-see)
+  - [Pinning the engine install manifest](#pinning-the-engine-install-manifest)
 - [How to contribute](#how-to-contribute)
 
 ## How to use app-test-suite
@@ -322,6 +328,128 @@ something like this:
 2. Run `functional` tests on `kind` cluster. We might reuse the `kind` cluster from the step above. But we might also
    need a more powerful setup to be able to test all the `functional` scenarios, so we might request a real AWS cluster
    for that kind of tests. It's for the test developer to choose.
+
+## Testing GitOps bundle charts
+
+A *bundle chart* is a Helm chart whose rendered output is GitOps custom resources (Flux
+`HelmRelease`/`Kustomization`/`OCIRepository`, or Argo `Application`) instead of workloads. A GitOps
+engine running in the cluster reconciles those resources and pulls in the actual apps.
+[`agentic-platform`](https://github.com/giantswarm/agentic-platform) is the reference case: one chart
+value switches its rendered output between Flux and Argo resources.
+
+A plain `helm upgrade --install --wait` can't test such a chart honestly: there is no engine in the test
+cluster to reconcile the emitted resources, and `--wait` only confirms that the resource objects exist,
+not that the bundle they describe actually deployed. Tests would pass against a cluster where not a
+single workload came up.
+
+`ats` handles this by running each test scenario as a matrix of engine legs. For every selected engine it:
+
+1. installs the engine on the test cluster (once per cluster; Flux and Argo can coexist),
+2. deploys the chart into a per-engine namespace (`<deploy-namespace>-<engine>`), stacking the engine
+   value overlay on your app config,
+3. waits until the bundle is *ready* (see [Bundle readiness](#bundle-readiness)),
+4. runs the test suite against the converged deployment,
+5. tears the release down and waits for the emitted resources to drain before the next iteration.
+
+This applies to all three scenarios. In the upgrade scenario both the stable release and the upgrade to
+the version under test deploy under the live engine, so the stable-to-candidate resource-set transition
+(renames, removals, orphaned resources) is exercised the way production hits it.
+
+> **Note:** only the Flux engine is implemented today. `argo` is accepted as a valid value so charts can
+> declare it, but selecting it currently fails the run. Argo support lands in a follow-up.
+
+### Selecting the engine
+
+Engine selection is per test type, alongside the existing `--<test>-tests-cluster-*` options:
+
+```bash
+--<test>-tests-gitops-engines <value>   # smoke | functional | upgrade
+```
+
+- `auto` (default): render the chart with your app config and detect the engine from the emitted
+  resource kinds. Flux kinds produce a Flux iteration, `Application` produces an Argo iteration, neither falls
+  through to a plain Helm deploy.
+- `helm`: force today's plain Helm deploy; skip detection and all engine machinery.
+- `flux`, `argo`: explicit comma-separated list, one iteration per engine. Overrides detection.
+
+Because `auto` is the default, every run renders the chart once to detect engines, and charts that
+already emit GitOps resources start getting real readiness checks instead of a false-green
+`helm --wait`. If that is not what you want for a given chart, set the option to `helm`.
+
+### The engine value overlay
+
+The value that selects the engine is chart-specific, so `ats` never guesses it. Instead you supply a
+small values overlay per engine that is stacked on your normal app config (Helm merges them, last wins).
+For `agentic-platform` the overlays look like this:
+
+```yaml
+# ci/gitops-values-flux.yaml
+gitops:
+  engine: flux
+```
+
+```yaml
+# ci/gitops-values-argo.yaml
+gitops:
+  engine: argo
+  argo:
+    project: default
+    server: https://kubernetes.default.svc
+```
+
+`ats` picks up `ci/gitops-values-<engine>.yaml` (relative to the working directory) automatically when it
+exists, so a conforming repo needs no extra configuration. To point elsewhere, use:
+
+```bash
+--<test>-tests-gitops-values-<engine> path/to/overlay.yaml
+```
+
+A chart that renders the same resources regardless of engine (the [`flux-bundle-app`
+example](examples/apps/flux-bundle-app) does this) needs no overlay at all.
+
+`auto` detection renders with your app config only, not the engine overlay. A chart that emits its
+GitOps resources only when the overlay sets the engine (rather than by default) is invisible to
+`auto` and should be tested with an explicit `flux`/`argo` selection instead.
+
+### Bundle readiness
+
+A bundle can create more resources that create yet more resources (nested bundles), so "ready" is a
+fixpoint, not a single check. `ats` polls until:
+
+- every GitOps resource in the cluster reports ready (Flux: `HelmRelease`/`Kustomization`/`OCIRepository`
+  `Ready`; Argo: every `Application` `Healthy` and `Synced`), **and**
+- the set of resources is stable between two consecutive polls, meaning the deploy cascade stopped
+  expanding.
+
+The wait (and the teardown drain) are bounded by:
+
+```bash
+--<test>-tests-gitops-bundle-ready-timeout <duration>   # default 10m, e.g. 30s / 5m / 1h
+```
+
+On timeout, `ats` dumps the conditions of every resource that is not ready, so a chart-pull error or a
+bad value reads as such instead of a mystery timeout.
+
+Bundle children pull from wherever the chart points them. `ats` pulls anonymously; a chart whose children
+live in a private registry needs its pull credentials injected via the `--app-tests-pre-hook`.
+
+### What the tests see
+
+On an engine iteration, the test suite runs against the per-engine namespace and receives the usual
+`ATS_RELEASE_NAME` / `ATS_RELEASE_NAMESPACE` variables plus `ATS_EXTRA_GITOPS_ENGINE` (`flux` or `argo`),
+so a test can assert engine-specific behaviour or wait on the reconciled workloads. See
+[`examples/apps/flux-bundle-app/tests/ats`](examples/apps/flux-bundle-app/tests/ats) for a worked example.
+
+### Pinning the engine install manifest
+
+The engine is installed from a manifest vendored in the `ats` container image (a trimmed Flux install with
+the source, kustomize and helm controllers). To use a different build, or when running `ats` outside the
+container, point it at a path or URL:
+
+```bash
+--gitops-flux-install-manifest <path|url>
+--gitops-argo-install-manifest <path|url>
+```
 
 ## How to contribute
 

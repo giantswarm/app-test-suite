@@ -242,7 +242,7 @@ def test_upgrade_pytest_runner_run(
     assert_upgrade_metadata_created()
 
 
-def test_upgrade_flux_leg_runs_stable_and_upgrade_under_engine(mocker: MockerFixture, tmp_path: Path) -> None:
+def test_upgrade_flux_iteration_runs_stable_and_upgrade_under_engine(mocker: MockerFixture, tmp_path: Path) -> None:
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
     patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)
@@ -303,7 +303,7 @@ def test_upgrade_flux_leg_runs_stable_and_upgrade_under_engine(mocker: MockerFix
     assert_upgrade_metadata_created()
 
 
-def test_upgrade_auto_detects_flux_and_runs_leg(mocker: MockerFixture) -> None:
+def test_upgrade_auto_detects_flux_and_runs_iteration(mocker: MockerFixture) -> None:
     mock_cluster_manager = get_mock_cluster_manager(mocker)
     run_and_log_call_result_mock = get_run_and_log_result_mock(mocker)
     patch_base_test_runner(mocker, run_and_log_call_result_mock, MOCK_APP_NAME, MOCK_APP_NS)

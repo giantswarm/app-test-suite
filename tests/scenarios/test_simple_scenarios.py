@@ -8,6 +8,7 @@ import app_test_suite.gitops
 import pytest
 from pytest_mock import MockerFixture
 from step_exec_lib.errors import ConfigError
+from app_test_suite.cluster_providers.cluster_provider import ClusterType
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML, TestExecutor
 from step_exec_lib.types import StepType
@@ -205,6 +206,26 @@ def test_gitops_values_overlay_must_exist_when_configured(mocker: MockerFixture)
 
     with pytest.raises(ConfigError, match="doesn't exist"):
         runner._validate_gitops_config(config)
+
+
+def test_pre_run_resolves_engines_before_any_cluster(mocker: MockerFixture) -> None:
+    runner = _make_smoke_runner(mocker)
+    mocker.patch.object(runner._test_executor, "validate")
+    cluster_manager = cast(unittest.mock.Mock, runner._cluster_manager)
+    cluster_manager.get_registered_cluster_types.return_value = [ClusterType("mock")]
+    config = get_base_config(mocker)
+    config.smoke_tests_cluster_type = "mock"
+    config.smoke_tests_cluster_config_file = ""
+
+    runner.pre_run(config)
+
+    # auto-detection (a local `helm template`) ran during validation, so a render failure would
+    # abort here instead of after a cluster spin-up in run()
+    cast(unittest.mock.Mock, app_test_suite.gitops.run_and_log).assert_any_call(
+        ["helm", "template", MOCK_CHART_FILE_NAME], capture_output=True
+    )
+    assert runner._resolved_gitops_engines == []
+    cluster_manager.get_cluster_for_test_type.assert_not_called()
 
 
 def test_run_detects_gitops_engines_when_auto(mocker: MockerFixture) -> None:

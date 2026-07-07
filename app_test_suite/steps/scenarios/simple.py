@@ -19,6 +19,7 @@ from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.cluster_providers.cluster_provider import ClusterType, ClusterInfo
 from app_test_suite.errors import ATSTestError
 from app_test_suite.gitops import (
+    ENGINE_AUTO,
     GitOpsEngine,
     detect_engines,
     install_engine,
@@ -45,6 +46,7 @@ CHART_YAML = "Chart.yaml"
 _HELM_BIN = "helm"
 _KUBECTL_BIN = "kubectl"
 _HELM_DEPLOY_TIMEOUT = "30m"
+_GITOPS_BUNDLE_READY_TIMEOUT_DEFAULT = "10m"
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +70,10 @@ class SimpleTestScenario(BuildStep, ABC):
         self._cluster_info: Optional[ClusterInfo] = None
         self._skip_app_deploy = False
         self._test_executor = test_executor
-        # None means 'auto': detect engines from the rendered chart at run time
+        # None means 'auto': detect engines from the rendered chart
         self._configured_gitops_engines: Optional[List[GitOpsEngine]] = None
+        # engines resolved in pre_run (config list, or auto-detection); None until then
+        self._resolved_gitops_engines: Optional[List[GitOpsEngine]] = None
         self._gitops_bundle_ready_timeout_sec = 600
         # engine of the matrix iteration currently being executed; None on the plain Helm path
         self._current_gitops_engine: Optional[GitOpsEngine] = None
@@ -190,7 +194,7 @@ class SimpleTestScenario(BuildStep, ABC):
         config_parser.add_argument(
             self._config_gitops_engines_attribute_name,
             required=False,
-            default="auto",
+            default=ENGINE_AUTO,
             help=f"GitOps engine(s) to test the bundle chart under for {self.test_provided} tests:"
             f" 'auto' (detect from the rendered chart), 'helm' (force plain Helm deploy),"
             f" or a comma-separated list of engines ('flux', 'argo').",
@@ -206,7 +210,7 @@ class SimpleTestScenario(BuildStep, ABC):
         config_parser.add_argument(
             self._config_gitops_bundle_ready_timeout_attribute_name,
             required=False,
-            default="10m",
+            default=_GITOPS_BUNDLE_READY_TIMEOUT_DEFAULT,
             help=f"How long to wait for the GitOps resources emitted by the bundle chart to become"
             f" ready (and to drain on teardown) in {self.test_provided} tests.",
         )
@@ -238,6 +242,10 @@ class SimpleTestScenario(BuildStep, ABC):
         self._configured_cluster_type = cluster_type
         self._configured_cluster_config_file = cluster_config_file if cluster_config_file is not None else ""
         self._validate_gitops_config(config)
+        # Resolve engines now (auto-detection is a local `helm template` on already-validated
+        # inputs) so a chart that won't render fails in the validation phase, before any cluster
+        # is provisioned, rather than after a full cluster spin-up in run().
+        self._resolved_gitops_engines = self._resolve_gitops_engines(config)
         self._test_executor.validate(config, self.name)
 
     def _validate_gitops_config(self, config: argparse.Namespace) -> None:
@@ -393,6 +401,8 @@ class SimpleTestScenario(BuildStep, ABC):
         return deploy_namespace
 
     def _resolve_gitops_engines(self, config: argparse.Namespace) -> List[GitOpsEngine]:
+        if self._resolved_gitops_engines is not None:
+            return self._resolved_gitops_engines
         if self._configured_gitops_engines is not None:
             return self._configured_gitops_engines
         app_config_file_path = get_config_value_by_cmd_line_option(

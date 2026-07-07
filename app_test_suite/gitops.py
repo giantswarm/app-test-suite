@@ -39,6 +39,9 @@ _ENGINE_RENDERED_KINDS = {
         ("helm.toolkit.fluxcd.io", "HelmRelease"),
         ("kustomize.toolkit.fluxcd.io", "Kustomization"),
         ("source.toolkit.fluxcd.io", "OCIRepository"),
+        ("source.toolkit.fluxcd.io", "GitRepository"),
+        ("source.toolkit.fluxcd.io", "HelmRepository"),
+        ("source.toolkit.fluxcd.io", "Bucket"),
     },
     GitOpsEngine.ARGO: {
         ("argoproj.io", "Application"),
@@ -73,7 +76,13 @@ def parse_engines_option(value: Optional[str]) -> Optional[List[GitOpsEngine]]:
 
 
 def detect_engines(chart_path: str, values_paths: List[str]) -> List[GitOpsEngine]:
-    """Render the chart with `helm template` and detect GitOps engines from the emitted kinds."""
+    """Render the chart with `helm template` and detect GitOps engines from the emitted kinds.
+
+    Detection is values-driven: the app config values are stacked into the render, which is how a
+    chart picks its engine. `helm template` runs without cluster capabilities or `--api-versions`,
+    so a chart that gates its GitOps CRs on `.Capabilities.APIVersions` won't render them here and
+    won't be detected; drive the engine from values instead.
+    """
     args = ["helm", "template", chart_path]
     for values_path in values_paths:
         args += ["--values", values_path]

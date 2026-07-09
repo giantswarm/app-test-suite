@@ -62,7 +62,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 - App CR deployment path, app-operator, chart-operator, and chartmuseum support removed.
 - `apptestctl` binary dropped from the Docker image. CRDs are now bundled in `container-crds/` and applied via `kubectl apply --server-side` during cluster bootstrap.
 - Giant Swarm App Platform CRDs (App, Chart, Catalog, AppCatalog, AppCatalogEntry) are no longer bundled in `container-crds/`. Since charts are deployed directly with Helm instead of via an `App` CR, the test cluster no longer needs them.
-- **BREAKING:** `dats.sh` is no longer published as a release asset. Run the image directly: `docker run --rm -it -v "$(pwd):/ats/workdir" -v /var/run/docker.sock:/var/run/docker.sock --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>`. CI consumers must move to `architect/run-tests-with-ats` v10+, which runs the container directly instead of downloading `dats.sh`.
+- **BREAKING:** `dats.sh` is no longer published as a release asset. Run the image directly: `docker run --rm -it -e USE_UID="$(id -u)" -e USE_GID="$(id -g)" -v "$(pwd):/ats/workdir" --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>`. CI consumers must move to `architect/run-tests-with-ats` v10+, which runs the container directly instead of downloading `dats.sh`.
 
 ## [0.15.0] - 2026-04-02
 

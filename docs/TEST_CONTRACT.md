@@ -1,6 +1,6 @@
 # ATS Test Contract
 
-This document defines the phases, labels, environment variables, and hook contract that test code must follow to run under ATS (local kind loop) and, in the future, under ATF (E2E CAPI clusters).
+This document defines the phases, labels, environment variables, and hook contract that test code must follow to run under ATS (on a cluster you provide) and, in the future, under ATF (E2E CAPI clusters).
 
 ## Scenario phases
 
@@ -41,8 +41,8 @@ ATS sets these variables for both test code and hooks:
 | `KUBECONFIG` | Absolute path to the cluster kubeconfig. |
 | `ATS_CHART_PATH` | Path to the chart `.tgz` under test. |
 | `ATS_CHART_VERSION` | Version string from `Chart.yaml`. |
-| `ATS_CLUSTER_TYPE` | Cluster type (`kind`, `external`, …). |
-| `ATS_CLUSTER_VERSION` | Kubernetes server version. |
+| `ATS_CLUSTER_TYPE` | Free-text cluster type label, as passed to `--cluster-type` (empty if unset). |
+| `ATS_CLUSTER_VERSION` | Free-text cluster version label, as passed to `--cluster-version` (empty if unset). |
 | `ATS_TEST_TYPE` | Active label (`smoke`, `functional`, `upgrade`). |
 | `ATS_TEST_DIR` | Directory where the test source lives. |
 | `ATS_RELEASE_NAME` | Helm release name (set when a release was deployed). |
@@ -87,7 +87,7 @@ Gate each test file on exactly one label:
 
 | Dimension | ATS (this tool) | ATF |
 |---|---|---|
-| Cluster | Local kind, spun up per run | Real CAPI workload cluster |
+| Cluster | Any existing cluster you provide (e.g. local kind) | Real CAPI workload cluster |
 | Trigger | Developer laptop / PR | Nightly / post-release |
 | Deploy | `helm upgrade --install` | HelmRelease |
 | Labels used today | smoke, functional, upgrade | smoke, functional (no label system yet) |

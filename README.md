@@ -49,14 +49,15 @@ The main tool you need is [uv](https://github.com/astral-sh/uv). Please refer to
 [uv installation documentation](https://docs.astral.sh/uv/getting-started/installation/) for instructions on how
 to install it.
 
-Depending on the test scenarios and cluster provider you use, you also need some of the following binaries
+Depending on the test scenarios you use, you also need some of the following binaries
 installed and available on your `PATH`:
 
 - [helm](https://helm.sh/docs/intro/install/) (always required)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) (always required)
-- [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) and a working
-  [docker](https://docs.docker.com/get-docker/) daemon (only when using the built-in `kind` cluster provider)
 - [go](https://go.dev/doc/install) (only when using the `gotest` test executor)
+
+`ats` does not create or destroy clusters: you always provide it a `kubeconfig` for an existing cluster to
+run the tests on (see [`--cluster-kubeconfig`](#quick-start)).
 
 Then, to install `ats`, just run:
 
@@ -79,15 +80,15 @@ uv tool upgrade app-test-suite
 #### With docker
 
 `ats` is also distributed as a docker image, so you can run it directly with `docker run`. This bundles all the
-binary dependencies for you, but requires access to the docker socket. The interactive run command is:
+binary dependencies for you. The container needs network access to your test cluster's API server (here provided
+with `--network host`) and reads the `kubeconfig` you mount into the working directory. The interactive run
+command is:
 
 ```bash
 docker run --rm -it \
   -e USE_UID="$(id -u)" \
   -e USE_GID="$(id -g)" \
-  -e DOCKER_GID="$(getent group docker | cut -d: -f3)" \
   -v "$(pwd):/ats/workdir" \
-  -v /var/run/docker.sock:/var/run/docker.sock \
   --network host \
   gsoci.azurecr.io/giantswarm/app-test-suite:<version>
 ```
@@ -95,7 +96,7 @@ docker run --rm -it \
 To keep the examples below readable, define a shell alias once:
 
 ```bash
-alias ats='docker run --rm -it -e USE_UID="$(id -u)" -e USE_GID="$(id -g)" -e DOCKER_GID="$(getent group docker | cut -d: -f3)" -v "$(pwd):/ats/workdir" -v /var/run/docker.sock:/var/run/docker.sock --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>'
+alias ats='docker run --rm -it -e USE_UID="$(id -u)" -e USE_GID="$(id -g)" -v "$(pwd):/ats/workdir" --network host gsoci.azurecr.io/giantswarm/app-test-suite:<version>'
 ```
 
 Alternatively, you can just checkout this repository and build the docker image yourself by running:
@@ -162,10 +163,9 @@ Each run consist of two stages: bootstrapping and test execution.
 
 #### Bootstrapping
 
-`app-test-suite` automates preparation of a cluster used for testing in the following way:
+`app-test-suite` automates preparation of the cluster used for testing in the following way:
 
-- if you configured your run with `*-tests-cluster-type kind`, a cluster is created with `kind` tool
-- `ats` connects to the target test cluster and applies the bundled CRDs with
+- `ats` connects to the test cluster you provided with `--cluster-kubeconfig` and applies the bundled CRDs with
   `kubectl apply --server-side -f /etc/ats/crds` (the CRDs vendored in `container-crds/`; no operators are installed)
 - `ats` deploys your chart under test directly with Helm (`helm upgrade --install`); your application defined in the
   chart is deployed to the test cluster (you can disable this with the `app-tests-skip-app-deploy` option; this might
@@ -184,12 +184,10 @@ look at what happens when you execute:
 ```bash
 # run from the chart's directory (examples/apps/hello-world-app), where tests/ats lives
 ats -c hello-world-app-0.2.3-90e2f60e6810ddf35968221c193340984236fe2a.tgz \
-  --functional-tests-cluster-type external \
-  --smoke-tests-cluster-type external \
   --skip-steps upgrade \
-  --external-cluster-kubeconfig-path ./kube.config \
-  --external-cluster-type kind \
-  --external-cluster-version "1.19.0"
+  --cluster-kubeconfig ./kube.config \
+  --cluster-type kind \
+  --cluster-version "1.19.0"
 ```
 
 the following commands are executed underneath:
@@ -321,15 +319,10 @@ OK, `functional` tests are invoked to check if the application works as expected
 introduce `performance` tests for checking for expected performance results in a well-defined environment
 and `compatibility` tests for checking strict compatibility of your app with a specific platform release.
 
-Another important concept is that each type of tests can be run on a different type of Kubernetes cluster. That way, we
-want to make a test flow that uses "fail fast" principle: if your tests are going to fail, make them fail as soon as
-possible, without creating "heavy" clusters or running "heavy" tests. As an example, our default config should be
-something like this:
-
-1. Run `smoke` tests on `kind` cluster. Fail if any test fails.
-2. Run `functional` tests on `kind` cluster. We might reuse the `kind` cluster from the step above. But we might also
-   need a more powerful setup to be able to test all the `functional` scenarios, so we might request a real AWS cluster
-   for that kind of tests. It's for the test developer to choose.
+All scenarios run against the single cluster you provide with `--cluster-kubeconfig`. Combined with the "fail
+fast" ordering above (`smoke` before `functional` before `upgrade`), this lets you point `ats` at a cheap,
+quick-to-provision cluster (for example a local `kind` cluster) during development and at a more
+representative cluster in CI — the choice of cluster is entirely up to you, outside of `ats`.
 
 ## How to contribute
 

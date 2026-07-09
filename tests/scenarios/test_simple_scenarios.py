@@ -6,7 +6,6 @@ import pytest
 from pytest_mock import MockerFixture
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import CONTEXT_KEY_CHART_YAML, TestExecutor
-from app_test_suite.cluster_providers.cluster_provider import ClusterType
 from step_exec_lib.types import StepType
 from app_test_suite.steps.executors.gotest import GotestExecutor
 from app_test_suite.steps.executors.pytest import PytestExecutor
@@ -164,15 +163,10 @@ def test_pre_hook_skipped_when_not_configured(mocker: MockerFixture) -> None:
 def test_pre_run_reads_configured_crd_dir(mocker: MockerFixture) -> None:
     mocker.patch("app_test_suite.steps.scenarios.simple.SimpleTestScenario._assert_binary_present_in_path")
     mock_cluster_manager = get_mock_cluster_manager(mocker)
-    cast(unittest.mock.MagicMock, mock_cluster_manager).get_registered_cluster_types.return_value = [
-        ClusterType("mock")
-    ]
     test_executor = mocker.MagicMock(spec=TestExecutor)
     runner = SmokeTestScenario(mock_cluster_manager, test_executor)
 
     config = get_base_config(mocker)
-    config.smoke_tests_cluster_type = "mock"
-    config.smoke_tests_cluster_config_file = ""
     config.cluster_crds = "/custom/crds"
 
     runner.pre_run(config)

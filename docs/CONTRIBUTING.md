@@ -47,17 +47,14 @@ Once inside the container, just execute `python -m app_test_suite`.
 The execution logic is based entirely on the [step-exec-lib](https://github.com/giantswarm/step-exec-lib). Please check its
 docs for more information about the base classes used here.
 
-#### Cluster provider
+#### Cluster access
 
-`ats` allows you to run different types of tests on clusters you have configured for them. To allow the user to choose
-on which type of cluster the specific test type will run, there has to be a
-[`ClusterProvider`](../app_test_suite/cluster_providers/cluster_provider.py) for that specific cluster. Please make sure
-you register any new `ClusterProviders` in the package's
-[`__init__.py`](../app_test_suite/cluster_providers/__init__.py), as they are auto-discovered from there. When you're
-done with it, you don't have to write any additional code to make the new cluster type available.
-
-As an example, please have a look at
-[`ExternalClusterProvider`](../app_test_suite/cluster_providers/external_cluster_provider.py).
+`ats` does not create or destroy clusters — it always runs tests against an existing cluster whose `kubeconfig`
+the user provides with `--cluster-kubeconfig`. The connection details are held by
+[`ClusterManager`](../app_test_suite/cluster_manager.py), which validates the kubeconfig and exposes a single
+shared [`ClusterInfo`](../app_test_suite/cluster_manager.py) (kubeconfig path plus the optional `--cluster-type`
+/ `--cluster-version` labels) to all test scenarios. Provisioning a cluster is intentionally out of scope for
+`ats`.
 
 ## Tests
 

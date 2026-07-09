@@ -1,112 +1,83 @@
 import argparse
 import logging
-from typing import Optional, List, Dict, Set
+import os
+from dataclasses import dataclass
 
 import configargparse
+from step_exec_lib.errors import ConfigError
 from step_exec_lib.utils.config import get_config_value_by_cmd_line_option
-
-from app_test_suite.cluster_providers.cluster_provider import (
-    ClusterInfo,
-    ClusterType,
-    ClusterProvider,
-)
-from app_test_suite.steps.test_types import (
-    TEST_TYPE_ALL,
-    config_option_cluster_type_for_test_type,
-)
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ClusterInfo:
+    # path to the kubeconfig file used to connect to the cluster
+    kube_config_path: str
+    # free-text label identifying the cluster type; exported to tests as ATS_CLUSTER_TYPE
+    cluster_type: str
+    # free-text label identifying the cluster version; exported to tests as ATS_CLUSTER_VERSION
+    version: str
+    # a flag indicating if the required dependency CRDs were already bootstrapped on this cluster
+    dependency_crds_ready: bool = False
+
+
 class ClusterManager:
     """
-    This class manages creation and destruction of clusters required to execute tests.
-    Cluster are re-used, so when a cluster of specific 'provider' type and 'version' already exists,
-    we return the existing (saved internally) cluster. If it doesn't exist, it is created and saved.
-    Each cluster is given an ID taken (if only possible) from the underlying provider, to be able
-    to correlate clusters created here with what's really running in the infrastructure.
+    Provides connection details for the single, pre-existing cluster that ATS runs tests on.
+
+    ATS does not create or destroy clusters: the user must provide a kubeconfig for an existing
+    cluster via '--cluster-kubeconfig'. The same cluster is shared across all test scenarios
+    (smoke, functional, upgrade), so the required dependency CRDs are bootstrapped only once.
     """
 
+    KEY_CONFIG_OPTION_KUBECONFIG = "--cluster-kubeconfig"
+    KEY_CONFIG_OPTION_CLUSTER_TYPE = "--cluster-type"
+    KEY_CONFIG_OPTION_CLUSTER_VERSION = "--cluster-version"
+
     def __init__(self) -> None:
-        # config is necessary for cluster providers to configure clusters; we'll set it once config is loaded
-        self._config: Optional[argparse.Namespace] = None
-        # list to track created clusters
-        self._clusters: List[ClusterInfo] = []
-        # dictionary to keep cluster providers
-        self._cluster_providers: Dict[ClusterType, ClusterProvider] = {}
-        # find and create cluster providers
-        for cls in ClusterProvider.__subclasses__():
-            instance = cls()  # type: ignore
-            self._cluster_providers[instance.provided_cluster_type] = instance
-
-    def get_registered_cluster_types(self) -> List[ClusterType]:
-        return [k for k in self._cluster_providers.keys()]
-
-    # noinspection PyMethodMayBeStatic
-    def get_used_cluster_types(self, config: argparse.Namespace) -> Set[ClusterType]:
-        used_cluster_types: Set[ClusterType] = set()
-        for test_type in TEST_TYPE_ALL:
-            config_option_cluster_for_test = config_option_cluster_type_for_test_type(test_type)
-            cluster_type_str = get_config_value_by_cmd_line_option(config, config_option_cluster_for_test)
-            if cluster_type_str:
-                used_cluster_types.add(ClusterType(cluster_type_str))
-        return used_cluster_types
+        self._cluster_info: ClusterInfo | None = None
 
     def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
-        for cluster_type, provider in self._cluster_providers.items():
-            logger.debug(f"Initializing configuration of cluster provider for clusters of type {cluster_type}")
-            provider.initialize_config(config_parser)
+        config_parser.add_argument(
+            self.KEY_CONFIG_OPTION_KUBECONFIG,
+            required=False,
+            help="Path to the 'kubeconfig' file of the cluster to run the tests on.",
+        )
+        config_parser.add_argument(
+            self.KEY_CONFIG_OPTION_CLUSTER_TYPE,
+            required=False,
+            help="An optional free-text label identifying the cluster type. Exported to tests as "
+            "'ATS_CLUSTER_TYPE' and saved in upgrade test metadata.",
+        )
+        config_parser.add_argument(
+            self.KEY_CONFIG_OPTION_CLUSTER_VERSION,
+            required=False,
+            help="An optional free-text label identifying the cluster version. Exported to tests as "
+            "'ATS_CLUSTER_VERSION' and saved in upgrade test metadata.",
+        )
 
     def pre_run(self, config: argparse.Namespace) -> None:
-        for cluster_type in self.get_used_cluster_types(config):
-            provider = self._cluster_providers[cluster_type]
-            logger.debug(f"Executing pre-run of cluster provider for clusters of type {cluster_type}")
-            provider.pre_run(config)
-
-    def get_cluster_for_test_type(
-        self,
-        cluster_type: ClusterType,
-        cluster_config_file: str,
-        config: argparse.Namespace,
-    ) -> ClusterInfo:
-        if cluster_type not in self._cluster_providers.keys():
-            raise ValueError(f"Unknown cluster type '{cluster_type}'.")
-        logger.debug(f"Checking if we already have a ready cluster of {cluster_type} type.")
-        found_clusters = [
-            c for c in self._clusters if c.cluster_type == cluster_type and c.config_file == cluster_config_file
-        ]
-        if len(found_clusters) > 1:
-            logger.error(
-                f"Error: {len(found_clusters)} clusters of type {cluster_type} with config file '{cluster_config_file}'"
-                f" found. This should never happen. Still, I'm able to continue."
+        kube_config_path = get_config_value_by_cmd_line_option(config, self.KEY_CONFIG_OPTION_KUBECONFIG)
+        if not kube_config_path:
+            raise ConfigError(
+                self.KEY_CONFIG_OPTION_KUBECONFIG,
+                "Path to the cluster 'kubeconfig' file must be configured.",
             )
-        if len(found_clusters) == 1:
-            logger.info(
-                f"Using already created cluster with ID '{found_clusters[0].cluster_id}' of type "
-                f"'{found_clusters[0].cluster_type}'."
+        if not os.path.isfile(kube_config_path):
+            raise ConfigError(
+                self.KEY_CONFIG_OPTION_KUBECONFIG,
+                f"Kubeconfig file '{kube_config_path}' not found.",
             )
-            return found_clusters[0]
-        logger.info(
-            f"Existing cluster of type '{cluster_type}' with config file '{cluster_config_file}'"
-            f" not found, requesting creation."
+        cluster_type = get_config_value_by_cmd_line_option(config, self.KEY_CONFIG_OPTION_CLUSTER_TYPE) or ""
+        cluster_version = get_config_value_by_cmd_line_option(config, self.KEY_CONFIG_OPTION_CLUSTER_VERSION) or ""
+        self._cluster_info = ClusterInfo(
+            kube_config_path=kube_config_path,
+            cluster_type=cluster_type,
+            version=cluster_version,
         )
-        cluster_info = self._cluster_providers[cluster_type].get_cluster(
-            cluster_type, config, config_file=cluster_config_file
-        )
-        self._clusters.append(cluster_info)
-        return cluster_info
 
-    def delete_cluster(self, cluster_info: ClusterInfo) -> None:
-        if cluster_info not in self._clusters:
-            raise ValueError(f"Cluster {cluster_info} is not registered as managed here.")
-        cluster_info.managing_provider.delete_cluster(cluster_info)
-        self._clusters.remove(cluster_info)
-
-    def cleanup(self) -> None:
-        """
-        A finalizer of ClusterManager - requests destruction of any cluster previously created,
-        saved and not yet destroyed.
-        :return:
-        """
-        for cluster_info in self._clusters:
-            self.delete_cluster(cluster_info)
+    def get_cluster(self) -> ClusterInfo:
+        if self._cluster_info is None:
+            raise ValueError("Cluster info was requested before it was initialized in 'pre_run'.")
+        return self._cluster_info

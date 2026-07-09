@@ -2,7 +2,7 @@ module github.com/giantswarm/app-test-suite
 
 go 1.26.0
 
-toolchain go1.26.4
+toolchain go1.26.5
 
 require (
 	github.com/giantswarm/backoff/v2 v2.0.0

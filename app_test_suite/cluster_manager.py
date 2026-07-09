@@ -18,8 +18,8 @@ class ClusterInfo:
     cluster_type: str
     # free-text label identifying the cluster version; exported to tests as ATS_CLUSTER_VERSION
     version: str
-    # a flag indicating if the App Platform was already initialized on this cluster
-    app_platform_ready: bool = False
+    # a flag indicating if the required dependency CRDs were already bootstrapped on this cluster
+    dependency_crds_ready: bool = False
 
 
 class ClusterManager:
@@ -28,7 +28,7 @@ class ClusterManager:
 
     ATS does not create or destroy clusters: the user must provide a kubeconfig for an existing
     cluster via '--cluster-kubeconfig'. The same cluster is shared across all test scenarios
-    (smoke, functional, upgrade), so the App Platform prerequisites are bootstrapped only once.
+    (smoke, functional, upgrade), so the required dependency CRDs are bootstrapped only once.
     """
 
     KEY_CONFIG_OPTION_KUBECONFIG = "--cluster-kubeconfig"

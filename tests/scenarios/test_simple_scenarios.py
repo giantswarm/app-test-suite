@@ -160,6 +160,20 @@ def test_pre_hook_skipped_when_not_configured(mocker: MockerFixture) -> None:
     assert not any(c.args[0][0] in ("pre-hook.sh", "post-hook.sh") for c in calls)
 
 
+def test_pre_run_reads_configured_crd_dir(mocker: MockerFixture) -> None:
+    mocker.patch("app_test_suite.steps.scenarios.simple.SimpleTestScenario._assert_binary_present_in_path")
+    mock_cluster_manager = get_mock_cluster_manager(mocker)
+    test_executor = mocker.MagicMock(spec=TestExecutor)
+    runner = SmokeTestScenario(mock_cluster_manager, test_executor)
+
+    config = get_base_config(mocker)
+    config.cluster_crds = "/custom/crds"
+
+    runner.pre_run(config)
+
+    assert runner._configured_crd_dir == "/custom/crds"
+
+
 def test_pre_hook_failure_raises(mocker: MockerFixture) -> None:
     run_and_log_res = get_run_and_log_result_mock(mocker)
     patch_base_test_runner(mocker, run_and_log_res)

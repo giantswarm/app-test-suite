@@ -52,11 +52,11 @@ Three scenario types, executed sequentially within a pipeline:
 - **Functional** — full feature tests (run after smoke passes)
 - **Upgrade** — tests the app upgrade path (requires `--upgrade-tests-app-*` options)
 
-Scenarios are in `app_test_suite/steps/scenarios/`. Each scenario is a `BuildStep` that connects to the provided cluster, bootstraps App Platform CRDs on it, deploys the chart with Helm, runs tests, and uninstalls the release.
+Scenarios are in `app_test_suite/steps/scenarios/`. Each scenario is a `BuildStep` that connects to the provided cluster, bootstraps the required dependency CRDs on it, deploys the chart with Helm, runs tests, and uninstalls the release.
 
 ### Cluster access
 
-ATS does not manage cluster lifecycle. The user provides a kubeconfig for an existing cluster with `--cluster-kubeconfig` (plus optional `--cluster-type` / `--cluster-version` free-text labels). `ClusterManager` in `cluster_manager.py` validates the kubeconfig and hands all scenarios a single shared `ClusterInfo`; App Platform CRDs are bootstrapped once per run.
+ATS does not manage cluster lifecycle. The user provides a kubeconfig for an existing cluster with `--cluster-kubeconfig` (plus optional `--cluster-type` / `--cluster-version` free-text labels). `ClusterManager` in `cluster_manager.py` validates the kubeconfig and hands all scenarios a single shared `ClusterInfo`; the required dependency CRDs are bootstrapped once per run.
 
 ### Test Executors
 

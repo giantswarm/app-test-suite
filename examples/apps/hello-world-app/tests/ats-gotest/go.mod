@@ -7,7 +7,7 @@ toolchain go1.26.5
 require (
 	github.com/giantswarm/backoff/v2 v2.0.0
 	k8s.io/apimachinery v0.36.2
-	k8s.io/client-go v0.36.2
+	k8s.io/client-go v1.5.2
 )
 
 require (

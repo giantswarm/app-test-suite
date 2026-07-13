@@ -9,7 +9,8 @@
 > presence policy, and lifecycle is defined by the contract and only *applied* here — this
 > document does not redefine it.
 >
-> ATS is the consuming tool with tool id **`ats`**, so it reads the `config.ats` key.
+> ATS is the consuming harness with id **`ats`**, so it reads its own entry (the one with
+> `name: ats`) in each controller's `harness[]` list.
 
 ## Problem Statement
 
@@ -62,9 +63,9 @@ controllers → deploy the chart under test.
 - **Skip.** `--skip-controllers` (env `ATS_SKIP_CONTROLLERS`, store-true) bootstraps no
   controllers even if the file exists (ATS logs that it is skipping). Useful when the target
   cluster is already fully provisioned, or for debugging.
-- **Per-tool values.** ATS uses the `config.ats` key of each controller entry (per the
-  contract). The named file is resolved relative to the declaration file's directory and passed
-  to Helm as `--values`, layering over the chart's defaults.
+- **Per-harness values.** ATS uses its own `harness[]` entry (the one with `name: ats`) of each
+  controller (per the contract). Its `valuesFile` is resolved relative to the declaration file's
+  directory and passed to Helm as `--values`, layering over the chart's defaults.
 - **No file / no `controllers` / empty list** → ATS bootstraps nothing and proceeds exactly as
   today (full backward compatibility for the many charts with no `.apptest/config.yaml`).
 
@@ -109,7 +110,8 @@ CLIs are added):
 
 - `helm upgrade --install <release_name> <chart_ref> --version "<semver>" --namespace
   <namespace> --create-namespace --wait --timeout <install_timeout>`, plus `--values <file>`
-  when a `config.ats` file is present, run with `KUBECONFIG` pointed at the target cluster.
+  when ATS's `harness[]` entry names a `valuesFile`, run with `KUBECONFIG` pointed at the
+  target cluster.
 - Passing `semver` straight to Helm's `--version` gives version selection identical to the
   contract's Flux/Masterminds semantics (Helm uses Masterminds/semver v3), with no
   reimplementation of range matching in Python.
@@ -122,7 +124,7 @@ same way `ClusterManager` is:
 
 - **`pre_run`** — parse and validate `.apptest/config.yaml`: resolve the declaration, reject
   unknown controller names against the registry, reject entries missing `name`/`semver`, and
-  reject `config.ats` values that name a missing file or a non-`.yaml` file. All of this happens
+  reject an ATS `harness` entry whose `valuesFile` is missing or not `.yaml`. All of this happens
   before any cluster mutation, so a misconfigured suite fails fast (mirrors how other ATS config
   is validated in `pre_run`).
 - **`run` / bootstrap** — for each declared controller, in list order: detect, then either
@@ -152,11 +154,11 @@ same way `ClusterManager` is:
    that ATS bootstraps exactly those and nothing else.
 3. As an ATS user, I want charts with no `.apptest/config.yaml` to behave exactly as before, so
    that this feature does not disrupt existing suites.
-4. As an ATS user, I want to provide ATS-specific install values via `config.ats`, so that a
-   controller is tuned for the kind of cluster ATS runs against.
-5. As an ATS user, I want a controller with no `config.ats` entry to install with chart defaults,
-   so that I only write values when I need to.
-6. As an ATS user, I want my `config.ats` values layered over the chart defaults, so that I
+4. As an ATS user, I want to provide ATS-specific install values via my `harness` entry, so that
+   a controller is tuned for the kind of cluster ATS runs against.
+5. As an ATS user, I want a controller with no ATS `harness` entry to install with chart
+   defaults, so that I only write values when I need to.
+6. As an ATS user, I want my `harness`-entry values layered over the chart defaults, so that I
    override only what I need.
 7. As an ATS user, I want a clear pre-run error if I reference a missing or misnamed values file,
    so that I fail before my cluster is touched.
@@ -196,13 +198,13 @@ same way `ClusterManager` is:
   real providers in v1, populated by explicit imports later), and a `ControllerManager`.
 - `ControllerManager` mirrors `ClusterManager`: constructed in the entry point, wired into the
   scenarios, validating in `pre_run`, bootstrapping (once) in `run`.
-- ATS reads the `config.ats` key; tool id is `ats` (see the
-  [contract's tool-id table](./test-time-controllers-contract.md#tool-ids)).
+- ATS reads its own `harness[]` entry (`name: ats`); the harness id `ats` is allocated in the
+  [RFC](https://github.com/giantswarm/rfc/pull/153).
 - Declaration discovery: single `.apptest/config.yaml` relative to CWD; overridable via
   `--controllers-config-file` / `ATS_CONTROLLERS_CONFIG_FILE`; bootstrap skippable via
   `--skip-controllers` / `ATS_SKIP_CONTROLLERS`.
 - Install via the bundled Helm binary: `helm upgrade --install ... --version "<semver>" --wait
-  --timeout <10m default> [--values <config.ats file>]`, charts from the Giant Swarm catalog.
+  --timeout <10m default> [--values <ATS harness valuesFile>]`, charts from the Giant Swarm catalog.
 - `semver` is passed to Helm `--version` for Masterminds-parity range resolution.
 - Default presence detection reads Helm release metadata and returns the installed chart version;
   overridable per provider. Version comparison basis is the chart version at both detect and
@@ -230,12 +232,12 @@ errors are raised — not on provider internals. Confirmed seams:
   present-in-range / present-out-of-range) via mocked `run_and_log` return values.
 - **Config validation** — drive `ControllerManager.pre_run` against a real `.apptest/config.yaml`
   written into a `tmp_path` (as `tests/test_executor_detection.py` does), asserting parse results
-  and validation errors (unknown name, missing `name`/`semver`, missing/mis-extensioned
-  `config.ats` file).
+  and validation errors (unknown name, missing `name`/`semver`, missing/mis-extensioned ATS
+  `harness` values file).
 - **Registry** — register a **fake `Controller` subclass** in the test to exercise the base class
   and manager, since v1 ships no real providers.
 
-Cases to cover: no-file/empty no-op; unknown-name error; missing/bad `config.ats` errors; order
+Cases to cover: no-file/empty no-op; unknown-name error; missing/bad `harness` values-file errors; order
 preservation; detect→install vs detect→skip vs out-of-range→error; values-file layering present
 vs absent; once-per-run across scenarios; skip flag; config-file override.
 
@@ -247,7 +249,7 @@ vs absent; once-per-run across scenarios; skip flag; config-file override.
 - Upgrading/downgrading or uninstalling controllers.
 - A global install-timeout option, filesystem provider auto-discovery, or external
   entry-point plugins.
-- Per-cluster-type selection among multiple ATS values sets (single `config.ats` file per
+- Per-cluster-type selection among multiple ATS values sets (single ATS `valuesFile` per
   controller in v1).
 
 ## Further Notes
@@ -257,6 +259,6 @@ vs absent; once-per-run across scenarios; skip flag; config-file override.
   this is the intended, contract-specified behaviour.
 - The design intentionally keeps the door open (via provider-owned CRDs and `pre_install`) to
   later folding CRD-only needs into providers and shrinking the `--cluster-crds` bundle.
-- See the [tool-independent contract](./test-time-controllers-contract.md) for the authoritative
-  definition of the declaration schema, version semantics, ordering, presence policy, and
-  lifecycle that this document applies.
+- See the [app-testing contract RFC](https://github.com/giantswarm/rfc/pull/153) (and its local
+  [summary](./test-time-controllers-contract.md)) for the authoritative definition of the
+  declaration schema, version semantics, ordering, presence policy, and lifecycle this applies.

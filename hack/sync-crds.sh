@@ -30,8 +30,14 @@ curl -fsSL "https://raw.githubusercontent.com/FairwindsOps/charts/${VPA_REF}/sta
 
 # renovate: datasource=github-tags depName=kyverno/kyverno
 KYVERNO_REF="v1.18.1"
-curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/kyverno/kyverno.io_policyexceptions.yaml" >"${OUT}/policyexception.yaml"
 curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/kyverno/kyverno.io_clusterpolicies.yaml" >"${OUT}/clusterpolicies.yaml"
+curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/kyverno/kyverno.io_policyexceptions.yaml" >"${OUT}/policyexception.yaml"
+curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policies.kyverno.io/policies.kyverno.io_policyexceptions.yaml" >"${OUT}/kyverno_policyexception.yaml"
+curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml" >"${OUT}/kyverno_validatingpolicies.yaml"
+curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policies.kyverno.io/policies.kyverno.io_mutatingpolicies.yaml" >"${OUT}/kyverno_mutatingpolicies.yaml"
+curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policies.kyverno.io/policies.kyverno.io_generatingpolicies.yaml" >"${OUT}/kyverno_generatingpolicies.yaml"
+curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policies.kyverno.io/policies.kyverno.io_deletingpolicies.yaml" >"${OUT}/kyverno_deletingpolicies.yaml"
+curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policies.kyverno.io/policies.kyverno.io_imagevalidatingpolicies.yaml" >"${OUT}/kyverno_imagevalidatingpolicies.yaml"
 
 # renovate: datasource=github-tags depName=giantswarm/prometheus-meta-operator
 PROMETHEUS_META_OPERATOR_REF="v4.88.0"

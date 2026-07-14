@@ -41,6 +41,9 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
     def __init__(self, pipeline: List[BuildStep], cluster_manager: ClusterManager):
         super().__init__(pipeline, self.KEY_CONFIG_GROUP_NAME)
         self._cluster_manager = cluster_manager
+        # Runs outside the filtered pipeline: every scenario needs the chart info in the context,
+        # so it must not be skippable via '--steps'/'--skip-steps'.
+        self._test_info_provider = TestInfoProvider()
 
     def initialize_config(self, config_parser: configargparse.ArgParser) -> None:
         super().initialize_config(config_parser)
@@ -117,6 +120,11 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
                 raise ATSTestError(
                     f"Application config file '{app_config_file}' found, but can't be loaded as a correct YAML document."
                 )
+
+    def run(self, config: argparse.Namespace, context: Context) -> None:
+        if not self._all_pre_runs_skipped:
+            self._test_info_provider.run(config, context)
+        super().run(config, context)
 
 
 @dataclass

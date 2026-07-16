@@ -29,7 +29,7 @@ VPA_REF="98d448de4ef7507f6cd476f9d1218d0525254c4c"
 curl -fsSL "https://raw.githubusercontent.com/FairwindsOps/charts/${VPA_REF}/stable/vpa/crds/vpa-v1-crd.yaml" >"${OUT}/verticalpodautoscalers.yaml"
 
 # renovate: datasource=github-tags depName=kyverno/kyverno
-KYVERNO_REF="v1.18.1"
+KYVERNO_REF="v1.18.2"
 curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/kyverno/kyverno.io_clusterpolicies.yaml" >"${OUT}/clusterpolicies.yaml"
 curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/kyverno/kyverno.io_policyexceptions.yaml" >"${OUT}/policyexception.yaml"
 curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policies.kyverno.io/policies.kyverno.io_policyexceptions.yaml" >"${OUT}/kyverno_policyexception.yaml"

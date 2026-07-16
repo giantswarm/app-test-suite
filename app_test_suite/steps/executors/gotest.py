@@ -11,7 +11,6 @@ from app_test_suite.cluster_manager import ClusterManager
 from app_test_suite.config import KEY_CFG_TESTS_DIR
 from app_test_suite.errors import ATSTestError
 from app_test_suite.steps.base import (
-    TestInfoProvider,
     TestExecInfo,
     TestExecutor,
     BaseTestScenariosFilteringPipeline,
@@ -31,7 +30,6 @@ class GotestTestFilteringPipeline(BaseTestScenariosFilteringPipeline):
         test_executor = GotestExecutor()
         super().__init__(
             [
-                TestInfoProvider(),
                 SmokeTestScenario(cluster_manager, test_executor),
                 FunctionalTestScenario(cluster_manager, test_executor),
                 UpgradeTestScenario(cluster_manager, test_executor),

@@ -3,7 +3,7 @@ FROM gsoci.azurecr.io/giantswarm/alpine:3.24.1 AS binaries
 ARG TARGETARCH=amd64
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBECTL_VER=v1.36.2
+ARG KUBECTL_VER=v1.36.3
 # renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VER=v4.2.2
 

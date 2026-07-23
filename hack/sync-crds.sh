@@ -11,7 +11,7 @@ OUT="container-crds"
 # with Helm (no App CR), so those CRDs are not needed on the test cluster.
 
 # renovate: datasource=github-tags depName=cilium/cilium
-CILIUM_REF="v1.19.5"
+CILIUM_REF="v1.19.6"
 for crd in ciliumnetworkpolicies ciliumclusterwidenetworkpolicies; do
   curl -fsSL "https://raw.githubusercontent.com/cilium/cilium/${CILIUM_REF}/pkg/k8s/apis/cilium.io/client/crds/v2/${crd}.yaml" >"${OUT}/${crd}.yaml"
 done

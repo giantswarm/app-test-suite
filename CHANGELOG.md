@@ -5,6 +5,13 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+### Removed
+
+- `conftest` binary from `circleci.Dockerfile`. It was only there for the `helm-conftest` step in
+  architect-orb's `push-to-app-catalog` job, removed in architect-orb v6.3.2. The
+  [deprek8ion](https://github.com/swade1987/deprek8ion) policies it ran have been unmaintained since 2021.
+  See [roadmap#4066](https://github.com/giantswarm/roadmap/issues/4066).
+
 ### Added
 
 - Test executor auto-detection: with `--test-executor` left at its new default `auto`, the executor is chosen from the test directory — a `go.mod` selects `gotest`, a `pyproject.toml` selects `pytest`. Pass `pytest`/`gotest` explicitly to override (for example when the directory is empty or contains both markers). The bundled example app (`examples/apps/hello-world-app`) now ships a `tests/ats` Python suite and a `tests/ats-gotest` Go suite you can switch between with `--tests-dir`.

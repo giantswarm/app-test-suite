@@ -1,8 +1,4 @@
-FROM gsoci.azurecr.io/giantswarm/conftest:v0.68.2 AS conftest
-
 FROM changeme
-
-COPY --from=conftest /usr/local/bin/conftest /usr/local/bin/conftest
 
 RUN apt-get update && apt-get install -y openssh-client
 

@@ -44,7 +44,7 @@ PROMETHEUS_META_OPERATOR_REF="v4.88.0"
 curl -fsSL "https://raw.githubusercontent.com/giantswarm/prometheus-meta-operator/${PROMETHEUS_META_OPERATOR_REF}/config/crd/monitoring.giantswarm.io_remotewrites.yaml" >"${OUT}/remotewrites.yaml"
 
 # renovate: datasource=github-tags depName=kedacore/keda
-KEDA_REF="v2.20.1"
+KEDA_REF="v2.20.2"
 curl -fsSL "https://raw.githubusercontent.com/kedacore/keda/${KEDA_REF}/config/crd/bases/keda.sh_scaledobjects.yaml" >"${OUT}/scaledobjects.yaml"
 
 # Gateway API + Gateway API Inference Extension.

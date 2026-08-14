@@ -14,6 +14,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Added
 
+- `.ats/main.yml` is now also recognized as the ATS config file, alongside the canonical `.ats/main.yaml`. When both exist, `.yaml` still wins.
 - Test executor auto-detection: with `--test-executor` left at its new default `auto`, the executor is chosen from the test directory — a `go.mod` selects `gotest`, a `pyproject.toml` selects `pytest`. Pass `pytest`/`gotest` explicitly to override (for example when the directory is empty or contains both markers). The bundled example app (`examples/apps/hello-world-app`) now ships a `tests/ats` Python suite and a `tests/ats-gotest` Go suite you can switch between with `--tests-dir`.
 - `ats` can now be installed directly as a Python CLI tool with `uv tool install app-test-suite` (published to PyPI on every `v*` tag via OIDC trusted publishing). In this mode you provide the required binaries (`helm`, `kubectl`, and `go` as needed) yourself, without pulling the Docker image. See the README "With uv" section.
 - OCI catalog URLs (`oci://...`) are now supported for `--upgrade-tests-app-catalog-url`; `helm pull oci://<url>/<chart>` is used automatically.

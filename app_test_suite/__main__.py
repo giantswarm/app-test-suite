@@ -197,20 +197,24 @@ def configure_test_specific_options(config_parser: configargparse.ArgParser) -> 
     )
 
 
+# .yml is listed before .yaml, so .yaml wins when a directory has both.
+# This keeps the canonical name authoritative while still accepting the shorter extension.
+_CONFIG_FILE_NAMES = ("main.yml", "main.yaml")
+
+
 def get_default_config_file_paths() -> List[str]:
     base_dir = os.getcwd()
     # The config file is looked up relative to the executing directory (the current working directory),
     # so it can be provided independently of where the chart archive lives (see issue #196).
-    cwd_config_path = os.path.join(base_dir, ".ats", "main.yaml")
-    config_paths = [cwd_config_path]
+    cwd_ats_dir = os.path.join(base_dir, ".ats")
+    config_paths = [os.path.join(cwd_ats_dir, name) for name in _CONFIG_FILE_NAMES]
     # Backward compatibility: also look for the config next to the chart file. When both files exist,
     # the chart-file-relative one is parsed last and thus takes precedence, preserving legacy behaviour.
     chart_file = get_chart_file_from_argv()
     if chart_file:
-        chart_dir = os.path.dirname(chart_file)
-        chart_config_path = os.path.join(base_dir, chart_dir, ".ats", "main.yaml")
-        if os.path.normpath(chart_config_path) != os.path.normpath(cwd_config_path):
-            config_paths.append(chart_config_path)
+        chart_ats_dir = os.path.join(base_dir, os.path.dirname(chart_file), ".ats")
+        if os.path.normpath(chart_ats_dir) != os.path.normpath(cwd_ats_dir):
+            config_paths += [os.path.join(chart_ats_dir, name) for name in _CONFIG_FILE_NAMES]
     logger.debug(f"Using {config_paths} as configuration file path candidates.")
     return config_paths
 

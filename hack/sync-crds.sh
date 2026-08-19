@@ -17,7 +17,7 @@ for crd in ciliumnetworkpolicies ciliumclusterwidenetworkpolicies; do
 done
 
 # renovate: datasource=github-tags depName=prometheus-operator/prometheus-operator
-PROMETHEUS_OPERATOR_REF="v0.92.1"
+PROMETHEUS_OPERATOR_REF="v0.93.1"
 for crd in servicemonitors podmonitors prometheuses prometheusrules; do
   curl -fsSL "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/${PROMETHEUS_OPERATOR_REF}/example/prometheus-operator-crd/monitoring.coreos.com_${crd}.yaml" >"${OUT}/${crd}.yaml"
 done

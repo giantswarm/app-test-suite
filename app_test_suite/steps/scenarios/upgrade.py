@@ -80,14 +80,7 @@ class UpgradeTestScenario(SimpleTestScenario):
         catalog_url = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_URL)
         stable_chart_file = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_FILE)
         if catalog_url:
-            url_validation_res = validator_url(catalog_url)
-            # FIXME: doesn't correctly validate 'http://chartmuseum:8080/charts/' - needs at least 1 dot in
-            #  the domain name
-            if url_validation_res is not True:
-                raise ConfigError(
-                    KEY_CFG_STABLE_APP_URL,
-                    f"Wrong catalog URL: '{url_validation_res.args[1]['value']}'",
-                )
+            self._validate_catalog_url(catalog_url)
 
             app_ver = get_config_value_by_cmd_line_option(config, KEY_CFG_STABLE_APP_VERSION)
             if not app_ver:
@@ -124,6 +117,26 @@ class UpgradeTestScenario(SimpleTestScenario):
                     KEY_CFG_UPGRADE_HOOK,
                     f"Upgrade hook was configured, but '{cmd}' was not found to be a valid executable.",
                 )
+
+    @staticmethod
+    def _validate_catalog_url(catalog_url: str) -> None:
+        """Accept an HTTP(S) chart repository URL or an ``oci://`` registry path.
+
+        ``validators.url`` knows nothing about the ``oci://`` scheme, so an OCI
+        catalog is validated as its ``https://`` equivalent (host + repository
+        path), which is also how the tags API is reached later.
+        """
+        to_validate = catalog_url
+        if catalog_url.startswith(_OCI_SCHEME):
+            to_validate = "https://" + catalog_url[len(_OCI_SCHEME) :]
+        url_validation_res = validator_url(to_validate)
+        # FIXME: doesn't correctly validate 'http://chartmuseum:8080/charts/' - needs at least 1 dot in
+        #  the domain name
+        if url_validation_res is not True:
+            raise ConfigError(
+                KEY_CFG_STABLE_APP_URL,
+                f"Wrong catalog URL: '{catalog_url}'",
+            )
 
     def _resolve_stable_chart(
         self,

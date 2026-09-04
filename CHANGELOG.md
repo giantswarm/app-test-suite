@@ -5,6 +5,15 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-04
+
+### Fixed
+
+- `--upgrade-tests-app-catalog-url` accepts `oci://` registry paths again at config validation. The upgrade
+  scenario resolves `stable` and pulls the chart from OCI registries, but `pre_run` validated the URL with
+  `validators.url`, which knows no `oci://` scheme, so every OCI catalog was rejected as
+  `Wrong catalog URL` before the scenario started. An OCI URL is now validated as its `https://` equivalent.
+
 ## [1.0.1] - 2026-09-04
 
 ### Fixed
@@ -347,7 +356,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 - Added
     - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/giantswarm/app-test-suite/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/giantswarm/app-test-suite/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/giantswarm/app-test-suite/compare/v0.15.0...v1.0.0
 [0.15.0]: https://github.com/giantswarm/app-test-suite/compare/v0.14.0...v0.15.0

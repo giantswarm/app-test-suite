@@ -5,6 +5,16 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-04
+
+### Fixed
+
+- The CRD bundle baked into the image (`container-crds/gateway-api.yaml`) started with helm's `Pulled:`/`Digest:`
+  lines, captured from stdout by `hack/sync-crds.sh` while templating the `oci://` chart reference with helm 4,
+  so `kubectl apply --server-side -f /etc/ats/crds` rejected the directory and every 1.0.0 run failed at CRD
+  bootstrap before running a test. The script now pulls the chart and templates the local archive, validates
+  every bundle document, and a unit test (`tests/test_container_crds.py`) guards the bundle.
+
 ## [1.0.0] - 2026-09-04
 
 ### Removed
@@ -337,7 +347,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 - Added
     - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/giantswarm/app-test-suite/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/giantswarm/app-test-suite/compare/v0.15.0...v1.0.0
 [0.15.0]: https://github.com/giantswarm/app-test-suite/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/giantswarm/app-test-suite/compare/v0.13.0...v0.14.0

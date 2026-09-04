@@ -31,4 +31,6 @@ def test_every_document_is_a_kubernetes_object(path: Path) -> None:
         assert isinstance(doc, dict), f"{path.name}: document {i} is a {type(doc).__name__}, not a mapping"
         missing = [k for k in ("apiVersion", "kind", "metadata") if k not in doc]
         assert not missing, f"{path.name}: document {i} lacks {missing}: keys are {sorted(doc)[:6]}"
-        assert isinstance(doc["metadata"], dict) and doc["metadata"].get("name"), f"{path.name}: document {i} ({doc['kind']}) has no metadata.name"
+        assert isinstance(doc["metadata"], dict) and doc["metadata"].get("name"), (
+            f"{path.name}: document {i} ({doc['kind']}) has no metadata.name"
+        )

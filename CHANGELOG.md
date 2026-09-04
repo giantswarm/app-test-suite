@@ -5,6 +5,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-04
+
 ### Removed
 
 - `conftest` binary from `circleci.Dockerfile`. It was only there for the `helm-conftest` step in
@@ -335,7 +337,9 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 - Added
     - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/giantswarm/app-test-suite/compare/v0.15.0...v1.0.0
+[0.15.0]: https://github.com/giantswarm/app-test-suite/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/giantswarm/app-test-suite/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/giantswarm/app-test-suite/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/giantswarm/app-test-suite/compare/v0.11.0...v0.12.0

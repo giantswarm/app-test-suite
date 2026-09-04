@@ -4,6 +4,7 @@ from typing import cast, Callable
 from unittest.mock import Mock
 
 import pytest
+from step_exec_lib.errors import ConfigError
 from pytest_mock import MockerFixture
 from requests import Response
 from semver import VersionInfo
@@ -489,3 +490,25 @@ def test_get_latest_stable_oci_version_follows_link_pagination(mocker: MockerFix
     assert get_mock.call_args_list[0].args[0] == base
     # the relative rel="next" link is resolved against the current page URL
     assert get_mock.call_args_list[1].args[0] == f"{base}?last=1.1.0&n=2"
+
+
+@pytest.mark.parametrize(
+    "catalog_url",
+    [
+        "https://giantswarm.github.io/giantswarm-catalog",
+        "http://chartmuseum.example.com:8080/charts/",
+        "oci://gsoci.azurecr.io/charts/giantswarm",
+        "oci://giantswarmpublic.azurecr.io/giantswarm-catalog",
+    ],
+)
+def test_validate_catalog_url_accepts_http_and_oci(catalog_url: str) -> None:
+    UpgradeTestScenario._validate_catalog_url(catalog_url)
+
+
+@pytest.mark.parametrize(
+    "catalog_url", ["not a url", "oci://", "oci://host with spaces/charts", "gsoci.azurecr.io/charts/giantswarm"]
+)
+def test_validate_catalog_url_rejects_garbage(catalog_url: str) -> None:
+    with pytest.raises(ConfigError) as exc_info:
+        UpgradeTestScenario._validate_catalog_url(catalog_url)
+    assert catalog_url in str(exc_info.value)

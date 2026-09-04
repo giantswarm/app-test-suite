@@ -1,3 +1,5 @@
+Pulled: gsoci.azurecr.io/charts/giantswarm/gateway-api-crds:1.8.1
+Digest: sha256:5341b13c00c7bb7710f6a129320f4958e4b643c7df4eb63ffc8d168c386a8160
 ---
 # Source: gateway-api-crds/templates/inference.networking.k8s.io-inferencepools.inference.networking.k8s.io.yaml
 apiVersion: apiextensions.k8s.io/v1
@@ -369,6 +371,8 @@ status:
     plural: ""
   conditions: null
   storedVersions: null
+
+
 ---
 # Source: gateway-api-crds/templates/standard-backendtlspolicies.gateway.networking.k8s.io.yaml
 #
@@ -1706,6 +1710,8 @@ status:
     plural: ""
   conditions: null
   storedVersions: null
+
+
 ---
 # Source: gateway-api-crds/templates/standard-gatewayclasses.gateway.networking.k8s.io.yaml
 #
@@ -2225,6 +2231,8 @@ status:
     plural: ""
   conditions: null
   storedVersions: null
+
+
 ---
 # Source: gateway-api-crds/templates/standard-gateways.gateway.networking.k8s.io.yaml
 #
@@ -5430,6 +5438,8 @@ status:
     plural: ""
   conditions: null
   storedVersions: null
+
+
 ---
 # Source: gateway-api-crds/templates/standard-grpcroutes.gateway.networking.k8s.io.yaml
 #
@@ -7403,6 +7413,8 @@ status:
     plural: ""
   conditions: null
   storedVersions: null
+
+
 ---
 # Source: gateway-api-crds/templates/standard-httproutes.gateway.networking.k8s.io.yaml
 #
@@ -13922,6 +13934,8 @@ status:
     plural: ""
   conditions: null
   storedVersions: null
+
+
 ---
 # Source: gateway-api-crds/templates/standard-listenersets.gateway.networking.k8s.io.yaml
 #
@@ -14684,6 +14698,8 @@ status:
     plural: ""
   conditions: null
   storedVersions: null
+
+
 ---
 # Source: gateway-api-crds/templates/standard-referencegrants.gateway.networking.k8s.io.yaml
 #
@@ -15041,6 +15057,8 @@ status:
     plural: ""
   conditions: null
   storedVersions: null
+
+
 ---
 # Source: gateway-api-crds/templates/standard-tlsroutes.gateway.networking.k8s.io.yaml
 #
@@ -17094,6 +17112,8 @@ status:
     plural: ""
   conditions: null
   storedVersions: null
+
+
 ---
 # Source: gateway-api-crds/templates/standard-backendtlspolicies.gateway.networking.k8s.io.yaml
 # Copyright The Kubernetes Authors.

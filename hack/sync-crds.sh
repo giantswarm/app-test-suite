@@ -51,4 +51,29 @@ curl -fsSL "https://raw.githubusercontent.com/kedacore/keda/${KEDA_REF}/config/c
 # Private OCI registry -- Renovate can't reach it, bump manually. Keep aligned with
 # giantswarm/gateway-api-bundle.
 GATEWAY_API_CRDS_CHART_VER="1.8.1"
-helm template "oci://gsoci.azurecr.io/charts/giantswarm/gateway-api-crds:${GATEWAY_API_CRDS_CHART_VER}" --set install.inferencepools=standard >"${OUT}/gateway-api.yaml"
+# Pull first, then template the local archive: templating an oci:// reference
+# directly makes helm (4.x) print its "Pulled:"/"Digest:" lines on stdout, which
+# would land in the bundle as a document without apiVersion/kind and make every
+# `kubectl apply -f /etc/ats/crds` fail.
+GATEWAY_API_TMP="$(mktemp -d)"
+trap 'rm -rf "${GATEWAY_API_TMP}"' EXIT
+helm pull "oci://gsoci.azurecr.io/charts/giantswarm/gateway-api-crds" --version "${GATEWAY_API_CRDS_CHART_VER}" --destination "${GATEWAY_API_TMP}" >/dev/null
+helm template "${GATEWAY_API_TMP}/gateway-api-crds-${GATEWAY_API_CRDS_CHART_VER}.tgz" --set install.inferencepools=standard >"${OUT}/gateway-api.yaml"
+
+# Every document in the bundle must be a Kubernetes object: kubectl rejects the
+# whole directory otherwise. The same check runs as a unit test
+# (tests/test_container_crds.py); this catches it at sync time.
+python3 - "${OUT}" <<'PY'
+import glob, sys, yaml
+bad = []
+for path in sorted(glob.glob(f"{sys.argv[1]}/*.yaml")):
+    with open(path) as f:
+        for i, doc in enumerate(yaml.safe_load_all(f)):
+            if doc is None:
+                continue
+            if not isinstance(doc, dict) or "apiVersion" not in doc or "kind" not in doc:
+                bad.append(f"{path}: document {i} has no apiVersion/kind")
+if bad:
+    print("\n".join(bad), file=sys.stderr)
+    sys.exit(1)
+PY

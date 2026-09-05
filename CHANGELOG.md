@@ -5,6 +5,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-09-05
+
 ### Fixed
 
 - The CRD bootstrap now waits for every CRD on the test cluster to be `Established` (polled through the
@@ -367,7 +369,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 - Added
     - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/giantswarm/app-test-suite/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/giantswarm/app-test-suite/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/giantswarm/app-test-suite/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/giantswarm/app-test-suite/compare/v0.15.0...v1.0.0

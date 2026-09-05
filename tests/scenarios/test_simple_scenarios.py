@@ -174,6 +174,53 @@ def test_pre_run_reads_configured_crd_dir(mocker: MockerFixture) -> None:
     assert runner._configured_crd_dir == "/custom/crds"
 
 
+def test_crds_established_wait_runs_before_the_deploy(mocker: MockerFixture) -> None:
+    runner = _make_smoke_runner(mocker)
+    config = get_base_config(mocker)
+    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
+
+    runner.run(config, context)
+
+    import app_test_suite.steps.scenarios.simple as simple_mod
+
+    calls = [c.args[0] for c in cast(unittest.mock.Mock, simple_mod.run_and_log).call_args_list]
+    apply_idx = next(i for i, c in enumerate(calls) if c[0] == "kubectl" and c[2] == "apply")
+    wait_idx = next(i for i, c in enumerate(calls) if c[0] == "kubectl" and c[2] == "wait")
+    helm_idx = next(i for i, c in enumerate(calls) if c[0] == "helm" and c[1] == "upgrade")
+    assert apply_idx < wait_idx < helm_idx
+    assert "--for=condition=Established" in calls[wait_idx]
+    assert calls[wait_idx][-2:] == ["crd", "--all"]
+
+
+def test_crds_established_wait_failure_raises(mocker: MockerFixture) -> None:
+    run_and_log_res = get_run_and_log_result_mock(mocker)
+    patch_base_test_runner(mocker, run_and_log_res)
+    patch_pytest_test_runner(mocker, run_and_log_res)
+
+    fail_res = mocker.Mock()
+    type(fail_res).returncode = mocker.PropertyMock(return_value=1)
+    type(fail_res).stderr = mocker.PropertyMock(return_value="timed out waiting for the condition")
+
+    def side_effect(args: list[str], **kwargs: object) -> unittest.mock.Mock:
+        if args[0] == "kubectl" and args[2] == "wait":
+            return fail_res
+        return run_and_log_res
+
+    mocker.patch("app_test_suite.steps.scenarios.simple.run_and_log", side_effect=side_effect)
+
+    runner = SmokeTestScenario(get_mock_cluster_manager(mocker), PytestExecutor())
+    config = get_base_config(mocker)
+    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
+
+    with pytest.raises(ATSTestError, match="established"):
+        runner.run(config, context)
+
+    import app_test_suite.steps.scenarios.simple as simple_mod
+
+    calls = [c.args[0] for c in cast(unittest.mock.Mock, simple_mod.run_and_log).call_args_list]
+    assert not any(c[0] == "helm" for c in calls)
+
+
 def test_pre_hook_failure_raises(mocker: MockerFixture) -> None:
     run_and_log_res = get_run_and_log_result_mock(mocker)
     patch_base_test_runner(mocker, run_and_log_res)

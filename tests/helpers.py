@@ -75,6 +75,18 @@ def assert_cluster_prerequisites_ready(kube_config_path: str) -> None:
         ["kubectl", f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", "/etc/ats/crds"],
         capture_output=True,
     )
+    cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.run_and_log).assert_any_call(
+        [
+            "kubectl",
+            f"--kubeconfig={kube_config_path}",
+            "wait",
+            "--for=condition=Established",
+            "--timeout=120s",
+            "crd",
+            "--all",
+        ],
+        capture_output=True,
+    )
 
 
 def assert_cluster_connection_created(kube_config_path: str) -> None:

@@ -5,6 +5,15 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+### Fixed
+
+- The CRD bootstrap now waits for every CRD on the test cluster to be `Established` (`kubectl wait
+  --for=condition=Established crd --all`, 120 s) after the `kubectl apply --server-side` of `--cluster-crds`.
+  `kubectl apply` returns as soon as the API server has accepted the objects, before it serves the new
+  kinds, so a chart whose templates render one of those kinds (a kagent `Agent` for a CRD passed via
+  `--cluster-crds`) failed `helm upgrade --install` with `no matches for kind` when the deploy started a
+  few milliseconds later, and passed on a rerun against the same cluster.
+
 ## [1.0.2] - 2026-09-04
 
 ### Fixed

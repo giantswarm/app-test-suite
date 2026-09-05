@@ -31,6 +31,7 @@ CHART_YAML = "Chart.yaml"
 _HELM_BIN = "helm"
 _KUBECTL_BIN = "kubectl"
 _HELM_DEPLOY_TIMEOUT = "30m"
+_CRD_ESTABLISHED_TIMEOUT = "120s"
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,26 @@ class SimpleTestScenario(BuildStep, ABC):
         )  # nosec
         if run_res.returncode != 0:
             raise ATSTestError(f"Bootstrapping CRDs on the target cluster failed:\n{run_res.stderr}")
+        # `kubectl apply` returns as soon as the API server has accepted the CRD objects, before
+        # the API server serves the new kinds. A chart whose templates render one of those kinds
+        # (an Agent CR for a kagent CRD passed via --cluster-crds, say) then fails `helm upgrade`
+        # with "no matches for kind" when the deploy starts a few milliseconds later. Wait for
+        # every CRD to be Established before anything talks to the cluster.
+        logger.info("Waiting for the cluster CRDs to be established.")
+        run_res = run_and_log(
+            [
+                "kubectl",
+                f"--kubeconfig={kube_config_path}",
+                "wait",
+                "--for=condition=Established",
+                f"--timeout={_CRD_ESTABLISHED_TIMEOUT}",
+                "crd",
+                "--all",
+            ],
+            capture_output=True,
+        )  # nosec
+        if run_res.returncode != 0:
+            raise ATSTestError(f"Waiting for the cluster CRDs to be established failed:\n{run_res.stderr}")
         logger.info("Cluster CRDs bootstrapped and ready.")
 
     def pre_run(self, config: argparse.Namespace) -> None:

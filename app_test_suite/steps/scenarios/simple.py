@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import time
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Set, cast
 
@@ -31,9 +32,19 @@ CHART_YAML = "Chart.yaml"
 _HELM_BIN = "helm"
 _KUBECTL_BIN = "kubectl"
 _HELM_DEPLOY_TIMEOUT = "30m"
-_CRD_ESTABLISHED_TIMEOUT = "120s"
+_CRD_ESTABLISHED_TIMEOUT_SEC = 120
+_CRD_ESTABLISHED_POLL_SEC = 1
 
 logger = logging.getLogger(__name__)
+
+
+def _list_crds(kube_client: HTTPClient) -> list[pykube.objects.CustomResourceDefinition]:
+    return list(pykube.objects.CustomResourceDefinition.objects(kube_client))
+
+
+def _is_established(crd: pykube.objects.CustomResourceDefinition) -> bool:
+    conditions = (crd.obj.get("status") or {}).get("conditions") or []
+    return any(c.get("type") == "Established" and c.get("status") == "True" for c in conditions)
 
 
 class SimpleTestScenario(BuildStep, ABC):
@@ -134,23 +145,27 @@ class SimpleTestScenario(BuildStep, ABC):
         # the API server serves the new kinds. A chart whose templates render one of those kinds
         # (an Agent CR for a kagent CRD passed via --cluster-crds, say) then fails `helm upgrade`
         # with "no matches for kind" when the deploy starts a few milliseconds later. Wait for
-        # every CRD to be Established before anything talks to the cluster.
-        logger.info("Waiting for the cluster CRDs to be established.")
-        run_res = run_and_log(
-            [
-                "kubectl",
-                f"--kubeconfig={kube_config_path}",
-                "wait",
-                "--for=condition=Established",
-                f"--timeout={_CRD_ESTABLISHED_TIMEOUT}",
-                "crd",
-                "--all",
-            ],
-            capture_output=True,
-        )  # nosec
-        if run_res.returncode != 0:
-            raise ATSTestError(f"Waiting for the cluster CRDs to be established failed:\n{run_res.stderr}")
+        # every CRD to be Established before anything talks to the cluster. Polled through the
+        # API client rather than `kubectl wait`: in that window a CRD has no `.status` at all yet,
+        # and both `--for=condition=Established` and `--for=jsonpath=...` exit 1 on the missing
+        # field instead of waiting for it.
+        self._wait_for_crds_established()
         logger.info("Cluster CRDs bootstrapped and ready.")
+
+    def _wait_for_crds_established(self) -> None:
+        logger.info("Waiting for the cluster CRDs to be established.")
+        deadline = time.monotonic() + _CRD_ESTABLISHED_TIMEOUT_SEC
+        while True:
+            pending = [crd.name for crd in _list_crds(cast(HTTPClient, self._kube_client)) if not _is_established(crd)]
+            if not pending:
+                return
+            if time.monotonic() >= deadline:
+                raise ATSTestError(
+                    f"Waiting for the cluster CRDs to be established timed out after {_CRD_ESTABLISHED_TIMEOUT_SEC}s;"
+                    f" still not established: {', '.join(sorted(pending))}"
+                )
+            logger.debug(f"CRDs not established yet: {', '.join(sorted(pending))}")
+            time.sleep(_CRD_ESTABLISHED_POLL_SEC)
 
     def pre_run(self, config: argparse.Namespace) -> None:
         self._assert_binary_present_in_path(_HELM_BIN)

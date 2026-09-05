@@ -174,45 +174,89 @@ def test_pre_run_reads_configured_crd_dir(mocker: MockerFixture) -> None:
     assert runner._configured_crd_dir == "/custom/crds"
 
 
-def test_crds_established_wait_runs_before_the_deploy(mocker: MockerFixture) -> None:
-    runner = _make_smoke_runner(mocker)
-    config = get_base_config(mocker)
-    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
-
-    runner.run(config, context)
-
-    import app_test_suite.steps.scenarios.simple as simple_mod
-
-    calls = [c.args[0] for c in cast(unittest.mock.Mock, simple_mod.run_and_log).call_args_list]
-    apply_idx = next(i for i, c in enumerate(calls) if c[0] == "kubectl" and c[2] == "apply")
-    wait_idx = next(i for i, c in enumerate(calls) if c[0] == "kubectl" and c[2] == "wait")
-    helm_idx = next(i for i, c in enumerate(calls) if c[0] == "helm" and c[1] == "upgrade")
-    assert apply_idx < wait_idx < helm_idx
-    assert "--for=condition=Established" in calls[wait_idx]
-    assert calls[wait_idx][-2:] == ["crd", "--all"]
+def _fake_crd(mocker: MockerFixture, name: str, established: bool) -> unittest.mock.Mock:
+    crd = mocker.Mock(name=f"crd-{name}")
+    crd.name = name
+    conditions = [{"type": "Established", "status": "True" if established else "False"}] if established else []
+    crd.obj = {"status": {"conditions": conditions}} if established else {}
+    return crd
 
 
-def test_crds_established_wait_failure_raises(mocker: MockerFixture) -> None:
+def test_crds_established_wait_runs_between_crd_apply_and_the_deploy(mocker: MockerFixture) -> None:
     run_and_log_res = get_run_and_log_result_mock(mocker)
     patch_base_test_runner(mocker, run_and_log_res)
     patch_pytest_test_runner(mocker, run_and_log_res)
 
-    fail_res = mocker.Mock()
-    type(fail_res).returncode = mocker.PropertyMock(return_value=1)
-    type(fail_res).stderr = mocker.PropertyMock(return_value="timed out waiting for the condition")
+    import app_test_suite.steps.scenarios.simple as simple_mod
 
-    def side_effect(args: list[str], **kwargs: object) -> unittest.mock.Mock:
-        if args[0] == "kubectl" and args[2] == "wait":
-            return fail_res
+    sequence: list[str] = []
+
+    def run_and_log_side_effect(args: list[str], **kwargs: object) -> unittest.mock.Mock:
+        if args[0] == "kubectl" and args[2] == "apply":
+            sequence.append("apply")
+        elif args[0] == "helm" and args[1] == "upgrade":
+            sequence.append("helm")
         return run_and_log_res
 
-    mocker.patch("app_test_suite.steps.scenarios.simple.run_and_log", side_effect=side_effect)
+    def list_crds_side_effect(kube_client: object) -> list[unittest.mock.Mock]:
+        sequence.append("list-crds")
+        return [_fake_crd(mocker, "agents.kagent.dev", established=True)]
+
+    mocker.patch("app_test_suite.steps.scenarios.simple.run_and_log", side_effect=run_and_log_side_effect)
+    mocker.patch("app_test_suite.steps.scenarios.simple._list_crds", side_effect=list_crds_side_effect)
 
     runner = SmokeTestScenario(get_mock_cluster_manager(mocker), PytestExecutor())
     config = get_base_config(mocker)
     context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
 
-    with pytest.raises(ATSTestError, match="established"):
+    runner.run(config, context)
+
+    assert sequence[:3] == ["apply", "list-crds", "helm"]
+    assert simple_mod._is_established(_fake_crd(mocker, "x", established=True))
+    assert not simple_mod._is_established(_fake_crd(mocker, "x", established=False))
+
+
+def test_crds_established_wait_polls_until_established(mocker: MockerFixture) -> None:
+    run_and_log_res = get_run_and_log_result_mock(mocker)
+    patch_base_test_runner(mocker, run_and_log_res)
+    patch_pytest_test_runner(mocker, run_and_log_res)
+    mocker.patch("app_test_suite.steps.scenarios.simple._CRD_ESTABLISHED_POLL_SEC", 0)
+
+    # first poll: the CRD exists but has no status yet (the window right after `kubectl apply`);
+    # second poll: established.
+    list_crds = mocker.patch(
+        "app_test_suite.steps.scenarios.simple._list_crds",
+        side_effect=[
+            [_fake_crd(mocker, "agents.kagent.dev", established=False)],
+            [_fake_crd(mocker, "agents.kagent.dev", established=True)],
+        ],
+    )
+
+    runner = SmokeTestScenario(get_mock_cluster_manager(mocker), PytestExecutor())
+    config = get_base_config(mocker)
+    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
+
+    runner.run(config, context)
+
+    assert list_crds.call_count == 2
+
+
+def test_crds_established_wait_timeout_raises_before_the_deploy(mocker: MockerFixture) -> None:
+    run_and_log_res = get_run_and_log_result_mock(mocker)
+    patch_base_test_runner(mocker, run_and_log_res)
+    patch_pytest_test_runner(mocker, run_and_log_res)
+    mocker.patch("app_test_suite.steps.scenarios.simple._CRD_ESTABLISHED_TIMEOUT_SEC", 0)
+    mocker.patch("app_test_suite.steps.scenarios.simple._CRD_ESTABLISHED_POLL_SEC", 0)
+    mocker.patch(
+        "app_test_suite.steps.scenarios.simple._list_crds",
+        return_value=[_fake_crd(mocker, "agents.kagent.dev", established=False)],
+    )
+
+    runner = SmokeTestScenario(get_mock_cluster_manager(mocker), PytestExecutor())
+    config = get_base_config(mocker)
+    context = {CONTEXT_KEY_CHART_YAML: {"name": REAL_CHART_APP_NAME, "version": REAL_CHART_VERSION}}
+
+    with pytest.raises(ATSTestError, match="agents.kagent.dev"):
         runner.run(config, context)
 
     import app_test_suite.steps.scenarios.simple as simple_mod

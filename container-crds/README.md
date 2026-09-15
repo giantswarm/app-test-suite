@@ -12,12 +12,19 @@ Dockerfile copies this directory to `/etc/ats/crds/`.
 ## Provenance
 
 These manifests are downloaded verbatim, straight from their upstream projects (Cilium,
-Prometheus Operator, VPA, Kyverno, Gateway API + inference extension, KEDA), by
-`hack/sync-crds.sh`. Version pins live in variables at the top of that script.
+Prometheus Operator, VPA, Kyverno, Gateway API + inference extension, KEDA), and from the
+Giant Swarm repositories that publish CRDs the apps under test consume (`prometheus-meta-operator`,
+`policy-api`), by `hack/sync-crds.sh`. Version pins live in variables at the top of that script.
 
 The Giant Swarm App Platform CRDs (App, Chart, Catalog, AppCatalog, AppCatalogEntry) are
 intentionally not included: ATS deploys charts directly with Helm rather than through an `App` CR,
 so the test cluster doesn't need them.
+
+Only `PolicyManifest` is taken from `policy-api`: `exception-recommender`'s tests create
+`PolicyManifest` objects while its own chart installs just `AutomatedException` and
+`PolicyExceptionDraft`. The other CRDs `policy-api` publishes are not needed by any chart's tests
+today -- add one when a test actually fails without it. Charts that install these CRDs themselves
+are unaffected, because their crd-install hooks apply with `--force-conflicts`.
 
 Most pins are tracked by Renovate via inline `# renovate:` comments in the script and get bumped
 automatically as PRs. Two are pinned manually and need periodic manual bumps:

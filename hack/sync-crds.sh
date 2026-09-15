@@ -38,10 +38,25 @@ curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERN
 curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policies.kyverno.io/policies.kyverno.io_generatingpolicies.yaml" >"${OUT}/kyverno_generatingpolicies.yaml"
 curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policies.kyverno.io/policies.kyverno.io_deletingpolicies.yaml" >"${OUT}/kyverno_deletingpolicies.yaml"
 curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policies.kyverno.io/policies.kyverno.io_imagevalidatingpolicies.yaml" >"${OUT}/kyverno_imagevalidatingpolicies.yaml"
+# wgpolicyk8s.io reports: produced by Kyverno, consumed by Shield apps under test
+# (exception-recommender watches PolicyReport). ClusterPolicyReport is the cluster-scoped
+# half of the same pair -- Kyverno emits both. Same pin as the policies above.
+curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policyreport/wgpolicyk8s.io_policyreports.yaml" >"${OUT}/policyreports.yaml"
+curl -fsSL "https://raw.githubusercontent.com/kyverno/kyverno/refs/tags/${KYVERNO_REF}/config/crds/policyreport/wgpolicyk8s.io_clusterpolicyreports.yaml" >"${OUT}/clusterpolicyreports.yaml"
 
 # renovate: datasource=github-tags depName=giantswarm/prometheus-meta-operator
 PROMETHEUS_META_OPERATOR_REF="v4.88.0"
 curl -fsSL "https://raw.githubusercontent.com/giantswarm/prometheus-meta-operator/${PROMETHEUS_META_OPERATOR_REF}/config/crd/monitoring.giantswarm.io_remotewrites.yaml" >"${OUT}/remotewrites.yaml"
+
+# Only PolicyManifest is synced from policy-api: exception-recommender's tests create
+# PolicyManifest objects, and its own chart's crd-install hook ships just AutomatedException
+# and PolicyExceptionDraft. The other CRDs policy-api publishes (AutomatedException, Policy,
+# PolicyConfig, PolicyException) are not needed by any chart's tests today -- add one here
+# when a test actually fails without it. Charts that do install these themselves are
+# unaffected: their crd-install hooks apply with --force-conflicts.
+# renovate: datasource=github-tags depName=giantswarm/policy-api
+POLICY_API_REF="v0.0.12"
+curl -fsSL "https://raw.githubusercontent.com/giantswarm/policy-api/${POLICY_API_REF}/crds/policy.giantswarm.io_policymanifests.yaml" >"${OUT}/policymanifests.yaml"
 
 # renovate: datasource=github-tags depName=kedacore/keda
 KEDA_REF="v2.20.2"

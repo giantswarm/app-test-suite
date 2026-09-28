@@ -5,6 +5,16 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+### Added
+
+- `container-crds` now ships the `wgpolicyk8s.io` report CRDs (`PolicyReport`, `ClusterPolicyReport`,
+  from the existing Kyverno pin) and `policy.giantswarm.io` `PolicyManifest` (from `policy-api`).
+  Kyverno produces these and Shield apps consume them, but nothing installed them on the test
+  cluster, so a chart whose tests create a `PolicyReport` or `PolicyManifest` failed with
+  `no matches for kind`. Pointing `--cluster-crds` at a repo-local directory was not a workaround:
+  it replaces the bundled set rather than adding to it, so a chart that also renders, say, a
+  `CiliumNetworkPolicy` would then fail to install.
+
 ## [1.0.3] - 2026-09-05
 
 ### Fixed

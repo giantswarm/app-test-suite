@@ -17,6 +17,11 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
   it replaces the bundled set rather than adding to it, so a chart that also renders, say, a
   `CiliumNetworkPolicy` would then fail to install.
 
+### Fixed
+
+- Bump pytest to 9.1.1 (and pytest-helm-charts to 1.3.5) to fix the vulnerable tmpdir handling in pytest
+  older than 9.0.3. pytest is a test-only dependency; the hello-world example app moves the same way.
+
 ## [1.0.3] - 2026-09-05
 
 ### Fixed

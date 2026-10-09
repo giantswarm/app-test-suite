@@ -197,7 +197,7 @@ the following commands are executed underneath:
 kubectl --kubeconfig=kube.config apply --server-side -f /etc/ats/crds
 uv sync
 (
-    # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803
+    # See: https://github.com/giantswarm/pytest-helm-charts/blob/main/CHANGELOG.md#071
     KUBECONFIG="/ats/workdir/kube.config"
 
     ATS_CLUSTER_TYPE="kind"
@@ -218,7 +218,7 @@ uv sync
 kubectl --kubeconfig=kube.config apply --server-side -f /etc/ats/crds
 uv sync
 
-    # See: https://github.com/giantswarm/pytest-helm-charts/blob/master/CHANGELOG.md#071---20220803
+    # See: https://github.com/giantswarm/pytest-helm-charts/blob/main/CHANGELOG.md#071
     KUBECONFIG="/ats/workdir/kube.config"
 
     ATS_CLUSTER_TYPE="kind"

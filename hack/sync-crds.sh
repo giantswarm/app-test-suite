@@ -55,7 +55,7 @@ curl -fsSL "https://raw.githubusercontent.com/giantswarm/prometheus-meta-operato
 # when a test actually fails without it. Charts that do install these themselves are
 # unaffected: their crd-install hooks apply with --force-conflicts.
 # renovate: datasource=github-tags depName=giantswarm/policy-api
-POLICY_API_REF="v0.0.12"
+POLICY_API_REF="v0.1.3"
 curl -fsSL "https://raw.githubusercontent.com/giantswarm/policy-api/${POLICY_API_REF}/crds/policy.giantswarm.io_policymanifests.yaml" >"${OUT}/policymanifests.yaml"
 
 # renovate: datasource=github-tags depName=kedacore/keda

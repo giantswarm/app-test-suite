@@ -59,7 +59,7 @@ POLICY_API_REF="v0.0.12"
 curl -fsSL "https://raw.githubusercontent.com/giantswarm/policy-api/${POLICY_API_REF}/crds/policy.giantswarm.io_policymanifests.yaml" >"${OUT}/policymanifests.yaml"
 
 # renovate: datasource=github-tags depName=kedacore/keda
-KEDA_REF="v2.20.2"
+KEDA_REF="v2.21.0"
 curl -fsSL "https://raw.githubusercontent.com/kedacore/keda/${KEDA_REF}/config/crd/bases/keda.sh_scaledobjects.yaml" >"${OUT}/scaledobjects.yaml"
 
 # Gateway API + Gateway API Inference Extension.

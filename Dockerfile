@@ -18,7 +18,7 @@ COPY container-entrypoint.sh /binaries
 RUN chmod +x /binaries/*
 
 
-FROM python:3.14.8-slim AS base
+FROM python:3.15.0-slim AS base
 
 # Install uv from official image
 COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /bin/uv

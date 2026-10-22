@@ -1,4 +1,4 @@
-FROM gsoci.azurecr.io/giantswarm/alpine:3.24.2 AS binaries
+FROM gsoci.azurecr.io/giantswarm/alpine:3.24.3 AS binaries
 
 ARG TARGETARCH=amd64
 

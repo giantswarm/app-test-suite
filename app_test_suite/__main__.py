@@ -152,6 +152,41 @@ def configure_global_options(config_parser: configargparse.ArgParser) -> None:
     )
 
 
+# Cluster options removed in 1.0.0, when ATS stopped provisioning clusters. They are still accepted (from the
+# command line, 'ATS_' env vars and the config file) and ignored with a deprecation warning, so a config file
+# written for ATS 0.x doesn't fail the whole run with 'unrecognized arguments'. Mapped to a migration hint.
+_KIND_CONFIG_HINT = "pass a kind configuration to the cluster you create instead (architect-orb: 'kind_config')"
+_CLUSTER_LABEL_HINT = "use '--cluster-type' / '--cluster-version' instead"
+DEPRECATED_IGNORED_OPTIONS = {
+    "--smoke-tests-cluster-type": _CLUSTER_LABEL_HINT,
+    "--functional-tests-cluster-type": _CLUSTER_LABEL_HINT,
+    "--upgrade-tests-cluster-type": _CLUSTER_LABEL_HINT,
+    "--smoke-tests-cluster-config-file": _KIND_CONFIG_HINT,
+    "--functional-tests-cluster-config-file": _KIND_CONFIG_HINT,
+    "--upgrade-tests-cluster-config-file": _KIND_CONFIG_HINT,
+    "--external-cluster-type": _CLUSTER_LABEL_HINT,
+    "--external-cluster-version": _CLUSTER_LABEL_HINT,
+    "--external-cluster-kubeconfig-path": "use '--cluster-kubeconfig' instead",
+    "--kind-cluster-image": "create the cluster yourself with the node image you need",
+    "--kind-cluster-image-override": "create the cluster yourself with the node image you need",
+}
+
+
+def configure_deprecated_options(config_parser: configargparse.ArgParser) -> None:
+    for option in DEPRECATED_IGNORED_OPTIONS:
+        config_parser.add_argument(option, required=False, help=argparse.SUPPRESS)
+
+
+def warn_deprecated_options(config: configargparse.Namespace) -> None:
+    for option, hint in DEPRECATED_IGNORED_OPTIONS.items():
+        if getattr(config, option.lstrip("-").replace("-", "_"), None) is not None:
+            logger.warning(
+                f"Option '{option}' was removed in app-test-suite 1.0.0 (ATS no longer creates clusters) and is "
+                f"ignored; {hint}. Drop it from your '.ats/main.yaml', 'ATS_' env vars or command line: it will "
+                "become an error in a future release."
+            )
+
+
 def configure_test_specific_options(config_parser: configargparse.ArgParser) -> None:
     # FIXME: this should be now part of the UpgradeTestScenario class
     config_parser_group = config_parser.add_argument_group("Upgrade testing options")
@@ -233,6 +268,7 @@ def get_global_config_parser(add_help: bool = True) -> configargparse.ArgParser:
     )
     configure_global_options(config_parser)
     configure_test_specific_options(config_parser)
+    configure_deprecated_options(config_parser)
     return config_parser
 
 
@@ -253,6 +289,7 @@ def get_config(steps: List[BuildStep]) -> configargparse.Namespace:
         for step in steps:
             step.initialize_config(config_parser)
         config = config_parser.parse_args()
+        warn_deprecated_options(config)
         validate_global_config(config)
     except ConfigError as e:
         logger.error(f"Error when checking config option '{e.config_option}': {e.msg}")

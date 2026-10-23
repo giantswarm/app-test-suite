@@ -5,6 +5,15 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+### Fixed
+
+- The cluster options removed in 1.0.0 are accepted again, and ignored with a deprecation warning that names the
+  replacement: `--{smoke,functional,upgrade}-tests-cluster-type`, `--{smoke,functional,upgrade}-tests-cluster-config-file`,
+  `--external-cluster-{type,version,kubeconfig-path}` and `--kind-cluster-image[-override]`. Many charts still carry
+  ATS 0.x keys such as `smoke-tests-cluster-type: kind` in `.ats/main.yaml`, and 1.x failed those runs with
+  `unrecognized arguments` before testing anything. The cluster is still the one given with `--cluster-kubeconfig`;
+  none of these options has any effect.
+
 ## [1.1.0] - 2026-10-08
 
 ### Added

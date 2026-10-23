@@ -5,6 +5,10 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+### Changed
+
+- Update architect to v10.14.8 (giantswarm/app-test-suite#766)
+
 ## [1.1.0] - 2026-10-08
 
 ### Added

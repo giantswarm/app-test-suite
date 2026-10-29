@@ -5,6 +5,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-29
+
 ### Fixed
 
 - The cluster options removed in 1.0.0 are accepted again, and ignored with a deprecation warning that names the
@@ -395,7 +397,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 - Added
     - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/giantswarm/app-test-suite/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/giantswarm/app-test-suite/compare/v1.0.3...v1.1.0
 [1.0.3]: https://github.com/giantswarm/app-test-suite/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/giantswarm/app-test-suite/compare/v1.0.1...v1.0.2

@@ -5,6 +5,10 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+### Changed
+
+- Update kubernetes/kubernetes to v1.37.2 (giantswarm/app-test-suite#795)
+
 ### Fixed
 
 - The cluster options removed in 1.0.0 are accepted again, and ignored with a deprecation warning that names the

@@ -5,6 +5,10 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+### Changed
+
+- The release workflows authenticate as the `giantswarm-release` GitHub App instead of the shared taylorbot account (giantswarm/giantswarm#2280).
+
 ## [0.15.1] - 2026-11-03
 
 ### Fixed

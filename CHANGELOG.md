@@ -5,6 +5,13 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+### Fixed
+
+- Bump `apptestctl` to v0.27.0. The cleanup of `control-plane-catalog` releases older than 3 years removed
+  app-operator 6.7.0 and chart-operator 2.35.0, so `apptestctl` v0.25.0 failed to bootstrap the app platform with
+  `no app app-operator in index.yaml with given appVersion 6.7.0`. `apptestctl` releases now ship plain binaries
+  instead of tarballs, so the image downloads `apptestctl-linux-amd64` directly.
+
 ## [0.15.0] - 2026-04-02
 
 ### Changed

@@ -7,13 +7,12 @@ ARG DOCKER_VER=v28.5.2
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
 ARG KIND_VER=v0.31.0
 # renovate: datasource=github-releases depName=giantswarm/apptestctl
-ARG APPTESTCTL_VER=v0.25.0
+ARG APPTESTCTL_VER=v0.27.0
 
 RUN apk add --no-cache ca-certificates curl \
     && mkdir -p /binaries \
     && curl --silent --show-error --fail --location https://dl.k8s.io/release/${KUBECTL_VER}/bin/linux/amd64/kubectl --output /binaries/kubectl \
-    && curl --silent --show-error --fail --location https://github.com/giantswarm/apptestctl/releases/download/${APPTESTCTL_VER}/apptestctl-${APPTESTCTL_VER}-linux-amd64.tar.gz | \
-    tar --extract --gzip --directory /binaries --strip-components 1 apptestctl-${APPTESTCTL_VER}-linux-amd64/apptestctl \
+    && curl --silent --show-error --fail --location https://github.com/giantswarm/apptestctl/releases/download/${APPTESTCTL_VER}/apptestctl-linux-amd64 --output /binaries/apptestctl \
     && curl --silent --show-error --fail --location https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VER##v}.tgz | \
     tar --extract --gzip --directory /binaries --strip-components 1 docker/docker \
     && curl --silent --show-error --fail --location https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VER}/kind-linux-amd64 --output /binaries/kind

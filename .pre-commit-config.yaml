@@ -2,6 +2,9 @@
 # https://github.com/giantswarm/github/blob/main/languages/python/.pre-commit-config.yaml
 
 minimum_pre_commit_version: 1.21.0
+# shortcut: pinned, as nodeenv 1.10.0 fails to parse the newest Node index entries
+default_language_version:
+  node: 22.21.1
 repos:
   - repo: meta
     hooks:

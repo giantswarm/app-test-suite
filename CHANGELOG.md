@@ -5,6 +5,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-11-03
+
 ### Fixed
 
 - Bump `apptestctl` to v0.27.0. The cleanup of `control-plane-catalog` releases older than 3 years removed
@@ -274,7 +276,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 - Added
     - initial release
 
-[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/giantswarm/app-test-suite/compare/v0.15.1...HEAD
+[0.15.1]: https://github.com/giantswarm/app-test-suite/compare/v0.14.0...v0.15.1
 [0.14.0]: https://github.com/giantswarm/app-test-suite/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/giantswarm/app-test-suite/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/giantswarm/app-test-suite/compare/v0.11.0...v0.12.0

@@ -5,6 +5,12 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ## [Unreleased]
 
+### Changed
+
+- The agent instructions moved from `CLAUDE.md` to `AGENTS.md`, below a devctl-managed block of Giant Swarm
+  conventions, so that Claude Code, Codex, Cursor and other agents read the same file. `CLAUDE.md` now imports
+  `AGENTS.md`, and the generated `.cursor/rules/zz_generated.base-llm-rules.mdc` is gone.
+
 ## [1.1.1] - 2026-10-29
 
 ### Fixed

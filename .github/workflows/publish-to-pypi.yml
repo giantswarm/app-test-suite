@@ -17,6 +17,14 @@ jobs:
 
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
 
+      # The tag is the version: the release is cut by the Create Release workflow, which changes
+      # the CHANGELOG alone, so pyproject.toml and version.py still carry an older version, and
+      # PyPI refuses a file name it already has.
+      - name: Set the version from the tag
+        run: |
+          uv version --frozen "${GITHUB_REF_NAME#v}"
+          printf 'build_ver = "%s"\n' "${GITHUB_REF_NAME}" > app_test_suite/version.py
+
       - name: Build
         run: uv build
 

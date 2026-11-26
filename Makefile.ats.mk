@@ -67,5 +67,5 @@ docker-test-ci: docker-build-test
 	$(test-docker-run) $(test-command-ci)
 
 # Refresh the CRD bundle directly from its upstream sources.
-update-crds: ## Refresh container-crds/ from upstream sources via hack/sync-crds.sh
+update-crds: ## Refresh app_test_suite/crds/ from upstream sources via hack/sync-crds.sh
 	bash hack/sync-crds.sh

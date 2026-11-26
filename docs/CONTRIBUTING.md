@@ -1,6 +1,6 @@
 # App test suite contribution guidelines
 
-`app-test-suite` is built using Python >= 3.12 and [uv](https://docs.astral.sh/uv/).
+`app-test-suite` is built using Python >= 3.11 and [uv](https://docs.astral.sh/uv/).
 
 ## Development setup
 

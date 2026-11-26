@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Refreshes container-crds/*.yaml directly from upstream sources. This replaces vendoring the
+# Refreshes app_test_suite/crds/*.yaml directly from upstream sources. This replaces vendoring the
 # files from giantswarm/apptestctl's pkg/crds/, mirroring the same upstreams that apptestctl's
 # own hack/sync-crds.sh pulls from. Files are written verbatim, no transformations.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-OUT="container-crds"
+OUT="app_test_suite/crds"
 
 # NOTE: The Giant Swarm App Platform CRDs (App, Chart, Catalog, AppCatalog, AppCatalogEntry from
 # giantswarm/apiextensions-application) are deliberately NOT synced. ATS deploys charts directly

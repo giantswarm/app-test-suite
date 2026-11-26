@@ -80,7 +80,7 @@ RUN curl -SL https://dl.google.com/go/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz
 COPY --from=builder ${ATS_DIR}/.venv ${ATS_DIR}/.venv
 
 COPY --from=binaries /binaries/* /usr/local/bin/
-COPY container-crds/*.yaml /etc/ats/crds/
+COPY app_test_suite/crds/*.yaml /etc/ats/crds/
 
 # we assume the user will be using UID==1000 and GID=1000; if that's not true, we'll run `chown`
 # in the container's startup script

@@ -47,7 +47,8 @@ and sandboxing in mind, like CI/CD or AI agents running in isolated jails/sandbo
 
 The main tool you need is [uv](https://github.com/astral-sh/uv). Please refer to the
 [uv installation documentation](https://docs.astral.sh/uv/getting-started/installation/) for instructions on how
-to install it.
+to install it. `ats` runs on Python 3.11 or newer; uv downloads a matching Python if you don't have one. The `pytest`
+test executor also runs your tests with `uv`.
 
 Depending on the test scenarios you use, you also need some of the following binaries
 installed and available on your `PATH`:
@@ -57,12 +58,20 @@ installed and available on your `PATH`:
 - [go](https://go.dev/doc/install) (only when using the `gotest` test executor)
 
 `ats` does not create or destroy clusters: you always provide it a `kubeconfig` for an existing cluster to
-run the tests on (see [`--cluster-kubeconfig`](#quick-start)).
+run the tests on (see [`--cluster-kubeconfig`](#quick-start)). The CRDs `ats` applies to that cluster ship with the
+package, so you don't need the Docker image for them.
 
 Then, to install `ats`, just run:
 
 ```bash
 uv tool install app-test-suite
+```
+
+To install a version that isn't released yet, install straight from the repository instead, for example from
+the `main` branch:
+
+```bash
+uv tool install git+https://github.com/giantswarm/app-test-suite@main
 ```
 
 Check the installation:
@@ -166,7 +175,9 @@ Each run consist of two stages: bootstrapping and test execution.
 `app-test-suite` automates preparation of the cluster used for testing in the following way:
 
 - `ats` connects to the test cluster you provided with `--cluster-kubeconfig` and applies the bundled CRDs with
-  `kubectl apply --server-side -f /etc/ats/crds` (the CRDs vendored in `container-crds/`; no operators are installed)
+  `kubectl apply --server-side -f /etc/ats/crds` (the CRDs vendored in `app_test_suite/crds/`; no operators are
+  installed). Outside the Docker image, `ats` applies the same CRDs from the installed package instead. Use
+  `--cluster-crds` to apply other ones
 - `ats` deploys your chart under test directly with Helm (`helm upgrade --install`); your application defined in the
   chart is deployed to the test cluster (you can disable this with the `app-tests-skip-app-deploy` option; this might
   be needed if you need more control over your test, like setting up additional CRDs or installing additional apps).

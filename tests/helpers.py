@@ -12,6 +12,7 @@ from pytest_mock import MockerFixture
 
 import app_test_suite
 from app_test_suite.cluster_manager import ClusterManager, ClusterInfo
+from app_test_suite.steps.base import BaseTestScenariosFilteringPipeline
 from app_test_suite.steps.scenarios.simple import _HELM_BIN, _HELM_DEPLOY_TIMEOUT
 
 MOCK_KUBE_CONFIG_PATH = "/nonexisting-flsdhge235/kube.config"
@@ -72,7 +73,14 @@ def assert_helm_uninstalled(release_name: str, deploy_namespace: str, kube_confi
 
 def assert_cluster_prerequisites_ready(kube_config_path: str) -> None:
     cast(unittest.mock.Mock, app_test_suite.steps.scenarios.simple.run_and_log).assert_any_call(
-        ["kubectl", f"--kubeconfig={kube_config_path}", "apply", "--server-side", "-f", "/etc/ats/crds"],
+        [
+            "kubectl",
+            f"--kubeconfig={kube_config_path}",
+            "apply",
+            "--server-side",
+            "-f",
+            BaseTestScenariosFilteringPipeline.DEFAULT_CLUSTER_CRDS_DIR,
+        ],
         capture_output=True,
     )
 

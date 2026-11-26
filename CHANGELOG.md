@@ -7,9 +7,20 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), following
 
 ### Changed
 
+- `ats` now runs on Python 3.11 or newer instead of 3.12 or newer. A new GitHub Actions workflow installs it with
+  `uv tool install` and runs the unit tests on Python 3.11 to 3.15. (giantswarm/roadmap#3736)
+- The CRDs applied to the test cluster moved from `container-crds/` into the package, to `app_test_suite/crds/`,
+  so they ship with it. Outside the Docker image, `--cluster-crds` now defaults to these packaged CRDs instead
+  of `/etc/ats/crds`, which only exists in the image, so `ats` installed with `uv tool install` works without
+  extra options. The Docker image still copies them to `/etc/ats/crds` and uses that. (giantswarm/roadmap#3736)
 - The agent instructions moved from `CLAUDE.md` to `AGENTS.md`, below a devctl-managed block of Giant Swarm
   conventions, so that Claude Code, Codex, Cursor and other agents read the same file. `CLAUDE.md` now imports
   `AGENTS.md`, and the generated `.cursor/rules/zz_generated.base-llm-rules.mdc` is gone.
+
+### Fixed
+
+- The PyPI package is now built with the version of the release tag, in both its metadata and `ats --version`.
+  Nothing set the version, so releases 1.1.0 and 1.1.1 were built as 1.0.3. (giantswarm/roadmap#3736)
 
 ## [1.1.1] - 2026-10-29
 

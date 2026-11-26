@@ -4,6 +4,7 @@ import os
 import shutil
 from abc import ABC
 from dataclasses import dataclass
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Set, Optional, List, Dict
 
@@ -23,6 +24,17 @@ CONTEXT_KEY_STABLE_CHART_YAML: str = "stable_chart_yaml"
 logger = logging.getLogger(__name__)
 
 
+# The Docker image copies the bundled CRDs here.
+IMAGE_CLUSTER_CRDS_DIR = "/etc/ats/crds"
+# The same CRDs as shipped with the package.
+PACKAGED_CLUSTER_CRDS_DIR = str(Path(__file__).resolve().parents[1] / "crds")
+
+
+def default_cluster_crds_dir() -> str:
+    """The image's CRD directory where it exists, the packaged CRDs elsewhere (like after `uv tool install`)."""
+    return IMAGE_CLUSTER_CRDS_DIR if os.path.isdir(IMAGE_CLUSTER_CRDS_DIR) else PACKAGED_CLUSTER_CRDS_DIR
+
+
 class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
     """
     Pipeline that combines all the steps required to run application tests.
@@ -36,7 +48,7 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
     KEY_CONFIG_OPTION_PRE_HOOK = "--app-tests-pre-hook"
     KEY_CONFIG_OPTION_POST_HOOK = "--app-tests-post-hook"
     KEY_CONFIG_OPTION_CLUSTER_CRDS = "--cluster-crds"
-    DEFAULT_CLUSTER_CRDS_DIR = "/etc/ats/crds"
+    DEFAULT_CLUSTER_CRDS_DIR = default_cluster_crds_dir()
 
     def __init__(self, pipeline: List[BuildStep], cluster_manager: ClusterManager):
         super().__init__(pipeline, self.KEY_CONFIG_GROUP_NAME)
@@ -93,7 +105,8 @@ class BaseTestScenariosFilteringPipeline(BuildStepsFilteringPipeline):
             required=False,
             default=self.DEFAULT_CLUSTER_CRDS_DIR,
             help="Path or URL passed to 'kubectl apply --server-side -f' to bootstrap CRDs on the test cluster"
-            f" before running tests. (default: {self.DEFAULT_CLUSTER_CRDS_DIR})",
+            f" before running tests. Defaults to {IMAGE_CLUSTER_CRDS_DIR} when it exists, as in the Docker"
+            " image, and to the CRDs shipped with ats otherwise.",
         )
         self._cluster_manager.initialize_config(self._config_parser_group)
 

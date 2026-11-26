@@ -17,7 +17,7 @@ COPY run-tests-in-docker.sh .
 COPY README.md .
 COPY uv.lock .
 COPY tests/ tests/
-COPY container-crds/ container-crds/
+COPY app_test_suite/crds/ app_test_suite/crds/
 COPY examples/ examples/
 COPY .git/ ./.git/
 RUN uv sync --frozen --no-install-project --dev
